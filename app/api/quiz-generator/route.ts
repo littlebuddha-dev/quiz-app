@@ -97,8 +97,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ...quizData, id: savedQuiz.id, imageUrl });
 
-  } catch (error) {
+    } catch (error: any) {
     console.error('API Error:', error);
-    return NextResponse.json({ error: 'Failed to generate quiz' }, { status: 500 });
+    
+    // レート制限エラー (429) のハンドリング
+    if (error.status === 429 || error.message?.includes('429')) {
+      return NextResponse.json(
+        { error: 'RATE_LIMIT_EXCEEDED', message: 'AIの利用制限に達しました。1分ほど待ってから再度お試しください。' },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json({ error: 'Failed to generate quiz', message: 'クイズの生成中にエラーが発生しました。' }, { status: 500 });
   }
 }

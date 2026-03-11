@@ -5,7 +5,7 @@
 import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import AdminClient from './AdminClient';
+import AdminClientWrapper from './AdminClientWrapper';
 
 export default async function AdminPage() {
   const { userId } = await auth();
@@ -65,7 +65,7 @@ export default async function AdminPage() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-zinc-800 mb-8">管理者ダッシュボード</h1>
         
-        <AdminClient initialQuizzes={quizzes} categories={categories} />
+        <AdminClientWrapper initialQuizzes={quizzes} categories={categories} />
       </div>
     </div>
   );

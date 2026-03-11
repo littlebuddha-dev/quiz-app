@@ -7,6 +7,8 @@ export default function AdminClient({ initialQuizzes, categories }: any) {
   const router = useRouter();
   const [quizzes, setQuizzes] = useState(initialQuizzes);
   const [loading, setLoading] = useState(false);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiGrade, setAiGrade] = useState('8');
   const [formData, setFormData] = useState({
     title: '',
     categoryId: categories[0]?.id || '',
@@ -62,13 +64,85 @@ export default function AdminClient({ initialQuizzes, categories }: any) {
     setLoading(false);
   };
 
+  const handleAiGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiTopic.trim()) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/quiz-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: aiTopic, gradeLevel: aiGrade, locale: 'ja' })
+      });
+
+      if (res.ok) {
+        alert('AIでクイズを生成しました！');
+        setAiTopic('');
+        router.refresh();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || '生成に失敗しました');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      {/* 新規作成フォーム */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200 h-fit">
-        <h2 className="text-xl font-bold mb-4">新規クイズ作成</h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
+      <div className="flex flex-col gap-8">
+        {/* AI自動生成セクション */}
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl shadow-sm border border-indigo-100">
+          <h2 className="text-xl font-bold mb-4 text-indigo-900 flex items-center gap-2">
+            <span>✨</span> AIでクイズを自動生成
+          </h2>
+          <form onSubmit={handleAiGenerate} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-bold mb-1">トピック（例: 宇宙、ペンギン、算数パズル）</label>
+              <input 
+                required 
+                type="text" 
+                placeholder="興味のあるテーマを入力..."
+                value={aiTopic} 
+                onChange={e => setAiTopic(e.target.value)} 
+                className="w-full border-2 border-indigo-200 rounded-xl p-3 focus:outline-none focus:border-indigo-500" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-1">対象学年（年齢の目安）</label>
+              <select 
+                value={aiGrade} 
+                onChange={e => setAiGrade(e.target.value)} 
+                className="w-full border-2 border-indigo-200 rounded-xl p-3 focus:outline-none focus:border-indigo-500"
+              >
+                <option value="7">小学1年生 (7歳)</option>
+                <option value="8">小学2年生 (8歳)</option>
+                <option value="9">小学3年生 (9歳)</option>
+                <option value="10">小学4年生 (10歳)</option>
+                <option value="11">小学5年生 (11歳)</option>
+                <option value="12">小学6年生 (12歳)</option>
+              </select>
+            </div>
+            <button 
+              disabled={loading || !aiTopic.trim()} 
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-300 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95"
+            >
+              {loading ? 'AIが考え中...' : 'AIで問題と画像を生成する'}
+            </button>
+          </form>
+          <p className="text-[10px] text-zinc-500 mt-4 leading-relaxed">
+            ※Gemini AIが問題文と画像を同時に生成し、データベースに保存します。生成には10〜20秒程度かかる場合があります。
+          </p>
+        </div>
+
+        {/* 新規作成フォーム */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200 h-fit">
+          <h2 className="text-xl font-bold mb-4">手動でクイズ作成</h2>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
             <label className="block text-sm font-bold mb-1">タイトル</label>
             <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full border rounded p-2" />
           </div>
@@ -121,6 +195,7 @@ export default function AdminClient({ initialQuizzes, categories }: any) {
             {loading ? '作成中...' : 'クイズを追加'}
           </button>
         </form>
+        </div>
       </div>
 
       {/* 一覧 */}

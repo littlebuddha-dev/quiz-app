@@ -6,9 +6,12 @@ import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import QuizClientWrapper from '../../components/QuizClientWrapper';
+import SubscribeButton from '../../components/SubscribeButton';
+import { auth } from '@clerk/nextjs/server';
 
 export default async function ChannelPage({ params }: { params: { id: string } }) {
   const { id } = await params;
+  const { userId: clerkId } = await auth();
 
   // Fetch channel info
   const channel = await prisma.channel.findUnique({
@@ -30,6 +33,20 @@ export default async function ChannelPage({ params }: { params: { id: string } }
 
   if (!channel) {
     notFound();
+  }
+
+  // Check login user's subscription status
+  let initialSubscribed = false;
+  if (clerkId) {
+    const user = await prisma.user.findUnique({
+      where: { clerkId },
+      include: {
+        subscriptions: { where: { channelId: id } }
+      }
+    });
+    if (user && user.subscriptions.length > 0) {
+      initialSubscribed = true;
+    }
   }
 
   // Format quizzes for the client wrapper
@@ -82,10 +99,11 @@ export default async function ChannelPage({ params }: { params: { id: string } }
               </div>
             </div>
             <div>
-              {/* ※ 本来はここでフォローボタンのClient Componentを呼び出す */}
-              <button className="bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-2 px-6 rounded-full transition-colors">
-                チャンネル登録
-              </button>
+              <SubscribeButton 
+                channelId={channel.id} 
+                initialSubscribed={initialSubscribed} 
+                isLoggedIn={!!clerkId} 
+              />
             </div>
           </div>
         </div>
