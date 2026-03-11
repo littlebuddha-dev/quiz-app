@@ -43,7 +43,11 @@ export async function POST(req: Request) {
       config: { responseMimeType: "application/json" },
     });
 
-    const quizData = JSON.parse(textResponse.text);
+    const generatedText = textResponse.text;
+    if (!generatedText) {
+      throw new Error("Failed to generate text content.");
+    }
+    const quizData = JSON.parse(generatedText);
 
     const imageCommand = `Create a whimsical, storybook-style illustration of a fantasy world with themes of ${topic}. The main focus should be the following text written in a cute, legible font, neatly laid out: "${quizData.question}". The illustration should be simple and delightful, supporting the text's message. Ensure there are no other words.`;
 
@@ -57,10 +61,41 @@ export async function POST(req: Request) {
       },
     });
 
-    const base64Image = imageResponse.generatedImages[0].image.imageBytes;
-    const imageUrl = `data:image/jpeg;base64,${base64Image}`;
+    const generatedImage = imageResponse.generatedImages?.[0]?.image?.imageBytes;
+    if (!generatedImage) {
+        throw new Error("Failed to generate image content.");
+    }
+    const imageUrl = `data:image/jpeg;base64,${generatedImage}`;
 
-    return NextResponse.json({ ...quizData, imageUrl });
+    // Prismaを利用してデータベースに保存
+    // Categoryは簡易的に "Generated" または topic を指定、TargetAgeは gradeLevel をパース
+    const parsedAge = parseInt(gradeLevel) || 8;
+    
+    // Prismaインスタンスをインポートして使用
+    const { prisma } = await import('@/lib/prisma');
+    
+    const savedQuiz = await prisma.quiz.create({
+      data: {
+        categoryId: topic, // 仮としてトピック自体をカテゴリIDに
+        targetAge: parsedAge,
+        imageUrl: imageUrl,
+        translations: {
+          create: {
+            locale: locale,
+            title: `${topic}の問題`,
+            question: quizData.question,
+            hint: quizData.hint,
+            answer: quizData.answer,
+            type: 'TEXT', // GenAI生成はデフォルトTEXT型とする
+          }
+        }
+      },
+      include: {
+        translations: true
+      }
+    });
+
+    return NextResponse.json({ ...quizData, id: savedQuiz.id, imageUrl });
 
   } catch (error) {
     console.error('API Error:', error);
