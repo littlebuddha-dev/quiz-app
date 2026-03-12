@@ -1,0 +1,55 @@
+// /Users/Shared/Program/nextjs/quiz-app/app/api/admin/upload/route.ts
+// API endpoint for uploading quiz images to the server.
+
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { auth } from '@clerk/nextjs/server';
+import { writeFile } from 'fs/promises';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
+
+// 権限チェックのヘルパー
+async function isAdminOrParent() {
+  const { userId } = await auth();
+  if (!userId) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { role: true },
+  });
+
+  return user && (user.role === 'ADMIN' || user.role === 'PARENT');
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const isAuthorized = await isAdminOrParent();
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // ユニークなファイル名の生成
+    const fileExtension = file.name.split('.').pop() || 'png';
+    const fileName = `${randomUUID()}.${fileExtension}`;
+    const path = join(process.cwd(), 'public/uploads', fileName);
+
+    // ファイルの書き込み
+    await writeFile(path, buffer);
+    const imageUrl = `/uploads/${fileName}`;
+
+    return NextResponse.json({ success: true, imageUrl });
+  } catch (error) {
+    console.error('Image Upload Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

@@ -14,6 +14,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
   const [aiTopic, setAiTopic] = useState('');
   const [aiGrade, setAiGrade] = useState('8');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     categoryId: categories[0]?.id || '',
@@ -80,6 +81,33 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
       alert('削除に失敗しました');
     }
     setLoading(false);
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const uploadFormData = new FormData();
+    uploadFormData.append('file', file);
+
+    try {
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFormData((prev) => ({ ...prev, imageUrl: data.imageUrl }));
+      } else {
+        alert('画像のアップロードに失敗しました');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('エラーが発生しました');
+    }
+    setUploading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -213,8 +241,46 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             </div>
           </div>
           <div>
-            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">画像URL</label>
-            <input required type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
+            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">画像</label>
+            <div className="flex flex-col gap-4">
+              {formData.imageUrl && (
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-[var(--border)] bg-black/5">
+                  <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-contain" />
+                  <button 
+                    type="button"
+                    onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                    className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleUpload} 
+                  className="hidden" 
+                  id="image-upload" 
+                />
+                <label 
+                  htmlFor="image-upload" 
+                  className={`flex-1 cursor-pointer bg-[var(--background)] hover:bg-zinc-50 dark:hover:bg-zinc-800 text-[var(--foreground)] font-bold py-4 rounded-2xl text-center transition-all border-2 border-dashed ${uploading ? 'border-amber-500 opacity-50' : 'border-[var(--border)] hover:border-blue-500'}`}
+                >
+                  {uploading ? 'アップロード中...' : '📸 ローカル画像を選択'}
+                </label>
+                <div className="flex-[1.5]">
+                  <input 
+                    required 
+                    type="text" 
+                    placeholder="または画像URLを入力"
+                    value={formData.imageUrl} 
+                    onChange={e => setFormData({...formData, imageUrl: e.target.value})} 
+                    className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" 
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">問題文</label>
