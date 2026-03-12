@@ -67,6 +67,33 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
     channel: rawQuiz.channel ? { id: rawQuiz.channel.id, name: rawQuiz.channel.name, avatarUrl: rawQuiz.channel.avatarUrl } : null,
   };
 
+  // 3. 関連クイズ（レコメンド）の取得
+  const rawRelated = await prisma.quiz.findMany({
+    where: {
+      AND: [
+        { id: { not: id } }, // 現在表示中のクイズ以外
+        {
+          OR: [
+            { categoryId: rawQuiz.categoryId }, // 同じカテゴリ
+            { targetAge: { gte: rawQuiz.targetAge - 1, lte: rawQuiz.targetAge + 1 } }, // 近い学年
+          ],
+        },
+      ],
+    },
+    take: 6,
+    include: {
+      translations: { where: { locale: 'ja' } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const relatedQuizzes = rawRelated.map((q: any) => ({
+    id: q.id,
+    title: q.translations[0]?.title || '無題',
+    imageUrl: q.imageUrl,
+    targetAge: q.targetAge,
+  }));
+
   const initialComments = rawQuiz.comments.map((c) => ({
     id: c.id,
     content: c.content,
@@ -82,6 +109,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
       initialLike={isLiked}
       initialCleared={isCleared}
       isLoggedIn={!!clerkId}
+      relatedQuizzes={relatedQuizzes}
     />
   );
 }

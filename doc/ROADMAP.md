@@ -6,6 +6,46 @@
 
 「見る」だけでなく「考える」「答える」を促す、次世代の教育エンターテインメント・プラットフォーム。
 
+## Phase 4: 高度な機能とUXの追求
+
+ユーザー体験を劇的に向上させるための 3 つの高度な機能を実装しました。
+
+### 1. ダークモード & プレミアム UI デザイン
+システム設定に連動するダークモードを導入し、デザイン全体をよりプレミアム（高級感のある）なものに刷新しました。
+
+- **globals.css**: Tailwind v4 の方式に則り、CSS 変数（`--background`, `--foreground`, `--card`, `--border`）による動的なテーマ構築を実現。
+- **UI コンポーネント**: 全てのハードコードされた色を CSS 変数に置き換え、ダークモード時でも視認性が高く、美しいデザインを維持します。
+
+### 2. ゲーミフィケーション (XP & Level システム)
+モチベーション維持のため、学習進捗を可視化する仕組みを導入しました。
+
+- **DB 拡張**: `User` モデルに `xp` と `level` を追加。
+- **XP 獲得ロジック**: クイズ正解時に +10 XP を獲得。一定量（level * 100）貯まるとレベルアップします。
+- **UI 表示**: ヘッダーに現在のレベルと XP プログレスバーを表示。
+
+### 3. AI レコメンド (関連クイズの提案)
+視聴中のクイズに基づき、次の学習を提案する機能を実装しました。
+
+- **watch ページ**: 現在のクイズと同じカテゴリ、または近い対象年齢のクイズをサーバーサイドで動的に抽出。
+- **おすすめサイドバー**: モックデータを排除し、DB から取得したリアルな関連クイズを表示します。
+
+---
+
+## 検証結果
+
+### 動作確認済み項目
+- [x] **ダークモード**: システムのライト/ダーク切り替えに美しく追従することを確認。
+- [x] **XP加算**: クイズ正解時に API が呼ばれ、DB 内の XP が増えること、およびヘッダーのバーが伸びることを確認。
+- [x] **レベルアップ**: XP が満タンになった際にレベルが +1 されることを確認。
+- [x] **レコメンド**: 詳細ページ右側に、関連する別のクイズが 6 件まで表示されることを確認。
+
+## 関連ファイル
+- [globals.css](file:///Users/Shared/Program/nextjs/quiz-app/app/globals.css)
+- [schema.prisma](file:///Users/Shared/Program/nextjs/quiz-app/prisma/schema.prisma)
+- [QuizClient.tsx](file:///Users/Shared/Program/nextjs/quiz-app/app/components/QuizClient.tsx)
+- [WatchClient.tsx](file:///Users/Shared/Program/nextjs/quiz-app/app/watch/[id]/WatchClient.tsx)
+- [route.ts (User Actions API)](file:///Users/Shared/Program/nextjs/quiz-app/app/api/user/actions/route.ts)
+
 ## **🗺️ 開発フェーズ**
 
 ### **Phase 1: データベースと永続化の基盤構築 (Core Backend)**

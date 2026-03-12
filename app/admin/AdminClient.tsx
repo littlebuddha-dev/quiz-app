@@ -1,14 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Header from '../components/Header';
+import { Locale } from '../types';
 
-export default function AdminClient({ initialQuizzes, categories }: any) {
+export default function AdminClient({ initialQuizzes, categories, userStatus }: any) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [locale, setLocale] = useState<Locale>('ja');
   const [quizzes, setQuizzes] = useState(initialQuizzes);
   const [loading, setLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiGrade, setAiGrade] = useState('8');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     categoryId: categories[0]?.id || '',
@@ -20,6 +25,43 @@ export default function AdminClient({ initialQuizzes, categories }: any) {
     type: 'TEXT',
     options: '',
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  const handleEdit = (quiz: any) => {
+    setEditingId(quiz.id);
+    setFormData({
+      title: quiz.title,
+      categoryId: quiz.categoryId || categories[0]?.id,
+      targetAge: quiz.targetAge,
+      imageUrl: quiz.imageUrl,
+      question: quiz.question,
+      hint: quiz.hint || '',
+      answer: quiz.answer,
+      type: quiz.type,
+      options: quiz.options ? quiz.options.join(', ') : '',
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setFormData({
+      title: '',
+      categoryId: categories[0]?.id || '',
+      targetAge: 6,
+      imageUrl: 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop',
+      question: '',
+      hint: '',
+      answer: '',
+      type: 'TEXT',
+      options: '',
+    });
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('本当に削除しますか？')) return;
@@ -46,20 +88,22 @@ export default function AdminClient({ initialQuizzes, categories }: any) {
 
     const submitData = {
       ...formData,
+      id: editingId,
       options: formData.type === 'CHOICE' ? formData.options.split(',').map((opt) => opt.trim()) : null,
     };
 
     const res = await fetch('/api/admin/quiz', {
-      method: 'POST',
+      method: editingId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(submitData)
     });
 
     if (res.ok) {
-      alert('作成しました');
+      alert(editingId ? '更新しました' : '作成しました');
+      handleCancelEdit();
       router.refresh();
     } else {
-      alert('作成に失敗しました');
+      alert(editingId ? '更新に失敗しました' : '作成に失敗しました');
     }
     setLoading(false);
   };
@@ -92,136 +136,165 @@ export default function AdminClient({ initialQuizzes, categories }: any) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="pt-20 text-[var(--foreground)]">
+      <Header 
+        locale={locale} 
+        setLocale={setLocale} 
+        userStatus={userStatus} 
+        hideSearch={true} 
+      />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
       <div className="flex flex-col gap-8">
         {/* AI自動生成セクション */}
-        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl shadow-sm border border-indigo-100">
-          <h2 className="text-xl font-bold mb-4 text-indigo-900 flex items-center gap-2">
-            <span>✨</span> AIでクイズを自動生成
+        <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 p-8 rounded-3xl shadow-xl shadow-amber-500/5 border border-amber-500/20">
+          <h2 className="text-xl font-black mb-6 flex items-center gap-3">
+            <span className="text-2xl">✨</span> AIでクイズを生成
           </h2>
-          <form onSubmit={handleAiGenerate} className="flex flex-col gap-4">
+          <form onSubmit={handleAiGenerate} className="flex flex-col gap-5">
             <div>
-              <label className="block text-sm font-bold mb-1">トピック（例: 宇宙、ペンギン、算数パズル）</label>
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">トピック</label>
               <input 
                 required 
                 type="text" 
-                placeholder="興味のあるテーマを入力..."
+                placeholder="例: 深海の不思議、恐竜の進化..."
                 value={aiTopic} 
                 onChange={e => setAiTopic(e.target.value)} 
-                className="w-full border-2 border-indigo-200 rounded-xl p-3 focus:outline-none focus:border-indigo-500" 
+                className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-amber-500 transition-all font-bold" 
               />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-1">対象学年（年齢の目安）</label>
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">対象年齢の目安</label>
               <select 
                 value={aiGrade} 
                 onChange={e => setAiGrade(e.target.value)} 
-                className="w-full border-2 border-indigo-200 rounded-xl p-3 focus:outline-none focus:border-indigo-500"
+                className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-amber-500 transition-all font-bold"
               >
-                <option value="7">小学1年生 (7歳)</option>
-                <option value="8">小学2年生 (8歳)</option>
-                <option value="9">小学3年生 (9歳)</option>
-                <option value="10">小学4年生 (10歳)</option>
-                <option value="11">小学5年生 (11歳)</option>
-                <option value="12">小学6年生 (12歳)</option>
+                <option value="7">7歳相当</option>
+                <option value="8">8歳相当</option>
+                <option value="9">9歳相当</option>
+                <option value="10">10歳相当</option>
+                <option value="11">11歳相当</option>
+                <option value="12">12歳相当</option>
               </select>
             </div>
             <button 
               disabled={loading || !aiTopic.trim()} 
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-300 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95"
+              className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 text-white font-black py-4 rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95"
             >
-              {loading ? 'AIが考え中...' : 'AIで問題と画像を生成する'}
+              {loading ? 'AIが生成中...' : 'AIで問題と画像を生成する'}
             </button>
           </form>
-          <p className="text-[10px] text-zinc-500 mt-4 leading-relaxed">
-            ※Gemini AIが問題文と画像を同時に生成し、データベースに保存します。生成には10〜20秒程度かかる場合があります。
+          <p className="text-[10px] text-zinc-500 mt-6 leading-relaxed font-bold">
+            ※Gemini AIが問題文と画像を同時に生成します。少し時間がかかる場合があります。
           </p>
         </div>
 
-        {/* 新規作成フォーム */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200 h-fit">
-          <h2 className="text-xl font-bold mb-4">手動でクイズ作成</h2>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* 手動作成・編集フォーム */}
+        <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl shadow-black/5 border border-[var(--border)] h-fit">
+          <h2 className="text-xl font-black mb-6">{editingId ? 'クイズを編集' : '手動でクイズ作成'}</h2>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div>
-            <label className="block text-sm font-bold mb-1">タイトル</label>
-            <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full border rounded p-2" />
+            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">タイトル</label>
+            <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-bold mb-1">カテゴリ</label>
-              <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full border rounded p-2">
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">カテゴリ</label>
+              <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold">
                 {categories.map((c: any) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-bold mb-1">対象年齢</label>
-              <input required type="number" value={formData.targetAge} onChange={e => setFormData({...formData, targetAge: Number(e.target.value)})} className="w-full border rounded p-2" />
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">対象年齢</label>
+              <input required type="number" value={formData.targetAge} onChange={e => setFormData({...formData, targetAge: Number(e.target.value)})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-bold mb-1">画像URL (Unsplash等)</label>
-            <input required type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full border rounded p-2" />
+            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">画像URL</label>
+            <input required type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
           </div>
           <div>
-            <label className="block text-sm font-bold mb-1">問題文 (Markdown/長文可)</label>
-            <textarea required rows={4} value={formData.question} onChange={e => setFormData({...formData, question: e.target.value})} className="w-full border rounded p-2" />
+            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">問題文</label>
+            <textarea required rows={4} value={formData.question} onChange={e => setFormData({...formData, question: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
           </div>
           <div>
-            <label className="block text-sm font-bold mb-1">ヒント</label>
-            <input type="text" value={formData.hint} onChange={e => setFormData({...formData, hint: e.target.value})} className="w-full border rounded p-2" />
+            <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">ヒント</label>
+            <input type="text" value={formData.hint} onChange={e => setFormData({...formData, hint: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-bold mb-1">タイプ</label>
-              <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full border rounded p-2">
-                <option value="TEXT">テキスト入力</option>
-                <option value="CHOICE">選択肢</option>
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">タイプ</label>
+              <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold">
+                <option value="TEXT">記述式</option>
+                <option value="CHOICE">選択式</option>
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-bold mb-1">正解 (TEXT/CHOICE共通)</label>
-              <input required type="text" value={formData.answer} onChange={e => setFormData({...formData, answer: e.target.value})} className="w-full border rounded p-2" />
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">正解</label>
+              <input required type="text" value={formData.answer} onChange={e => setFormData({...formData, answer: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
             </div>
           </div>
           {formData.type === 'CHOICE' && (
             <div>
-              <label className="block text-sm font-bold mb-1">選択肢 (カンマ区切り)</label>
-              <input type="text" placeholder="リンゴ, バナナ, みかん" value={formData.options} onChange={e => setFormData({...formData, options: e.target.value})} className="w-full border rounded p-2" />
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">選択肢 (カンマ区切り)</label>
+              <input type="text" placeholder="A, B, C..." value={formData.options} onChange={e => setFormData({...formData, options: e.target.value})} className="w-full border border-[var(--border)] rounded-2xl p-4 bg-[var(--background)] focus:outline-none focus:border-blue-500 transition-all font-bold" />
             </div>
           )}
-          <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-2 transition-colors">
-            {loading ? '作成中...' : 'クイズを追加'}
-          </button>
+          <div className="flex gap-3">
+            {editingId && (
+              <button 
+                type="button"
+                onClick={handleCancelEdit}
+                className="flex-1 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 font-black py-4 rounded-2xl transition-all font-bold">
+                中止
+              </button>
+            )}
+            <button disabled={loading} className="flex-[2] bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-500/20 transition-all active:scale-95">
+              {loading ? '処理中...' : (editingId ? '更新する' : '新規追加')}
+            </button>
+          </div>
         </form>
         </div>
       </div>
 
       {/* 一覧 */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
-        <h2 className="text-xl font-bold mb-4">登録済みクイズ ({quizzes.length})</h2>
-        <div className="flex flex-col gap-3">
+      <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl shadow-black/5 border border-[var(--border)]">
+        <h2 className="text-xl font-black mb-6 flex items-center justify-between">
+          <span>登録済みクイズ</span>
+          <span className="text-sm bg-[var(--background)] px-3 py-1 rounded-full text-zinc-400">{quizzes.length} 件</span>
+        </h2>
+        <div className="flex flex-col gap-4">
           {quizzes.map((q: any) => (
-            <div key={q.id} className="flex items-center justify-between border-b pb-3 border-zinc-100">
-              <div>
-                <p className="font-bold">{q.title}</p>
-                <div className="text-xs text-zinc-500 flex gap-2 mt-1">
-                  <span>{q.type}</span>
-                  <span>{q.targetAge}歳</span>
-                  <span>{new Date(q.createdAt).toLocaleDateString()}</span>
+            <div key={q.id} className="flex items-center justify-between border-b border-[var(--border)] pb-4 hover:translate-x-1 transition-transform">
+              <div className="flex-1">
+                <p className="font-black text-sm">{q.title}</p>
+                <div className="flex gap-2 mt-2">
+                  <span className="text-[9px] font-black uppercase tracking-widest bg-zinc-500/10 text-zinc-500 px-2 py-0.5 rounded border border-zinc-500/10">{q.type}</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded border border-amber-500/10">{q.targetAge}歳</span>
                 </div>
               </div>
-              <button 
-                onClick={() => handleDelete(q.id)}
-                disabled={loading}
-                className="text-red-500 hover:bg-red-50 px-3 py-1 rounded text-sm font-bold transition-colors">
-                削除
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => handleEdit(q)}
+                  disabled={loading}
+                  className="bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white px-4 py-2 rounded-xl text-xs font-black transition-all">
+                  編集
+                </button>
+                <button 
+                  onClick={() => handleDelete(q.id)}
+                  disabled={loading}
+                  className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-xl text-xs font-black transition-all">
+                  削除
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

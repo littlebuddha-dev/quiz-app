@@ -24,6 +24,9 @@ export default async function AdminPage() {
     redirect('/');
   }
 
+  const u = user as any;
+  const userStatus = { xp: u.xp || 0, level: u.level || 1, role: u.role };
+
   // Fetch all quizzes
   const rawQuizzes = await prisma.quiz.findMany({
     include: {
@@ -61,11 +64,11 @@ export default async function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-8">
+    <div className="min-h-screen bg-[var(--background)] p-8 text-[var(--foreground)] transition-colors">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-zinc-800 mb-8">管理者ダッシュボード</h1>
+        <h1 className="text-3xl font-black mb-8">管理者ダッシュボード</h1>
         
-        <AdminClientWrapper initialQuizzes={quizzes} categories={categories} />
+        <AdminClientWrapper initialQuizzes={quizzes} categories={categories} userStatus={userStatus} />
       </div>
     </div>
   );

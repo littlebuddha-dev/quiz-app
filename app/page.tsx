@@ -8,7 +8,12 @@ import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz } from './types';
 
 // Server Component (async)
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; category?: string }>;
+}) {
+  const { q: searchQuery, category: activeCategory } = await searchParams;
   const { userId: clerkId } = await auth();
 
   // ログイン中のユーザーがいればその設定・履歴を取得
@@ -16,6 +21,7 @@ export default async function Home() {
   let userLikes: string[] = [];
   let userHistories: string[] = [];
   let userTargetAge: number | null = null;
+  let userStatus: { xp: number; level: number; role: string } | undefined = undefined;
 
   if (clerkId) {
     const user = await prisma.user.findUnique({
@@ -32,15 +38,35 @@ export default async function Home() {
       userLikes = user.likes.map((l) => l.quizId);
       userHistories = user.histories.filter((h) => h.isCorrect).map((h) => h.quizId);
       userTargetAge = user.targetAge;
+      const u = user as any;
+      userStatus = { xp: u.xp, level: u.level, role: u.role }; // Assign userStatus here
     }
   }
 
-  // DBからクイズ一覧を取得 (デフォルトの日本語翻訳を取得する簡単な例)
-  // orderByで新しい順にソート
+  // DBからクイズ一覧を取得
   const rawQuizzes = await prisma.quiz.findMany({
+    where: {
+      AND: [
+        activeCategory && activeCategory !== 'すべて' && activeCategory !== 'All' && activeCategory !== '全部'
+          ? { categoryId: activeCategory }
+          : {},
+        searchQuery
+          ? {
+              translations: {
+                some: {
+                  OR: [
+                    { title: { contains: searchQuery } },
+                    { question: { contains: searchQuery } },
+                  ],
+                },
+              },
+            }
+          : {},
+      ],
+    },
     include: {
       translations: {
-        where: { locale: 'ja' }, // 一旦、初期表示は日本語で固定
+        where: { locale: 'ja' },
       },
     },
     orderBy: {
@@ -48,9 +74,17 @@ export default async function Home() {
     },
   });
 
-  // Prismaの型からフロントエンド用(types.ts)のQuiz型へマッピング
+  // 年齢によるソート (サーバーサイド)
+  if (typeof userTargetAge === 'number') {
+    rawQuizzes.sort((a, b) => {
+      const diffA = Math.abs(a.targetAge - (userTargetAge as number));
+      const diffB = Math.abs(b.targetAge - (userTargetAge as number));
+      return diffA - diffB;
+    });
+  }
+
+  // Prismaの型からフロントエンド用のQuiz型へマッピング
   const quizzes: Quiz[] = rawQuizzes.map((q: any) => {
-    // 翻訳データが見つからない場合のフォールバック
     const t = q.translations[0] || {
       title: '名称未設定',
       question: '問題文がありません',
@@ -75,12 +109,15 @@ export default async function Home() {
   });
 
   return (
-    <QuizClientWrapper 
-      initialQuizzes={quizzes} 
+    <QuizClientWrapper
+      initialQuizzes={quizzes}
       userBookmarks={userBookmarks}
       userLikes={userLikes}
       userHistories={userHistories}
       userTargetAge={userTargetAge}
+      userStatus={userStatus} // Pass userStatus
+      initialSearchQuery={searchQuery}
+      initialCategory={activeCategory}
     />
   );
 }

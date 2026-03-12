@@ -19,6 +19,9 @@ type WrapperProps = {
   userLikes?: string[];
   userHistories?: string[];
   userTargetAge?: number | null;
+  initialSearchQuery?: string;
+  initialCategory?: string;
+  userStatus?: { xp: number; level: number; role: string };
   hideHeader?: boolean;
 }
 

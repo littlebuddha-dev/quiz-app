@@ -58,14 +58,48 @@ export async function POST(req: NextRequest) {
         if (typeof isCorrect !== 'boolean') {
           return NextResponse.json({ error: 'isCorrect must be boolean for history' }, { status: 400 });
         }
-        await prisma.quizHistory.create({
-          data: {
-            userId: user.id,
-            quizId,
-            isCorrect,
-          },
-        });
-        return NextResponse.json({ success: true, message: 'History saved' });
+        if (isCorrect) {
+          // XP加算とレベルアップ処理
+          const u = user as any;
+          const xpGain = 10;
+          let newXp = (u.xp || 0) + xpGain;
+          let newLevel = u.level || 1;
+          
+          // シンプルなレベルアップロジック: 次のレベルに必要なXP = level * 100
+          const xpToNextLevel = newLevel * 100;
+          if (newXp >= xpToNextLevel) {
+            newXp -= xpToNextLevel;
+            newLevel += 1;
+          }
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { xp: newXp, level: newLevel } as any,
+          });
+
+          await prisma.quizHistory.create({
+            data: {
+              userId: user.id,
+              quizId,
+              isCorrect,
+            },
+          });
+          return NextResponse.json({ 
+            success: true, 
+            message: 'History saved and XP gained', 
+            xpGained: xpGain,
+            newLevel: newLevel > ((user as any).level || 1) ? newLevel : undefined
+          });
+        } else {
+          await prisma.quizHistory.create({
+            data: {
+              userId: user.id,
+              quizId,
+              isCorrect,
+            },
+          });
+          return NextResponse.json({ success: true, message: 'History saved' });
+        }
 
       case 'bookmark':
         // 後で解く（お気に入り）のトグル処理
