@@ -4,10 +4,33 @@
 
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
-import WatchClient from './WatchClient';
+import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
 
-export default async function WatchPage({ params }: { params: { id: string } }) {
+import { Metadata } from 'next';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const quiz = await prisma.quiz.findUnique({
+    where: { id },
+    include: { translations: { where: { locale: 'ja' } } },
+  });
+
+  if (!quiz) return { title: 'Not Found' };
+  const t = quiz.translations[0];
+
+  return {
+    title: t?.title || 'クイズ詳細',
+    description: t?.question || 'クイズに挑戦して、学ぶ楽しさを体験しよう。',
+    openGraph: {
+      title: `${t?.title} | Cue`,
+      description: t?.question,
+      images: [quiz.imageUrl || '/og-image.png'],
+    },
+  };
+}
+
+export default async function WatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { userId: clerkId } = await auth();
 
@@ -15,7 +38,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   const rawQuiz = await prisma.quiz.findUnique({
     where: { id },
     include: {
-      translations: { where: { locale: 'ja' } },
+      translations: true,
       channel: true,
       comments: {
         include: { user: true },
@@ -32,7 +55,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   let isBookmarked = false;
   let isLiked = false;
   let isCleared = false;
-  let userName = null;
+  let userStatus: { xp: number; level: number; role: string } | undefined = undefined;
 
   if (clerkId) {
     const userDb = await prisma.user.findUnique({
@@ -44,26 +67,36 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
       },
     });
     if (userDb) {
-      userName = userDb.name || 'ゲスト';
+      const u = userDb as any;
+      userStatus = { xp: u.xp || 0, level: u.level || 1, role: u.role };
       isBookmarked = userDb.bookmarks.length > 0;
       isLiked = userDb.likes.length > 0;
       isCleared = userDb.histories.length > 0;
     }
   }
 
-  // クライアントコンポーネント用データフォーマット
-  const t = rawQuiz.translations[0];
+  // クライアントコンポーネント用データフォーマット (多言語対応)
+  const translationsMap = Object.fromEntries(
+    rawQuiz.translations.map((t) => [
+      t.locale,
+      {
+        title: t.title,
+        question: t.question,
+        hint: t.hint,
+        answer: t.answer,
+        type: t.type,
+        options: t.options ? (t.options as string[]) : undefined,
+        imageUrl: t.imageUrl,
+      },
+    ])
+  );
+
   const quizData = {
     id: rawQuiz.id,
-    title: t.title,
-    category: rawQuiz.categoryId,
+    categoryId: rawQuiz.categoryId,
     targetAge: rawQuiz.targetAge,
-    question: t.question,
-    hint: t.hint,
-    answer: t.answer,
     imageUrl: rawQuiz.imageUrl,
-    type: t.type,
-    options: t.options ? (t.options as string[]) : undefined,
+    translations: translationsMap,
     channel: rawQuiz.channel ? { id: rawQuiz.channel.id, name: rawQuiz.channel.name, avatarUrl: rawQuiz.channel.avatarUrl } : null,
   };
 
@@ -102,7 +135,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   }));
 
   return (
-    <WatchClient 
+    <WatchClientWrapper 
       quiz={quizData as any} 
       initialComments={initialComments}
       initialBookmark={isBookmarked}
@@ -110,6 +143,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
       initialCleared={isCleared}
       isLoggedIn={!!clerkId}
       relatedQuizzes={relatedQuizzes}
+      userStatus={userStatus}
     />
   );
 }

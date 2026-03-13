@@ -1,20 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc; /* Slate 50 equivalent */
-  --foreground: #0f172a; /* Slate 900 equivalent */
+  --background: #f8fafc;
+  /* Slate 50 equivalent */
+  --foreground: #0f172a;
+  /* Slate 900 equivalent */
   --card: #ffffff;
   --card-foreground: #0f172a;
-  --border: #e2e8f0; /* Slate 200 */
+  --border: #e2e8f0;
+  /* Slate 200 */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0f172a; /* Slate 900 */
-    --foreground: #f8fafc; /* Slate 50 */
-    --card: #1e293b; /* Slate 800 */
+    --background: #0f172a;
+    /* Slate 900 */
+    --foreground: #f8fafc;
+    /* Slate 50 */
+    --card: #1e293b;
+    /* Slate 800 */
     --card-foreground: #f8fafc;
-    --border: #334155; /* Slate 700 */
+    --border: #334155;
+    /* Slate 700 */
   }
 }
 
@@ -23,4 +30,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

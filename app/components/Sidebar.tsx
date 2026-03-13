@@ -1,42 +1,60 @@
 // Path: app/components/Sidebar.tsx
 // Title: Navigation Sidebar Component
-// Purpose: Displays the category filters like YouTube's left menu, with multi-language support.
-
 'use client';
 
 import { Locale } from '../types';
 
 interface SidebarProps {
   locale: Locale;
+  categories: any[];
   activeCategory: string;
   onSelectCategory: (category: string) => void;
 }
 
-const CATEGORIES = {
-  ja: ['すべて', '国語', '算数', '理科', '社会', '家庭科', '一般'],
-  en: ['All', 'Japanese', 'Math', 'Science', 'Social Studies', 'Home Economics', 'General'],
-  zh: ['全部', '语文', '数学', '科学', '社会', '家政', '一般'],
-};
+interface SidebarContentsProps {
+  locale: Locale;
+  categories: any[];
+  activeCategory: string;
+  onSelectCategory: (category: string) => void;
+  isMobile?: boolean;
+}
 
-export default function Sidebar({ locale, activeCategory, onSelectCategory }: SidebarProps) {
-  const currentCategories = CATEGORIES[locale];
+export function SidebarContents({ locale, categories, activeCategory, onSelectCategory, isMobile }: SidebarContentsProps) {
+  // 「すべて」を追加
+  const allCategories = [
+    { id: 'すべて', ja: 'すべて', en: 'All', zh: '全部' },
+    ...categories
+  ];
 
+  return (
+    <>
+      {allCategories.map((cat) => {
+        const label = cat[locale] || cat.name || cat.ja;
+        const isActive = activeCategory === cat.id;
+
+        return (
+          <button
+            key={cat.id}
+            onClick={() => onSelectCategory(cat.id)}
+            className={`text-left px-5 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${
+              isActive
+                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-95'
+                : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-[var(--foreground)]'
+            } ${isMobile ? 'py-2 px-4 text-sm' : ''}`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+export default function Sidebar({ locale, categories, activeCategory, onSelectCategory }: SidebarProps) {
   return (
     <aside className="w-64 h-screen bg-[var(--card)] border-r border-[var(--border)] fixed left-0 top-16 overflow-y-auto hidden md:block transition-colors">
       <div className="p-4 flex flex-col gap-1.5">
-        {currentCategories.map((category) => (
-          <button
-            key={category}
-            onClick={() => onSelectCategory(category)}
-            className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${
-              (activeCategory === category || (activeCategory === 'All' && category === 'すべて'))
-                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-95'
-                : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-[var(--foreground)]'
-            }`}
-          >
-            {category}
-          </button>
-        ))}
+        <SidebarContents locale={locale} categories={categories} activeCategory={activeCategory} onSelectCategory={onSelectCategory} />
       </div>
     </aside>
   );

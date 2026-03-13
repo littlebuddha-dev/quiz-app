@@ -23,6 +23,8 @@ model User {
   targetAge Int?     // 例: 対象年齢（学年）、パーソナライズ用
   xp        Int      @default(0)
   level     Int      @default(1)
+  birthDate DateTime? // 生年月日 (Phase 4追加)
+  preferredCategories Json? // 得意なジャンル、文字列配列 (Phase 4追加)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -34,10 +36,22 @@ model User {
   subscriptions Subscription[]
 }
 
+// ジャンル（カテゴリー）管理 (Phase 4追加)
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  minAge    Int      @default(0)
+  maxAge    Int?     // null if no upper limit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  quizzes   Quiz[]
+}
+
 // クイズ本体
 model Quiz {
   id        String   @id @default(cuid())
   categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
   targetAge Int
   imageUrl  String
   createdAt DateTime @default(now())
@@ -64,6 +78,7 @@ model QuizTranslation {
   answer    String
   type      String   // 'CHOICE' or 'TEXT'
   options   Json?    // 選択肢の配列など (文字列配列をJSONとして保存)
+  imageUrl  String?  // 言語別の画像URL (オプショナル)
 
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
 

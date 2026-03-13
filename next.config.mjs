@@ -10,6 +10,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'placehold.jp',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
     ],
   },
 };

@@ -23,28 +23,30 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { categoryId, targetAge, imageUrl, title, question, hint, answer, options, type } = body;
+    const { categoryId, targetAge, imageUrl, translations } = body;
 
-    if (!categoryId || !title || !question || !answer || !type) {
+    if (!categoryId || !translations || !translations.ja) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // クイズを手動作成
+    // クイズを手動作成 (複数言語対応)
     const newQuiz = await prisma.quiz.create({
       data: {
         categoryId,
         targetAge: Number(targetAge) || 6,
         imageUrl: imageUrl || '',
         translations: {
-          create: {
-            locale: 'ja',
-            title,
-            question,
-            hint: hint || '',
-            answer,
-            type,
-            options: type === 'CHOICE' ? options : null,
-          },
+          create: Object.entries(translations).map(([locale, data]: [string, any]) => ({
+            locale,
+            title: data.title || '',
+            question: data.question || '',
+            hint: data.hint || '',
+            answer: data.answer || '',
+            type: data.type || 'TEXT',
+            options: data.type === 'CHOICE' ? data.options : null,
+            // @ts-ignore
+            imageUrl: data.imageUrl || null,
+          })),
         },
       },
     });
@@ -64,47 +66,55 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, categoryId, targetAge, imageUrl, title, question, hint, answer, options, type } = body;
+    const { id, categoryId, targetAge, imageUrl, translations } = body;
 
-    if (!id || !categoryId || !title || !question || !answer || !type) {
+    if (!id || !categoryId || !translations) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const updatedQuiz = await prisma.quiz.update({
+    // クイズの基本情報を更新
+    await prisma.quiz.update({
       where: { id },
       data: {
         categoryId,
         targetAge: Number(targetAge) || 6,
         imageUrl: imageUrl || '',
-        translations: {
-          upsert: {
-            where: { quizId_locale: { quizId: id, locale: 'ja' } },
-            create: {
-              locale: 'ja',
-              title,
-              question,
-              hint: hint || '',
-              answer,
-              type,
-              options: type === 'CHOICE' ? options : null,
-            },
-            update: {
-              title,
-              question,
-              hint: hint || '',
-              answer,
-              type,
-              options: type === 'CHOICE' ? options : null,
-            },
-          },
-        },
       },
     });
 
-    return NextResponse.json({ success: true, quiz: updatedQuiz });
-  } catch (error) {
+    // 各翻訳を順次upsert (SQLiteのロック問題を避けるため)
+    for (const [locale, data] of Object.entries(translations) as [string, any][]) {
+      await prisma.quizTranslation.upsert({
+        where: { quizId_locale: { quizId: id, locale } },
+        create: {
+          quizId: id,
+          locale,
+          title: data.title || '',
+          question: data.question || '',
+          hint: data.hint || '',
+          answer: data.answer || '',
+          type: data.type || 'TEXT',
+          options: data.type === 'CHOICE' ? data.options : null,
+          // @ts-ignore
+          imageUrl: data.imageUrl || null,
+        },
+        update: {
+          title: data.title || '',
+          question: data.question || '',
+          hint: data.hint || '',
+          answer: data.answer || '',
+          type: data.type || 'TEXT',
+          options: data.type === 'CHOICE' ? data.options : null,
+          // @ts-ignore
+          imageUrl: data.imageUrl || null,
+        },
+      });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
     console.error('Admin Quiz Update Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
 

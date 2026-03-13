@@ -15,6 +15,7 @@ const QuizClient = dynamic(() => import('./QuizClient'), {
 
 type WrapperProps = {
   initialQuizzes: Quiz[];
+  categories: any[];
   userBookmarks?: string[];
   userLikes?: string[];
   userHistories?: string[];

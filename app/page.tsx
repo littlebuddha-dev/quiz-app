@@ -43,11 +43,41 @@ export default async function Home({
     }
   }
 
-  // DBからクイズ一覧を取得
+  // ユーザーの年齢を特定
+  let effectiveAge = userTargetAge || 8; // デフォルト8歳
+  if (clerkId) {
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (user?.birthDate) {
+      const today = new Date();
+      const birth = new Date(user.birthDate);
+      effectiveAge = today.getFullYear() - birth.getFullYear();
+      if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+        effectiveAge--;
+      }
+    } else if (user?.targetAge) {
+      effectiveAge = user.targetAge;
+    }
+  }
+
+  // カテゴリーを取得し、年齢制限に基づいてフィルタリング
+  const allCategories = await prisma.category.findMany({
+    orderBy: { minAge: 'asc' },
+  });
+
+  const filteredCategories = allCategories.filter(cat => {
+    const minMatch = effectiveAge >= cat.minAge;
+    const maxMatch = cat.maxAge === null || effectiveAge <= cat.maxAge;
+    return minMatch && maxMatch;
+  });
+
+  const filteredCategoryIds = filteredCategories.map(c => c.id);
+
+  // DBからクイズ一覧を取得 (表示可能なカテゴリーのみ)
   const rawQuizzes = await prisma.quiz.findMany({
     where: {
       AND: [
-        activeCategory && activeCategory !== 'すべて' && activeCategory !== 'All' && activeCategory !== '全部'
+        { categoryId: { in: filteredCategoryIds } },
+        activeCategory && activeCategory !== 'すべて'
           ? { categoryId: activeCategory }
           : {},
         searchQuery
@@ -65,9 +95,7 @@ export default async function Home({
       ],
     },
     include: {
-      translations: {
-        where: { locale: 'ja' },
-      },
+      translations: true,
     },
     orderBy: {
       createdAt: 'desc',
@@ -75,47 +103,58 @@ export default async function Home({
   });
 
   // 年齢によるソート (サーバーサイド)
-  if (typeof userTargetAge === 'number') {
-    rawQuizzes.sort((a, b) => {
-      const diffA = Math.abs(a.targetAge - (userTargetAge as number));
-      const diffB = Math.abs(b.targetAge - (userTargetAge as number));
-      return diffA - diffB;
-    });
-  }
+  rawQuizzes.sort((a, b) => {
+    const diffA = Math.abs(a.targetAge - effectiveAge);
+    const diffB = Math.abs(b.targetAge - effectiveAge);
+    return diffA - diffB;
+  });
 
   // Prismaの型からフロントエンド用のQuiz型へマッピング
   const quizzes: Quiz[] = rawQuizzes.map((q: any) => {
-    const t = q.translations[0] || {
-      title: '名称未設定',
-      question: '問題文がありません',
-      hint: '',
-      answer: '',
-      type: 'TEXT',
-      options: null,
+    const translationsMap: any = {};
+    const jaT = q.translations.find((t: any) => t.locale === 'ja') || {
+      title: '名称未設定', question: '問題文がありません', hint: '', answer: '', type: 'TEXT', options: null,
     };
+
+    ['ja', 'en', 'zh'].forEach(loc => {
+      const t = q.translations.find((trans: any) => trans.locale === loc);
+      translationsMap[loc] = {
+        title: t?.title || jaT.title,
+        question: t?.question || jaT.question,
+        hint: t?.hint || jaT.hint,
+        answer: t?.answer || jaT.answer,
+        type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
+        options: t?.options ?? jaT.options,
+        imageUrl: t?.imageUrl || null,
+      };
+    });
 
     return {
       id: q.id,
-      title: t.title,
       category: q.categoryId,
       targetAge: q.targetAge,
-      question: t.question,
-      hint: t.hint,
-      answer: t.answer,
       imageUrl: q.imageUrl,
-      type: t.type as 'CHOICE' | 'TEXT',
-      options: t.options ? (t.options as string[]) : undefined,
+      translations: translationsMap,
     };
   });
+
+  const displayCategories = filteredCategories.map(c => ({
+    id: c.id,
+    name: c.name,
+    ja: c.name, // ここでは簡易的に共通
+    en: c.name === '算数' ? 'Math' : c.name === '数学' ? 'Advanced Math' : c.name, // マッピングが必要なら別途
+    zh: c.name === '算数' ? '算术' : c.name === '数学' ? '数学' : c.name,
+  }));
 
   return (
     <QuizClientWrapper
       initialQuizzes={quizzes}
+      categories={displayCategories}
       userBookmarks={userBookmarks}
       userLikes={userLikes}
       userHistories={userHistories}
-      userTargetAge={userTargetAge}
-      userStatus={userStatus} // Pass userStatus
+      userTargetAge={effectiveAge}
+      userStatus={userStatus}
       initialSearchQuery={searchQuery}
       initialCategory={activeCategory}
     />
