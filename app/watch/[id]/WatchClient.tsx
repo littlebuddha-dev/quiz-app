@@ -7,6 +7,7 @@ import LatexRenderer from '../../components/LatexRenderer';
 
 // ... (other imports)
 import Header from '../../components/Header';
+import Footer from '../../components/Footer';
 import { Quiz, Locale } from '../../types';
 import CorrectEffect from '../../components/CorrectEffect';
 
@@ -22,14 +23,14 @@ interface WatchClientProps {
   initialLocale?: Locale;
 }
 
-export default function WatchClient({ 
-  quiz, 
-  initialComments, 
-  initialBookmark, 
-  initialLike, 
-  initialCleared, 
-  isLoggedIn, 
-  relatedQuizzes, 
+export default function WatchClient({
+  quiz,
+  initialComments,
+  initialBookmark,
+  initialLike,
+  initialCleared,
+  isLoggedIn,
+  relatedQuizzes,
   userStatus,
   initialLocale = 'ja'
 }: WatchClientProps) {
@@ -40,7 +41,7 @@ export default function WatchClient({
   const [isCleared, setIsCleared] = useState(initialCleared);
   const [isBookmarked, setIsBookmarked] = useState(initialBookmark);
   const [isLiked, setIsLiked] = useState(initialLike);
-  
+
   const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,19 +49,19 @@ export default function WatchClient({
 
   // 現在の言語の翻訳を取得。なければ日本語をフォールバックに。
   const t = quiz.translations[locale] || quiz.translations['ja'];
-  
+
   // 画像のフォールバックロジック
-  const displayImageUrl = (t.imageUrl && t.imageUrl !== "") 
-    ? t.imageUrl 
-    : (quiz.imageUrl && quiz.imageUrl !== "") 
-      ? quiz.imageUrl 
+  const displayImageUrl = (t.imageUrl && t.imageUrl !== "")
+    ? t.imageUrl
+    : (quiz.imageUrl && quiz.imageUrl !== "")
+      ? quiz.imageUrl
       : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
 
   const isDataUri = displayImageUrl.startsWith('data:');
 
   const handleAction = async (action: 'bookmark' | 'like') => {
     if (!isLoggedIn) return alert('ログインが必要です');
-    
+
     if (action === 'bookmark') {
       setIsBookmarked(!isBookmarked);
     }
@@ -99,7 +100,7 @@ export default function WatchClient({
   const submitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !isLoggedIn) return;
-    
+
     setIsSubmitting(true);
     const res = await fetch('/api/comments', {
       method: 'POST',
@@ -117,15 +118,15 @@ export default function WatchClient({
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
-      <CorrectEffect 
-        isVisible={showCorrectEffect} 
+      <CorrectEffect
+        isVisible={showCorrectEffect}
         onClose={() => setShowCorrectEffect(false)}
         message={locale === 'ja' ? 'すばらしい！正解です！' : locale === 'en' ? 'Excellent! Correct!' : '太棒了！答对了！'}
         score={locale === 'ja' ? '+10 XP 獲得' : locale === 'en' ? '+10 XP Gained' : '+10 XP 经验值'}
         btnLabel={locale === 'ja' ? 'つぎへすすむ →' : locale === 'en' ? 'Next →' : '下一步 →'}
       />
-      <Header 
-        locale={locale} 
+      <Header
+        locale={locale}
         setLocale={setLocale}
         userStatus={userStatus}
         hideSearch={true}
@@ -133,16 +134,16 @@ export default function WatchClient({
 
       <div className="pt-20 flex justify-center">
         <div className="max-w-7xl w-full flex flex-col lg:flex-row gap-8 p-4 sm:p-6">
-          
+
           {/* 左側: メインプレイヤーエリア */}
           <div className="flex-1">
             <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black relative mb-4">
               {displayImageUrl ? (
-                <Image 
-                  src={displayImageUrl} 
-                  alt={t.title} 
-                  fill 
-                  className="object-cover" 
+                <Image
+                  src={displayImageUrl}
+                  alt={t.title}
+                  fill
+                  className="object-cover"
                   unoptimized={isDataUri}
                 />
               ) : (
@@ -150,7 +151,7 @@ export default function WatchClient({
                   No Image
                 </div>
               )}
-              
+
               {showAnswer && (
                 <div className={`absolute inset-0 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300 ${lastResult === 'correct' ? 'bg-green-900/40' : 'bg-red-900/90'}`}>
                   {lastResult === 'correct' ? (
@@ -181,16 +182,16 @@ export default function WatchClient({
             <h1 className="text-2xl font-black mb-2 leading-tight">
               <LatexRenderer text={t.title} />
             </h1>
-            
+
             <div className="flex flex-wrap items-center gap-4 mb-6 pb-6 border-b border-[var(--border)]">
               {quiz.channel ? (
                 <Link href={`/channel/${quiz.channel.id}`} className="flex items-center gap-3 hover:bg-[var(--card)] p-2 rounded-xl transition-all border border-transparent hover:border-[var(--border)]">
                   <div className="w-10 h-10 rounded-full bg-zinc-300 dark:bg-zinc-700 overflow-hidden relative border border-[var(--border)]">
                     {quiz.channel.avatarUrl && quiz.channel.avatarUrl !== "" ? (
-                      <Image 
-                        src={quiz.channel.avatarUrl} 
-                        alt={quiz.channel.name} 
-                        fill 
+                      <Image
+                        src={quiz.channel.avatarUrl}
+                        alt={quiz.channel.name}
+                        fill
                         className="object-cover"
                         sizes="40px"
                       />
@@ -207,13 +208,13 @@ export default function WatchClient({
                   <div className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-500 text-white font-bold text-xs">OFFICIAL</div>
                 </div>
               )}
-              
+
               <div className="ml-auto flex gap-2 sm:gap-3">
                 <button onClick={() => handleAction('like')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-pink-500 hover:border-pink-500'}`}>
                   ♥ {locale === 'ja' ? 'いいね' : locale === 'en' ? 'Like' : '点赞'}
                 </button>
                 <button onClick={() => handleAction('bookmark')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isBookmarked ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-blue-500 hover:border-blue-500'}`}>
-                   ★ {locale === 'ja' ? '保存' : locale === 'en' ? 'Save' : '收藏'}
+                  ★ {locale === 'ja' ? '保存' : locale === 'en' ? 'Save' : '收藏'}
                 </button>
               </div>
             </div>
@@ -223,7 +224,7 @@ export default function WatchClient({
               <h3 className="font-black text-lg sm:text-xl mb-6 leading-relaxed">
                 <LatexRenderer text={t.question} />
               </h3>
-              
+
               {!showAnswer && (
                 <div className="mb-6">
                   {!showHint ? (
@@ -239,7 +240,7 @@ export default function WatchClient({
                       <LatexRenderer text={t.hint} />
                     </div>
                   )}
-                  
+
                   {t.type === 'CHOICE' && t.options ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {t.options.map((opt: string, i: number) => (
@@ -258,7 +259,7 @@ export default function WatchClient({
                   )}
                 </div>
               )}
-              
+
               <div className="flex gap-2">
                 <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-amber-500/20">{quiz.category}</span>
                 <span className="bg-zinc-500/10 text-zinc-500 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-zinc-500/20">
@@ -270,7 +271,7 @@ export default function WatchClient({
             {/* コメント欄 */}
             <div>
               <h2 className="text-xl font-black mb-6">{comments.length} {locale === 'ja' ? '件のコメント' : locale === 'en' ? 'Comments' : '条评论'}</h2>
-              
+
               {isLoggedIn ? (
                 <form onSubmit={submitComment} className="flex gap-4 mb-10">
                   <div className="w-10 h-10 rounded-full bg-[var(--card)] border border-[var(--border)] flex-shrink-0" />
@@ -335,6 +336,7 @@ export default function WatchClient({
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

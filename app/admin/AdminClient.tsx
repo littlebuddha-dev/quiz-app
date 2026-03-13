@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
+import Footer from '../components/Footer';
 import { Locale } from '../types';
 import LatexRenderer from '../components/LatexRenderer';
 
@@ -365,11 +366,22 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
           {mainTab === 'categories' && (
              <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6">ジャンル管理</h2>
-              <form onSubmit={handleSaveCategory} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-[var(--background)] p-6 rounded-2xl">
-                <input type="text" required placeholder="ジャンル名" value={catFormData.name} onChange={e => setCatFormData({...catFormData, name: e.target.value})} className="border p-2 rounded" />
-                <input type="number" placeholder="最小年齢" value={catFormData.minAge} onChange={e => setCatFormData({...catFormData, minAge: parseInt(e.target.value)})} className="border p-2 rounded" />
-                <input type="number" placeholder="最大年齢" value={catFormData.maxAge} onChange={e => setCatFormData({...catFormData, maxAge: e.target.value})} className="border p-2 rounded" />
-                <button type="submit" className="bg-amber-500 text-white rounded font-black">{editingCatId ? '更新' : '追加'}</button>
+              <form onSubmit={handleSaveCategory} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-[var(--background)] p-6 rounded-2xl items-end">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル名</label>
+                  <input type="text" required placeholder="ジャンル名" value={catFormData.name} onChange={e => setCatFormData({...catFormData, name: e.target.value})} className="w-full border p-3 rounded-xl font-bold" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">最小年齢</label>
+                  <input type="number" placeholder="最小年齢" value={catFormData.minAge} onChange={e => setCatFormData({...catFormData, minAge: parseInt(e.target.value)})} className="w-full border p-3 rounded-xl font-bold" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">最大年齢</label>
+                  <input type="number" placeholder="最大年齢 (任意)" value={catFormData.maxAge} onChange={e => setCatFormData({...catFormData, maxAge: e.target.value})} className="w-full border p-3 rounded-xl font-bold" />
+                </div>
+                <button type="submit" className="bg-amber-500 text-white rounded-xl py-3 font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
+                  {editingCatId ? '更新' : '追加'}
+                </button>
               </form>
               <table className="w-full">
                 <thead><tr className="text-left border-b font-black"><th>ジャンル</th><th>対象年齢</th><th>操作</th></tr></thead>
@@ -393,24 +405,93 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6">手動作成・編集</h2>
               <form onSubmit={handleSubmit} className="space-y-6">
-                 <div className="grid grid-cols-2 gap-4">
-                  <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="border p-4 rounded-2xl font-bold bg-[var(--background)]">
-                    {categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <input type="number" value={formData.targetAge} onChange={e => setFormData({...formData, targetAge: Number(e.target.value)})} className="border p-4 rounded-2xl font-bold bg-[var(--background)]" />
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル</label>
+                      <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                        {categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">適正年齢</label>
+                      <input type="number" value={formData.targetAge} placeholder="適正年齢" onChange={e => setFormData({...formData, targetAge: Number(e.target.value)})} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
+                    </div>
+                  </div>
+                <div className="bg-[var(--background)] p-6 rounded-2xl border-2 border-dashed border-[var(--border)] mb-6">
+                  <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">共通サムネイル画像</p>
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <div className="relative w-32 aspect-video bg-zinc-100 dark:bg-zinc-800 rounded-lg overflow-hidden border border-[var(--border)] flex-shrink-0">
+                      {formData.imageUrl ? (
+                        <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-400">No Image</div>
+                      )}
+                    </div>
+                    <div className="flex-1 w-full space-y-3">
+                      <input type="text" placeholder="画像URL (任意)" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900" />
+                      <div className="relative">
+                        <input type="file" accept="image/*" onChange={(e) => handleUpload(e)} className="hidden" id="global-image-upload" />
+                        <label htmlFor="global-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.global ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
+                          {uploading.global ? 'アップロード中...' : 'ファイルを選択...'}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                {/* 簡易版の残りのフォーム（日本語のみ実装、またはタブ切り替えを維持） */}
+
                 <div className="flex gap-2">
                   {(['ja', 'en', 'zh'] as Locale[]).map(loc => (
-                    <button key={loc} type="button" onClick={() => setActiveTab(loc)} className={`px-4 py-2 rounded-xl font-bold ${activeTab === loc ? 'bg-blue-500 text-white' : 'bg-zinc-100'}`}>{loc}</button>
+                    <button key={loc} type="button" onClick={() => setActiveTab(loc)} className={`px-5 py-2.5 rounded-xl font-black text-xs transition-all ${activeTab === loc ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{loc.toUpperCase()}</button>
                   ))}
                 </div>
-                <input type="text" placeholder="タイトル" value={currentTranslation.title} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, title: e.target.value}}})} className="w-full border p-4 rounded-2xl" />
-                <textarea placeholder="問題" value={currentTranslation.question} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, question: e.target.value}}})} className="w-full border p-4 rounded-2xl" />
-                <input type="text" placeholder="正解" value={currentTranslation.answer} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, answer: e.target.value}}})} className="w-full border p-4 rounded-2xl" />
-                <button className="w-full bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all">
-                  保存する
-                </button>
+
+                <div className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">タイトル</label>
+                      <input type="text" placeholder="例: 三平方の定理の基本" value={currentTranslation.title} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, title: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">クイズ形式</label>
+                      <select value={currentTranslation.type} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, type: e.target.value as 'TEXT' | 'CHOICE'}}})} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                        <option value="TEXT">記述式</option>
+                        <option value="CHOICE">選択式</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">問題文 (LaTeX可)</label>
+                    <textarea placeholder="問題文を入力..." value={currentTranslation.question} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, question: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold min-h-[120px]" />
+                  </div>
+
+                  {currentTranslation.type === 'CHOICE' && (
+                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">選択肢 (カンマ区切り)</label>
+                      <input type="text" placeholder="例: 選択肢1, 選択肢2, 選択肢3" value={currentTranslation.options} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, options: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold bg-amber-50/30 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 shadow-inner" />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">正解</label>
+                      <input type="text" placeholder="例: 答えを入力" value={currentTranslation.answer} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, answer: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ヒント</label>
+                      <input type="text" placeholder="例: ヒントを入力" value={currentTranslation.hint} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, hint: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="submit" disabled={loading} className="flex-1 bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all">
+                    {editingId ? 'クイズを更新する' : '新しく作成する'}
+                  </button>
+                  {editingId && (
+                    <button type="button" onClick={handleCancelEdit} className="px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-black rounded-2xl hover:bg-zinc-200 transition-all">キャンセル</button>
+                  )}
+                </div>
               </form>
 
               {/* プレビューエリア */}
@@ -446,6 +527,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
           )}
         </main>
       </div>
+      <Footer />
     </div>
   );
 }

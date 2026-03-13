@@ -10,6 +10,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar, { SidebarContents } from './Sidebar';
 import Header from './Header';
+import Footer from './Footer';
 import { Quiz, Locale } from '../types';
 import LatexRenderer from './LatexRenderer';
 
@@ -183,6 +184,9 @@ export default function QuizClient({
           )}
         </div>
       </main>
+      <div className="md:pl-72">
+        <Footer />
+      </div>
     </div>
   );
 }

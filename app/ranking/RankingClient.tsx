@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import Header from '../components/Header';
+import Footer from '../components/Footer';
 import { Locale } from '../types';
 
 type RankingEntry = {
@@ -36,7 +37,7 @@ export default function RankingClient({
   const currentRankings = activeTab === 'solve' ? solveRankings : accuracyRankings;
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] pb-20">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Header 
         locale={locale} 
         setLocale={setLocale} 
@@ -164,6 +165,7 @@ export default function RankingClient({
           ランキングはリアルタイムで集計されます。
         </p>
       </main>
+      <Footer />
     </div>
   );
 }
