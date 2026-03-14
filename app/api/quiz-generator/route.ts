@@ -5,10 +5,15 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY is not set. Skipping AI generation.");
+      return NextResponse.json({ error: 'CONFIG_ERROR', message: 'APIキーが設定されていません。' }, { status: 500 });
+    }
+    const ai = new GoogleGenAI({ apiKey });
+
     const { topic, gradeLevel, systemPrompt, correctionPrompt } = await req.json();
 
     const DEFAULT_SYSTEM_INSTRUCTION = `
