@@ -99,7 +99,7 @@ export default function QuizClient({
   });
 
   return (
-    <div className={hideHeader ? '' : 'min-h-screen bg-[var(--background)] text-[var(--foreground)]'}>
+    <div className={hideHeader ? '' : 'min-h-screen bg-[var(--background)] text-[var(--foreground)]'} suppressHydrationWarning>
       {/* トップバー */}
       {!hideHeader && (
         <Header 

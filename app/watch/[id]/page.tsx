@@ -3,7 +3,7 @@
 // Purpose: Individual page for a quiz, showing details and comments.
 
 import { createPrisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';

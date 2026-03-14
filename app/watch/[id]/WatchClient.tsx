@@ -118,7 +118,7 @@ export default function WatchClient({
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors" suppressHydrationWarning>
       <CorrectEffect
         isVisible={showCorrectEffect}
         onClose={() => setShowCorrectEffect(false)}

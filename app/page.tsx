@@ -5,6 +5,7 @@
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz } from './types';
 

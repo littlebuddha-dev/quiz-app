@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { Locale } from '../types';
@@ -33,11 +33,20 @@ export default function RankingClient({
 }: RankingClientProps) {
   const [locale, setLocale] = useState<Locale>('ja');
   const [activeTab, setActiveTab] = useState<'solve' | 'accuracy'>('solve');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const currentRankings = activeTab === 'solve' ? solveRankings : accuracyRankings;
 
+  if (!mounted) {
+    return <div className="min-h-screen bg-[var(--background)]" suppressHydrationWarning />;
+  }
+
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]" suppressHydrationWarning>
       <Header 
         locale={locale} 
         setLocale={setLocale} 

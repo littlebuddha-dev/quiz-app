@@ -33,7 +33,7 @@ export default function Header({
   const t = DICTIONARY[locale];
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-[var(--card)]/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 border-b border-[var(--border)] z-50 transition-colors">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-[var(--card)]/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 border-b border-[var(--border)] z-50 transition-colors" suppressHydrationWarning>
       <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
         <a href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-amber-500 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-bold shadow-lg shadow-amber-500/20">Q</div>
@@ -101,6 +101,11 @@ export default function Header({
                   label="管理者ダッシュボード"
                   labelIcon={<div className="w-4 h-4 bg-amber-500 rounded flex items-center justify-center text-[10px] text-white font-bold">A</div>}
                   href="/admin"
+                />
+                <UserButton.Link
+                  label="ユーザー管理"
+                  labelIcon={<div className="w-4 h-4 bg-blue-500 rounded flex items-center justify-center text-[10px] text-white font-bold">U</div>}
+                  href="/admin/users"
                 />
                 <UserButton.Link
                   label="Google AdSense"
