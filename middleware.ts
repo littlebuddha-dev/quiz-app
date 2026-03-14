@@ -1,4 +1,4 @@
-// Path: proxy.ts
+// Path: middleware.ts
 // Title: Clerk Middleware
 // Purpose: Protects application routes requiring authentication while keeping public pages accessible.
 
