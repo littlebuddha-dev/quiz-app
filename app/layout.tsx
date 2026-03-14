@@ -21,6 +21,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://cue-quiz.vercel.app'), // 本番環境のURLに合わせて更新
   title: {
     default: "Cue | すべての人に学ぶことの楽しさを",
     template: "%s | Cue"
@@ -62,6 +63,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  if (!clerkPubKey) {
+    if (process.env.NODE_ENV === "production" && !process.env.NEXT_PHASE) {
+      console.warn("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set.");
+    }
+    return (
+      <html lang="ja" suppressHydrationWarning>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          {children}
+        </body>
+      </html>
+    );
+  }
 
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
