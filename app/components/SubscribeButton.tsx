@@ -27,7 +27,7 @@ export default function SubscribeButton({ channelId, initialSubscribed, isLogged
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as any;
         setIsSubscribed(data.subscribed);
         router.refresh();
       } else {

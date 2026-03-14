@@ -11,18 +11,18 @@ export const runtime = 'edge';
 
 const SETTING_KEY = 'adsense_settings';
 
-export async function GET(req: NextRequest, { params }: { params: Promise<any> }) {
-  const { env } = getCloudflareContext();
-  const prisma = createPrisma(env);
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // ここではAdminチェックを追加するのが望ましいが、現状のクイズアプリの構成に合わせる
-  // 必要であればUserから role を取得してチェックする
-
+export async function GET(request: NextRequest) {
   try {
+    const { env } = getCloudflareContext();
+    const prisma = createPrisma(env);
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // ここではAdminチェックを追加するのが望ましいが、現状のクイズアプリの構成に合わせる
+    // 必要であればUserから role を取得してチェックする
+
     const setting = await prisma.setting.findUnique({
       where: { key: SETTING_KEY },
     });
@@ -45,16 +45,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<any> }
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
-  const { env } = getCloudflareContext();
-  const prisma = createPrisma(env);
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
+    const { env } = getCloudflareContext();
+    const prisma = createPrisma(env);
+    const { userId: clerkId } = await auth();
+    if (!clerkId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json()) as any;
     
     const setting = await prisma.setting.upsert({
       where: { key: SETTING_KEY },

@@ -38,7 +38,7 @@ export default function IntegratedQuizBoard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, gradeLevel, locale }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as any;
       setQuiz(data);
     } catch (error) {
       console.error(error);

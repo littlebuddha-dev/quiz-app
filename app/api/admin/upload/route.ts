@@ -22,7 +22,17 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function GET(request: NextRequest) {
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
+  const isAuthorized = await isAdminOrParent(prisma);
+  if (!isAuthorized) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+  return NextResponse.json({ success: true });
+}
+
+export async function POST(request: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -31,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const formData = await req.formData();
+    const formData = await request.formData();
     const file = formData.get('file') as File | null;
 
     if (!file) {

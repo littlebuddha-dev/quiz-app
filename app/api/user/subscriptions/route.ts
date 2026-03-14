@@ -9,7 +9,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const runtime = 'edge';
 
-export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -18,7 +18,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { channelId } = await req.json();
+    const body = (await req.json()) as { channelId: string };
+    const { channelId } = body;
     if (!channelId) {
       return NextResponse.json({ error: 'channelId is required' }, { status: 400 });
     }

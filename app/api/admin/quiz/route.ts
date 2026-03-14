@@ -19,7 +19,7 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as any;
     const { categoryId, targetAge, imageUrl, translations } = body;
 
     if (!categoryId || !translations || !translations.ja) {
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function PATCH(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -73,7 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<any>
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as any;
     const { id, categoryId, targetAge, imageUrl, translations } = body;
 
     if (!id || !categoryId || !translations) {
@@ -126,7 +126,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<any>
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function DELETE(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -135,7 +135,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<any
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { target } = await req.json();
+    const { target } = (await req.json()) as { target: string };
     if (!target) {
         return NextResponse.json({ error: 'Missing target ID' }, { status: 400 });
     }

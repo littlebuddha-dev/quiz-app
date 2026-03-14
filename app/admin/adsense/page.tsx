@@ -34,7 +34,7 @@ export default function AdSenseAdminPage() {
   useEffect(() => {
     fetch('/api/admin/adsense')
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: any) => { // Added 'as any' casting here
         if (!data.error) {
           setSettings(data);
         }

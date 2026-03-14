@@ -17,7 +17,7 @@ export default function AdSense({ slot }: AdSenseProps) {
   useEffect(() => {
     fetch('/api/admin/adsense')
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: any) => { // Cast 'data' to 'any'
         if (!data.error) {
           setSettings(data);
         }

@@ -8,11 +8,11 @@ import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export async function GET(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function GET(request: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
     const quizId = searchParams.get('quizId');
 
     if (!quizId) {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as any;
     const { quizId, content } = body;
 
     if (!quizId || !content) {

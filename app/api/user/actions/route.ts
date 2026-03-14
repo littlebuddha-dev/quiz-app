@@ -38,7 +38,7 @@ async function ensureUser(clerkId: string, prisma: PrismaClient) {
   return user;
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function POST(request: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
+    const body = (await request.json()) as any;
     const { action, quizId, isCorrect } = body;
 
     if (!action || !quizId) {

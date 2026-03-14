@@ -19,7 +19,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
     }
     const ai = new GoogleGenAI({ apiKey });
 
-    const { topic, gradeLevel, systemPrompt, correctionPrompt } = await req.json();
+    const body = (await req.json()) as any;
+    const { topic, gradeLevel, systemPrompt, correctionPrompt } = body;
 
     const DEFAULT_SYSTEM_INSTRUCTION = `
 あなたは「学ぶことの楽しさを伝える」教育コンテンツクリエイターです。

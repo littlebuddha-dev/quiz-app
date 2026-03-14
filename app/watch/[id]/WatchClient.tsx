@@ -110,7 +110,7 @@ export default function WatchClient({
     });
 
     if (res.ok) {
-      const addedComment = await res.json();
+      const addedComment = (await res.json()) as any;
       setComments([addedComment.comment, ...comments]);
       setNewComment('');
     }

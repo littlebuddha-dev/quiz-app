@@ -16,11 +16,11 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
-    const { id } = await params;
+    const { id } = await context.params;
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

@@ -2,7 +2,7 @@
 // Title: Clerk Middleware
 // Purpose: Protects application routes requiring authentication while keeping public pages accessible.
 
-export const runtime = 'experimental-edge';
+export const runtime = 'edge';
 
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 

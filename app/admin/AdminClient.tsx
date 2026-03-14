@@ -80,7 +80,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
     try {
       const res = await fetch(`/api/admin/quiz/${quiz.id}`);
       if (res.ok) {
-        const fullQuiz = await res.json();
+        const fullQuiz = (await res.json()) as any;
         const newTranslations: any = { ...initialForm.translations };
         fullQuiz.translations.forEach((t: any) => {
           newTranslations[t.locale as Locale] = {
@@ -148,7 +148,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
         body: uploadFormData,
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as any;
         if (targetLocale) {
           setFormData(prev => ({
             ...prev,
@@ -205,7 +205,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
         if (!editingId) handleCancelEdit();
         router.refresh();
       } else {
-        const err = await res.json();
+        const err = (await res.json()) as any;
         alert(`失敗しました: ${err.error || '不明なエラー'}`);
       }
     } catch (error) {
@@ -236,7 +236,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
         setCorrectionPrompt('');
         router.refresh();
       } else {
-        const errorData = await res.json();
+        const errorData = (await res.json()) as any;
         alert(errorData.message || '生成に失敗しました');
       }
     } catch (error) {

@@ -10,7 +10,7 @@ import { WebhookEvent } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function POST(req: NextRequest) {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;

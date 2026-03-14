@@ -17,7 +17,7 @@ async function checkAdmin(prisma: PrismaClient) {
   return user?.role === 'ADMIN' || user?.role === 'PARENT';
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function GET(request: NextRequest) {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   const categories = await prisma.category.findMany({
@@ -26,14 +26,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<any> }
   return NextResponse.json(categories);
 }
 
-export async function POST(request: NextRequest, { params }: { params: Promise<any> }) {
+export async function POST(request: NextRequest) {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { name, minAge, maxAge } = await request.json();
+  const { name, minAge, maxAge } = (await request.json()) as { name: string; minAge: string; maxAge: string | null };
   const category = await prisma.category.create({
     data: {
       id: name, // IDを名前と同じにする
@@ -46,14 +46,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<a
   return NextResponse.json(category);
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<any> }) {
+export async function PATCH(request: NextRequest) {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id, name, minAge, maxAge } = await request.json();
+  const { id, name, minAge, maxAge } = (await request.json()) as { id: string; name: string; minAge: string; maxAge: string | null };
   const category = await prisma.category.update({
     where: { id },
     data: {
@@ -66,7 +66,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   return NextResponse.json(category);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<any> }) {
+export async function DELETE(request: NextRequest) {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
