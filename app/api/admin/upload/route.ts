@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
+
+export const runtime = 'edge';
+// import { writeFile } from 'fs/promises';
+// import { join } from 'path';
 import { randomUUID } from 'crypto';
 
 // 権限チェックのヘルパー
@@ -40,13 +42,17 @@ export async function POST(req: Request, { env }: any) {
     // ユニークなファイル名の生成
     const fileExtension = file.name.split('.').pop() || 'png';
     const fileName = `${randomUUID()}.${fileExtension}`;
-    const path = join(process.cwd(), 'public/uploads', fileName);
+    // const path = join(process.cwd(), 'public/uploads', fileName);
 
     // ファイルの書き込み
-    await writeFile(path, buffer);
+    // await writeFile(path, buffer);
     const imageUrl = `/uploads/${fileName}`;
 
-    return NextResponse.json({ success: true, imageUrl });
+    return NextResponse.json({ 
+      success: true, 
+      imageUrl,
+      message: "Note: Real file storage is not supported on Cloudflare Workers without R2."
+    });
   } catch (error) {
     console.error('Image Upload Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

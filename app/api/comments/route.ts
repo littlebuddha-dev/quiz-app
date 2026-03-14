@@ -1,4 +1,5 @@
 // Path: app/api/comments/route.ts
+export const runtime = 'edge';
 // Title: Comments API
 // Purpose: Handles posting new comments to a quiz.
 

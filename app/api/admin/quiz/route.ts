@@ -3,6 +3,8 @@ import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 
+export const runtime = 'edge';
+
 // 権限チェックのヘルパー
 async function isAdminOrParent(prisma: PrismaClient) {
   const { userId } = await auth();

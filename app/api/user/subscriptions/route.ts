@@ -6,6 +6,8 @@ import { NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
+export const runtime = 'edge';
+
 export async function POST(req: Request, { env }: any) {
   try {
     const prisma = createPrisma(env);

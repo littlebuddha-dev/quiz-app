@@ -6,6 +6,8 @@ import { NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
+export const runtime = 'edge';
+
 const SETTING_KEY = 'adsense_settings';
 
 export async function GET(req: Request, { env }: any) {

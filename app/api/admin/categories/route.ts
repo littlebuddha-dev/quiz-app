@@ -4,6 +4,8 @@ import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 
+export const runtime = 'edge';
+
 // 管理者権限チェック
 async function checkAdmin(prisma: PrismaClient) {
   const { userId } = await auth();

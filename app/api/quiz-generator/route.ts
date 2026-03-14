@@ -1,4 +1,5 @@
 // Path: app/api/quiz-generator/route.ts
+export const runtime = 'edge';
 // Title: Quiz Generator API Route
 // Purpose: Generates quiz text and illustration using Google Gen AI based on topic, grade level, and language.
 

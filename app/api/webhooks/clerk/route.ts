@@ -1,4 +1,5 @@
 // Path: app/api/webhooks/clerk/route.ts
+export const runtime = 'edge';
 // Title: Clerk Webhook Handler
 // Purpose: Syncs Clerk user data with Prisma database upon creation, update, or deletion.
 

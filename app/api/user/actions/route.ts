@@ -1,4 +1,5 @@
 // Path: app/api/user/actions/route.ts
+export const runtime = 'edge';
 // Title: User Actions API
 // Purpose: Handles bookmarking, liking, and history saving for logged-in users.
 
