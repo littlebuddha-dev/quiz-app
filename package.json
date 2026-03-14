@@ -16,6 +16,7 @@
     "@clerk/nextjs": "^6.39.0",
     "@google/genai": "^1.45.0",
     "@opennextjs/cloudflare": "^1.17.1",
+    "@prisma/adapter-d1": "^7.5.0",
     "katex": "^0.16.38",
     "next": "16.1.6",
     "react": "19.2.3",
