@@ -1,8 +1,8 @@
-// Path: middleware.ts
+// Path: proxy.ts
 // Title: Clerk Middleware
 // Purpose: Protects application routes requiring authentication while keeping public pages accessible.
 
-export const runtime = 'edge';
+export const runtime = 'experimental-edge';
 
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
