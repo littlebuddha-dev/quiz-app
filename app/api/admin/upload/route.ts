@@ -6,7 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 export const runtime = 'edge';
 // import { writeFile } from 'fs/promises';
 // import { join } from 'path';
-import { randomUUID } from 'crypto';
+// import { randomUUID } from 'crypto';
 
 // 権限チェックのヘルパー
 async function isAdminOrParent(prisma: PrismaClient) {
@@ -41,7 +41,7 @@ export async function POST(req: Request, { env }: any) {
 
     // ユニークなファイル名の生成
     const fileExtension = file.name.split('.').pop() || 'png';
-    const fileName = `${randomUUID()}.${fileExtension}`;
+    const fileName = `${crypto.randomUUID()}.${fileExtension}`;
     // const path = join(process.cwd(), 'public/uploads', fileName);
 
     // ファイルの書き込み

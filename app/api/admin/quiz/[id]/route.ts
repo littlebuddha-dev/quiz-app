@@ -15,7 +15,7 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function GET(request: NextRequest, { params, env }: { params: Promise<{ id: string }>, env: any }) {
+export async function GET(request: NextRequest, { params, env }: { params: Promise<{ id: string }>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const { id } = await params;

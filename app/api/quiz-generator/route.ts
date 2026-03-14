@@ -7,7 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 
-export async function POST(req: Request, { env }: any) {
+export async function POST(req: Request, { env }: { env?: any }) {
   try {
     const prisma = createPrisma(env);
     const apiKey = process.env.GEMINI_API_KEY;

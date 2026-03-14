@@ -17,7 +17,7 @@ async function checkAdmin(prisma: PrismaClient) {
   return user?.role === 'ADMIN' || user?.role === 'PARENT';
 }
 
-export async function GET(req: Request, { env }: any) {
+export async function GET(req: Request, { env }: { env?: any }) {
   const prisma = createPrisma(env);
   const categories = await prisma.category.findMany({
     orderBy: { minAge: 'asc' },
@@ -25,7 +25,7 @@ export async function GET(req: Request, { env }: any) {
   return NextResponse.json(categories);
 }
 
-export async function POST(request: Request, { env }: any) {
+export async function POST(request: Request, { env }: { env?: any }) {
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -44,7 +44,7 @@ export async function POST(request: Request, { env }: any) {
   return NextResponse.json(category);
 }
 
-export async function PATCH(request: Request, { env }: any) {
+export async function PATCH(request: Request, { env }: { env?: any }) {
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -63,7 +63,7 @@ export async function PATCH(request: Request, { env }: any) {
   return NextResponse.json(category);
 }
 
-export async function DELETE(request: Request, { env }: any) {
+export async function DELETE(request: Request, { env }: { env?: any }) {
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

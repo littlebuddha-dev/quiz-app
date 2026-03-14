@@ -18,7 +18,7 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function POST(req: Request, { env }: any) {
+export async function POST(req: Request, { env }: { env?: any }) {
   try {
     const prisma = createPrisma(env);
     const isAuthorized = await isAdminOrParent(prisma);
@@ -62,7 +62,7 @@ export async function POST(req: Request, { env }: any) {
   }
 }
 
-export async function PATCH(req: Request, { env }: any) {
+export async function PATCH(req: Request, { env }: { env?: any }) {
   try {
     const prisma = createPrisma(env);
     const isAuthorized = await isAdminOrParent(prisma);
@@ -123,7 +123,7 @@ export async function PATCH(req: Request, { env }: any) {
   }
 }
 
-export async function DELETE(req: Request, { env }: any) {
+export async function DELETE(req: Request, { env }: { env?: any }) {
   try {
     const prisma = createPrisma(env);
     const isAuthorized = await isAdminOrParent(prisma);
