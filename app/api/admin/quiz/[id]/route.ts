@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
+
+export const runtime = 'edge';
 
 async function isAdminOrParent(prisma: PrismaClient) {
   const { userId } = await auth();
@@ -13,8 +15,10 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params;
+export async function GET(request: NextRequest, { params, env }: { params: Promise<{ id: string }>, env: any }) {
+  try {
+    const prisma = createPrisma(env);
+    const { id } = await params;
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
