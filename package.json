@@ -10,7 +10,8 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
@@ -21,10 +22,10 @@
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "svix": "^1.88.0"
+    "svix": "^1.88.0",
+    "@prisma/client": "^6.19.2"
   },
   "devDependencies": {
-    "@prisma/client": "^6.19.2",
     "@tailwindcss/postcss": "^4",
     "@types/katex": "^0.16.8",
     "@types/node": "^25.5.0",

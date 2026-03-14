@@ -1,7 +1,7 @@
 // Path: lib/prisma.ts
 // Title: Prisma Client Utility
 // Purpose: Prevents multiple Prisma Client instances and provides D1 adapter for Cloudflare.
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client/edge';
 import { PrismaD1 } from '@prisma/adapter-d1';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
