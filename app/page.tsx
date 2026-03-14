@@ -62,11 +62,16 @@ export default async function Home({
     }
   }
 
-  // カテゴリーを取得し、年齢制限に基づいてフィルタリング
+  // カテゴリーを取得
   const allCategories = await prisma.category.findMany({
     orderBy: { minAge: 'asc' },
   });
 
+  // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）
+  // ただし、名前が空のものは除外する
+  const displayCategoriesRaw = allCategories.filter(c => c.name && c.name.trim() !== '');
+
+  // クイズフィルタリング用の有効なカテゴリーID
   const filteredCategories = allCategories.filter(cat => {
     const minMatch = effectiveAge >= cat.minAge;
     const maxMatch = cat.maxAge === null || effectiveAge <= cat.maxAge;
@@ -141,11 +146,11 @@ export default async function Home({
     };
   });
 
-  const displayCategories = filteredCategories.map(c => ({
+  const displayCategories = displayCategoriesRaw.map(c => ({
     id: c.id,
     name: c.name,
-    ja: c.name, // ここでは簡易的に共通
-    en: c.name === '算数' ? 'Math' : c.name === '数学' ? 'Advanced Math' : c.name, // マッピングが必要なら別途
+    ja: c.name,
+    en: c.name === '算数' ? 'Math' : c.name === '数学' ? 'Advanced Math' : c.name,
     zh: c.name === '算数' ? '算术' : c.name === '数学' ? '数学' : c.name,
   }));
 

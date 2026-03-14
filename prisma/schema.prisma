@@ -1,174 +1,147 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider  = "sqlite"
-  url       = "file:./dev.db"
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
-// ユーザー (Phase 2向け準備)
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
-  name      String?
-  role      String   @default("CHILD") // "PARENT" or "CHILD" or "ADMIN"
-  targetAge Int?     // 例: 対象年齢（学年）、パーソナライズ用
-  xp        Int      @default(0)
-  level     Int      @default(1)
-  birthDate DateTime? // 生年月日 (Phase 4追加)
-  preferredCategories Json? // 得意なジャンル、文字列配列 (Phase 4追加)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  likes        QuizLike[]
-  histories    QuizHistory[]
-  bookmarks    Bookmark[]
-  channel      Channel? // ユーザーは1つのチャンネルを持つことができる
-  comments     Comment[]
-  subscriptions Subscription[]
+  id                  String         @id @default(cuid())
+  clerkId             String         @unique
+  email               String         @unique
+  name                String?
+  role                String         @default("CHILD")
+  targetAge           Int?
+  xp                  Int            @default(0)
+  level               Int            @default(1)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  birthDate           DateTime?
+  preferredCategories Json?
+  bookmarks           Bookmark[]
+  channel             Channel?
+  comments            Comment[]
+  histories           QuizHistory[]
+  likes               QuizLike[]
+  subscriptions       Subscription[]
 }
 
-// ジャンル（カテゴリー）管理 (Phase 4追加)
 model Category {
   id        String   @id @default(cuid())
   name      String   @unique
   minAge    Int      @default(0)
-  maxAge    Int?     // null if no upper limit
+  maxAge    Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   quizzes   Quiz[]
 }
 
-// クイズ本体
 model Quiz {
-  id        String   @id @default(cuid())
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
-  targetAge Int
-  imageUrl  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  translations QuizTranslation[]
-  likes        QuizLike[]
-  histories    QuizHistory[]
+  id           String            @id @default(cuid())
+  categoryId   String
+  targetAge    Int
+  imageUrl     String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  channelId    String?
   bookmarks    Bookmark[]
   comments     Comment[]
-  
-  channelId    String?  // nullable (システム/AI独自作成クイズ用)
-  channel      Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  channel      Channel?          @relation(fields: [channelId], references: [id])
+  category     Category          @relation(fields: [categoryId], references: [id])
+  histories    QuizHistory[]
+  likes        QuizLike[]
+  translations QuizTranslation[]
 }
 
-// クイズの多言語テキスト (i18n)
 model QuizTranslation {
-  id        String   @id @default(cuid())
-  quizId    String
-  locale    String   // 'ja', 'en', 'zh' など
-  title     String
-  question  String
-  hint      String
-  answer    String
-  type      String   // 'CHOICE' or 'TEXT'
-  options   Json?    // 選択肢の配列など (文字列配列をJSONとして保存)
-  imageUrl  String?  // 言語別の画像URL (オプショナル)
+  id       String  @id @default(cuid())
+  quizId   String
+  locale   String
+  title    String
+  question String
+  hint     String
+  answer   String
+  type     String
+  options  Json?
+  imageUrl String?
+  quiz     Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
-  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-
-  @@unique([quizId, locale]) // 一つのクイズに同じ言語の情報は1つだけ
+  @@unique([quizId, locale])
 }
 
-// お気に入り/いいね (Phase 2向け準備)
 model QuizLike {
   id        String   @id @default(cuid())
   userId    String
   quizId    String
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, quizId])
 }
 
-// 解答履歴 (Phase 2追加)
 model QuizHistory {
   id        String   @id @default(cuid())
   userId    String
   quizId    String
   isCorrect Boolean
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// 後で解く/お気に入り (Phase 2追加)
 model Bookmark {
   id        String   @id @default(cuid())
   userId    String
   quizId    String
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, quizId])
 }
 
-// チャンネル (Phase 3追加)
-// 動画やクイズを公開するクリエイターとしてのプロフィール
 model Channel {
-  id          String   @id @default(cuid())
-  userId      String   @unique
+  id          String         @id @default(cuid())
+  userId      String         @unique
   name        String
   description String?
   avatarUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   quizzes     Quiz[]
   subscribers Subscription[]
 }
 
-// チャンネルのフォロー/サブスクリプション (Phase 3追加)
 model Subscription {
-  id          String   @id @default(cuid())
-  userId      String   // フォローする側（生徒）
-  channelId   String   // フォローされる側（クリエイター）
-  createdAt   DateTime @default(now())
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  channelId String
+  createdAt DateTime @default(now())
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, channelId])
 }
 
-// クイズに対するコメント (Phase 3追加)
 model Comment {
-  id          String   @id @default(cuid())
-  quizId      String
-  userId      String
-  content     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  quizId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
 }
-// サイト設定 (Phase 6追加)
+
 model Setting {
   key       String   @id
-  value     String   // JSON文字列として設定値を保存
+  value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

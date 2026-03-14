@@ -311,7 +311,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
               <div className="flex flex-wrap gap-1.5">
                 <button onClick={() => setSelectedCategory('all')} className={`text-[9px] font-black px-2 py-1 rounded-full border ${selectedCategory === 'all' ? 'bg-blue-500 text-white' : 'text-zinc-400'}`}>すべて</button>
                 {categoriesList.map((c: any) => (
-                  <button key={c.id} onClick={() => setSelectedCategory(c.id)} className={`text-[9px] font-black px-2 py-1 rounded-full border ${selectedCategory === c.id ? 'bg-blue-500 text-white' : 'text-zinc-400'}`}>{c.name}</button>
+                  <button key={c.id} onClick={() => setSelectedCategory(c.id)} className={`text-[9px] font-black px-2 py-1 rounded-full border ${selectedCategory === c.id ? 'bg-blue-500 text-white' : 'text-zinc-400'}`}>{c.name || '(名称未設定)'}</button>
                 ))}
               </div>
             </div>
@@ -388,7 +388,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                 <tbody>
                   {categoriesList.map((c: any) => (
                     <tr key={c.id} className="border-b">
-                      <td className="py-4 font-bold">{c.name}</td>
+                      <td className="py-4 font-bold">{c.name || <span className="text-zinc-300 italic">(名称未設定)</span>}</td>
                       <td>{c.minAge}歳 〜 {c.maxAge ? `${c.maxAge}歳` : 'なし'}</td>
                       <td className="space-x-2">
                         <button onClick={() => { setEditingCatId(c.id); setCatFormData({name: c.name, minAge: c.minAge, maxAge: c.maxAge || ''}); }}>✏️</button>
