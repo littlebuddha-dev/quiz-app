@@ -26,11 +26,6 @@
 		{
 			"binding": "DB",
 			"database_name": "quiz-app-db",
-			"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
-		},
-		{
-			"binding": "quiz_app_db",
-			"database_name": "quiz-app-db",
 			"database_id": "5b73691f-f3d1-4cb1-a1a2-afbe39f00afa"
 		}
 	]
