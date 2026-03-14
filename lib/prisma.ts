@@ -7,19 +7,27 @@ import { PrismaD1 } from '@prisma/adapter-d1';
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 const createPrismaClient = () => {
-  // Cloudflare Pages/Workers environment with D1 binding
-  // Note: OpenNext exposes bindings on process.env
-  const d1 = (process.env as any).DB;
-  
-  if (d1) {
-    const adapter = new PrismaD1(d1);
-    return new PrismaClient({ adapter });
-  }
+  try {
+    // OpenNext via Cloudflare Pages provides bindings
+    // They can be in process.env or potentially on the global/context
+    const d1 = (process.env as any).DB || (globalThis as any).DB;
+    
+    if (d1) {
+      console.log("D1 Binding 'DB' detected.");
+      const adapter = new PrismaD1(d1);
+      return new PrismaClient({ adapter });
+    }
 
-  // Fallback for local development or non-edge environments
-  return new PrismaClient({
-    log: ['query'],
-  });
+    console.warn("D1 Binding 'DB' not found. Falling back to default PrismaClient.");
+    return new PrismaClient({
+      log: ['query', 'error', 'warn'],
+    });
+  } catch (error) {
+    console.error("Failed to initialize Prisma with D1 adapter:", error);
+    return new PrismaClient({
+      log: ['query', 'error', 'warn'],
+    });
+  }
 };
 
 export const prisma = globalForPrisma.prisma || createPrismaClient();
