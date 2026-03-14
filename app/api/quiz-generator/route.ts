@@ -4,10 +4,10 @@ export const runtime = 'edge';
 // Purpose: Generates quiz text and illustration using Google Gen AI based on topic, grade level, and language.
 
 import { GoogleGenAI } from '@google/genai';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 
-export async function POST(req: Request, { env }: { env?: any }) {
+export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const apiKey = process.env.GEMINI_API_KEY;

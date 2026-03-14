@@ -37,7 +37,7 @@ async function ensureUser(clerkId: string, prisma: PrismaClient) {
   return user;
 }
 
-export async function POST(req: Request, { env }: any) {
+export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();

@@ -3,12 +3,13 @@ export const runtime = 'edge';
 // Title: Clerk Webhook Handler
 // Purpose: Syncs Clerk user data with Prisma database upon creation, update, or deletion.
 
+import { NextRequest } from 'next/server';
 import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 
-export async function POST(req: Request, { env }: any) {
+export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   const prisma = createPrisma(env);
   const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 

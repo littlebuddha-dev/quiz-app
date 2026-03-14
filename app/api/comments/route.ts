@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
-export async function GET(req: Request, { env }: any) {
+export async function GET(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const { searchParams } = new URL(req.url);
@@ -43,7 +43,7 @@ export async function GET(req: Request, { env }: any) {
   }
 }
 
-export async function POST(req: Request, { env }: any) {
+export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();

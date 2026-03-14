@@ -2,13 +2,13 @@
 // Title: Subscription API Route
 // Purpose: Toggle subscription status for a channel.
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
 export const runtime = 'edge';
 
-export async function POST(req: Request, { env }: any) {
+export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
@@ -18,7 +18,7 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function POST(req: Request, { env }: { env?: any }) {
+export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const isAuthorized = await isAdminOrParent(prisma);
@@ -62,7 +62,7 @@ export async function POST(req: Request, { env }: { env?: any }) {
   }
 }
 
-export async function PATCH(req: Request, { env }: { env?: any }) {
+export async function PATCH(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const isAuthorized = await isAdminOrParent(prisma);
@@ -123,7 +123,7 @@ export async function PATCH(req: Request, { env }: { env?: any }) {
   }
 }
 
-export async function DELETE(req: Request, { env }: { env?: any }) {
+export async function DELETE(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   try {
     const prisma = createPrisma(env);
     const isAuthorized = await isAdminOrParent(prisma);

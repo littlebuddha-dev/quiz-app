@@ -1,5 +1,5 @@
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
@@ -17,7 +17,7 @@ async function checkAdmin(prisma: PrismaClient) {
   return user?.role === 'ADMIN' || user?.role === 'PARENT';
 }
 
-export async function GET(req: Request, { env }: { env?: any }) {
+export async function GET(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   const prisma = createPrisma(env);
   const categories = await prisma.category.findMany({
     orderBy: { minAge: 'asc' },
@@ -25,7 +25,7 @@ export async function GET(req: Request, { env }: { env?: any }) {
   return NextResponse.json(categories);
 }
 
-export async function POST(request: Request, { env }: { env?: any }) {
+export async function POST(request: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -44,7 +44,7 @@ export async function POST(request: Request, { env }: { env?: any }) {
   return NextResponse.json(category);
 }
 
-export async function PATCH(request: Request, { env }: { env?: any }) {
+export async function PATCH(request: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -63,7 +63,7 @@ export async function PATCH(request: Request, { env }: { env?: any }) {
   return NextResponse.json(category);
 }
 
-export async function DELETE(request: Request, { env }: { env?: any }) {
+export async function DELETE(request: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
   const prisma = createPrisma(env);
   if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
