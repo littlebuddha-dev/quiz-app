@@ -6,9 +6,11 @@ export const runtime = 'edge';
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
   try {
+    const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {

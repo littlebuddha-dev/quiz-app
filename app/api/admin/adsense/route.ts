@@ -5,12 +5,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const runtime = 'edge';
 
 const SETTING_KEY = 'adsense_settings';
 
-export async function GET(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<any> }) {
+  const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   const { userId } = await auth();
   if (!userId) {
@@ -43,7 +45,8 @@ export async function GET(req: NextRequest, { params, env }: { params: Promise<a
   }
 }
 
-export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
+  const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   const { userId } = await auth();
   if (!userId) {

@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const runtime = 'edge';
 
@@ -15,8 +16,9 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function GET(request: NextRequest, { params, env }: { params: Promise<{ id: string }>, env?: any }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     const { id } = await params;
     const isAuthorized = await isAdminOrParent(prisma);

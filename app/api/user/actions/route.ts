@@ -6,6 +6,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { PrismaClient } from '@prisma/client/edge';
 
 // APIコール時にClerkにユーザーが存在するがDBにいない場合の救済処理
@@ -37,8 +38,9 @@ async function ensureUser(clerkId: string, prisma: PrismaClient) {
   return user;
 }
 
-export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
   try {
+    const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();
     

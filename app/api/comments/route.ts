@@ -6,9 +6,11 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export async function GET(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<any> }) {
   try {
+    const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     const { searchParams } = new URL(req.url);
     const quizId = searchParams.get('quizId');
@@ -43,8 +45,9 @@ export async function GET(req: NextRequest, { params, env }: { params: Promise<a
   }
 }
 
-export async function POST(req: NextRequest, { params, env }: { params: Promise<any>, env?: any }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
   try {
+    const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();
     if (!clerkId) {
