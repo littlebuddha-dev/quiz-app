@@ -2,7 +2,8 @@
 // Title: Ranking Page (Server Component)
 // Purpose: Aggregates user performance data and displays leaderboard.
 
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import RankingClient from './RankingClient';
 import { Metadata } from 'next';
@@ -13,6 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RankingPage() {
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
   const { userId: clerkId } = await auth();
 
   // 1. 全ユーザーの情報を取得（必要最小限）

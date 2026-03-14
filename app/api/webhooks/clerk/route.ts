@@ -5,9 +5,10 @@
 import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { env }: any) {
+  const prisma = createPrisma(env);
   const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!SIGNING_SECRET) {

@@ -2,14 +2,17 @@
 // Title: Watch Page (Detail)
 // Purpose: Individual page for a quiz, showing details and comments.
 
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 import { Metadata } from 'next';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
   const { id } = await params;
   const quiz = await prisma.quiz.findUnique({
     where: { id },
@@ -31,6 +34,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function WatchPage({ params }: { params: Promise<{ id: string }> }) {
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
   const { id } = await params;
   const { userId: clerkId } = await auth();
 

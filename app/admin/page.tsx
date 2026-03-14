@@ -2,12 +2,15 @@
 // Title: Admin Dashboard
 // Purpose: Allows admins to manage and create quizzes.
 
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import AdminClientWrapper from './AdminClientWrapper';
 
 export default async function AdminPage() {
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
   const { userId } = await auth();
   
   if (!userId) {

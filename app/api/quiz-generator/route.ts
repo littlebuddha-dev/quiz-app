@@ -4,9 +4,11 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
+import { createPrisma } from '@/lib/prisma';
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { env }: any) {
   try {
+    const prisma = createPrisma(env);
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.warn("GEMINI_API_KEY is not set. Skipping AI generation.");
@@ -82,8 +84,7 @@ export async function POST(req: Request) {
     const imageUrl = `data:image/jpeg;base64,${generatedImage}`;
 
     const parsedAge = parseInt(gradeLevel) || 8;
-    const { prisma } = await import('@/lib/prisma');
-
+    // DBへ保存
     // 3言語すべての翻訳を一度に保存
     const savedQuiz = await prisma.quiz.create({
       data: {

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server';
+import { createPrisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 
-async function isAdminOrParent() {
+async function isAdminOrParent(prisma: PrismaClient) {
   const { userId } = await auth();
   if (!userId) return false;
   const user = await prisma.user.findUnique({
@@ -13,12 +14,13 @@ async function isAdminOrParent() {
 }
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  req: Request,
+  { params, env }: { params: Promise<{ id: string }>; env: any }
 ) {
   try {
+    const prisma = createPrisma(env);
     const { id } = await params;
-    const isAuthorized = await isAdminOrParent();
+    const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }

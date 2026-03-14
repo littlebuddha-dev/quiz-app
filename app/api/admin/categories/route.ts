@@ -1,12 +1,11 @@
 
-import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-
-const prisma = new PrismaClient();
+import { createPrisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client/edge';
 
 // 管理者権限チェック
-async function checkAdmin() {
+async function checkAdmin(prisma: PrismaClient) {
   const { userId } = await auth();
   if (!userId) return false;
   const user = await prisma.user.findUnique({
@@ -16,15 +15,17 @@ async function checkAdmin() {
   return user?.role === 'ADMIN' || user?.role === 'PARENT';
 }
 
-export async function GET() {
+export async function GET(req: Request, { env }: any) {
+  const prisma = createPrisma(env);
   const categories = await prisma.category.findMany({
     orderBy: { minAge: 'asc' },
   });
   return NextResponse.json(categories);
 }
 
-export async function POST(request: Request) {
-  if (!(await checkAdmin())) {
+export async function POST(request: Request, { env }: any) {
+  const prisma = createPrisma(env);
+  if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -41,8 +42,9 @@ export async function POST(request: Request) {
   return NextResponse.json(category);
 }
 
-export async function PATCH(request: Request) {
-  if (!(await checkAdmin())) {
+export async function PATCH(request: Request, { env }: any) {
+  const prisma = createPrisma(env);
+  if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -59,8 +61,9 @@ export async function PATCH(request: Request) {
   return NextResponse.json(category);
 }
 
-export async function DELETE(request: Request) {
-  if (!(await checkAdmin())) {
+export async function DELETE(request: Request, { env }: any) {
+  const prisma = createPrisma(env);
+  if (!(await checkAdmin(prisma))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

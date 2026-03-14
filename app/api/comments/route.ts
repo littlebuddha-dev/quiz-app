@@ -3,11 +3,48 @@
 // Purpose: Handles posting new comments to a quiz.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
-export async function POST(req: NextRequest) {
+export async function GET(req: Request, { env }: any) {
   try {
+    const prisma = createPrisma(env);
+    const { searchParams } = new URL(req.url);
+    const quizId = searchParams.get('quizId');
+
+    if (!quizId) {
+      return NextResponse.json({ error: 'Missing quizId' }, { status: 400 });
+    }
+
+    const comments = await prisma.comment.findMany({
+      where: { quizId },
+      include: {
+        user: {
+          select: { name: true },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const formattedComments = comments.map(comment => ({
+      id: comment.id,
+      content: comment.content,
+      userName: comment.user?.name || 'ゲスト',
+      createdAt: comment.createdAt.toISOString(),
+    }));
+
+    return NextResponse.json({ comments: formattedComments });
+  } catch (error) {
+    console.error('Comment Get Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request, { env }: any) {
+  try {
+    const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();
     if (!clerkId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

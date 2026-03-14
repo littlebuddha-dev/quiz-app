@@ -3,11 +3,12 @@
 // Purpose: Toggle subscription status for a channel.
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { env }: any) {
   try {
+    const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();
     if (!clerkId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

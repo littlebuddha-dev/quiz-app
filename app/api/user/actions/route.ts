@@ -4,11 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client/edge';
 
 // APIコール時にClerkにユーザーが存在するがDBにいない場合の救済処理
 // （Webhookが遅延・失敗した時用）
-async function ensureUser(clerkId: string) {
+async function ensureUser(clerkId: string, prisma: PrismaClient) {
   let user = await prisma.user.findUnique({ where: { clerkId } });
   
   if (!user) {
@@ -35,8 +36,9 @@ async function ensureUser(clerkId: string) {
   return user;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request, { env }: any) {
   try {
+    const prisma = createPrisma(env);
     const { userId: clerkId } = await auth();
     
     if (!clerkId) {
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     // DBに同期されているか確認しつつUserを取得
-    const user = await ensureUser(clerkId);
+    const user = await ensureUser(clerkId, prisma);
 
     switch (action) {
       case 'history':

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server';
+import { createPrisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 
 // 権限チェックのヘルパー
-async function isAdminOrParent() {
+async function isAdminOrParent(prisma: PrismaClient) {
   const { userId } = await auth();
   if (!userId) return false;
 
@@ -15,9 +16,10 @@ async function isAdminOrParent() {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request, { env }: any) {
   try {
-    const isAuthorized = await isAdminOrParent();
+    const prisma = createPrisma(env);
+    const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -58,9 +60,10 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function PATCH(req: NextRequest) {
+export async function PATCH(req: Request, { env }: any) {
   try {
-    const isAuthorized = await isAdminOrParent();
+    const prisma = createPrisma(env);
+    const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -118,9 +121,10 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req: Request, { env }: any) {
   try {
-    const isAuthorized = await isAdminOrParent();
+    const prisma = createPrisma(env);
+    const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }

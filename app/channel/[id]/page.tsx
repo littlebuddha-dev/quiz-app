@@ -2,14 +2,17 @@
 // Title: Creator Channel Page
 // Purpose: Displays a creator's profile and the quizzes they have created.
 
-import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import QuizClientWrapper from '../../components/QuizClientWrapper';
 import SubscribeButton from '../../components/SubscribeButton';
 import { auth } from '@clerk/nextjs/server';
+import { createPrisma } from '@/lib/prisma';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export default async function ChannelPage({ params }: { params: { id: string } }) {
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
   const { id } = await params;
   const { userId: clerkId } = await auth();
 

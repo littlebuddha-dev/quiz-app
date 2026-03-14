@@ -2,7 +2,8 @@
 // Title: YouTube-like Main Dashboard (Server Component)
 // Purpose: Fetches quiz data from the database and passes it to the client component.
 
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz } from './types';
@@ -13,6 +14,8 @@ export default async function Home({
 }: {
   searchParams: Promise<{ q?: string; category?: string }>;
 }) {
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
   const { q: searchQuery, category: activeCategory } = await searchParams;
   const { userId: clerkId } = await auth();
 

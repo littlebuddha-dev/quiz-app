@@ -1,35 +1,19 @@
 // Path: lib/prisma.ts
 // Title: Prisma Client Utility
-// Purpose: Prevents multiple Prisma Client instances and provides D1 adapter for Cloudflare.
-import { PrismaClient } from '@prisma/client/edge';
-import { PrismaD1 } from '@prisma/adapter-d1';
+// Purpose: Provides a factory function to create a Prisma Client instance with D1 adapter.
+// In Cloudflare Workers, the D1 binding MUST be injected per-request from the env object.
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+import { PrismaClient } from "@prisma/client/edge";
+import { PrismaD1 } from "@prisma/adapter-d1";
 
-const createPrismaClient = () => {
-  try {
-    // OpenNext via Cloudflare Pages provides bindings
-    // They can be in process.env or potentially on the global/context
-    const d1 = (process.env as any).DB || (globalThis as any).DB;
-    
-    if (d1) {
-      console.log("D1 Binding 'DB' detected.");
-      const adapter = new PrismaD1(d1);
-      return new PrismaClient({ adapter });
-    }
-
-    console.warn("D1 Binding 'DB' not found. Falling back to default PrismaClient.");
-    return new PrismaClient({
-      log: ['query', 'error', 'warn'],
-    });
-  } catch (error) {
-    console.error("Failed to initialize Prisma with D1 adapter:", error);
-    return new PrismaClient({
-      log: ['query', 'error', 'warn'],
-    });
+/**
+ * Creates a Prisma Client instance using the provided Cloudflare environment.
+ * @param env The environment object containing the D1 binding (DB).
+ */
+export function createPrisma(env: any) {
+  if (!env?.DB) {
+    throw new Error("D1 binding 'DB' not found in environment.");
   }
-};
-
-export const prisma = globalForPrisma.prisma || createPrismaClient();
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+  const adapter = new PrismaD1(env.DB);
+  return new PrismaClient({ adapter });
+}

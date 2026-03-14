@@ -3,12 +3,13 @@
 // Purpose: CRUD for Google AdSense settings in the Setting model
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
 const SETTING_KEY = 'adsense_settings';
 
-export async function GET() {
+export async function GET(req: Request, { env }: any) {
+  const prisma = createPrisma(env);
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -40,7 +41,8 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { env }: any) {
+  const prisma = createPrisma(env);
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
