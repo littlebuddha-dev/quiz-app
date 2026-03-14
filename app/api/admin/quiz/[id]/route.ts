@@ -13,13 +13,8 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function GET(
-  req: Request,
-  { params, env }: { params: Promise<{ id: string }>; env: any }
-) {
-  try {
-    const prisma = createPrisma(env);
-    const { id } = await params;
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
