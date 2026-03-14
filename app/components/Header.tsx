@@ -94,13 +94,18 @@ export default function Header({
           </SignInButton>
         </SignedOut>
         <SignedIn>
-          <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}>
+          <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}>
             {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
               <UserButton.MenuItems>
                 <UserButton.Link
                   label="管理者ダッシュボード"
                   labelIcon={<div className="w-4 h-4 bg-amber-500 rounded flex items-center justify-center text-[10px] text-white font-bold">A</div>}
                   href="/admin"
+                />
+                <UserButton.Link
+                  label="Google AdSense"
+                  labelIcon={<div className="w-4 h-4 bg-zinc-700 rounded flex items-center justify-center text-[10px] text-white font-bold">$</div>}
+                  href="/admin/adsense"
                 />
               </UserButton.MenuItems>
             )}

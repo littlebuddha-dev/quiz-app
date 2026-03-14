@@ -14,7 +14,7 @@ interface LatexRendererProps {
 }
 
 export default function LatexRenderer({ text, className = "" }: LatexRendererProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -71,7 +71,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
   }, [text]);
 
   return (
-    <div 
+    <span 
       ref={containerRef} 
       className={`latex-container whitespace-pre-wrap ${className}`}
     />

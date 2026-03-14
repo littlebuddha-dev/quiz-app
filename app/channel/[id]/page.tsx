@@ -51,7 +51,8 @@ export default async function ChannelPage({ params }: { params: { id: string } }
 
   // Format quizzes for the client wrapper
   const quizzes = channel.quizzes.map((q: any) => {
-    const t = q.translations[0] || {
+    const jaT = q.translations.find((t: any) => t.locale === 'ja') || q.translations[0];
+    const t = jaT || {
       title: '名称未設定',
       question: '問題文がありません',
       hint: '',
@@ -62,17 +63,25 @@ export default async function ChannelPage({ params }: { params: { id: string } }
 
     return {
       id: q.id,
-      title: t.title,
       category: q.categoryId,
       targetAge: q.targetAge,
-      question: t.question,
-      hint: t.hint,
-      answer: t.answer,
       imageUrl: q.imageUrl,
-      type: t.type,
-      options: t.options ? (t.options as string[]) : undefined,
+      translations: {
+        ja: {
+          title: t.title,
+          question: t.question,
+          hint: t.hint,
+          answer: t.answer,
+          type: t.type as 'CHOICE' | 'TEXT',
+          options: t.options ? (t.options as string[]) : undefined,
+        },
+        // 必要に応じて他の言語も追加可能だが、現在はjaのみ
+      }
     };
   });
+
+  // Fetch categories for the wrapper
+  const categories = await prisma.category.findMany();
 
   return (
     <div className="min-h-screen bg-zinc-50 pt-16">
@@ -113,7 +122,7 @@ export default async function ChannelPage({ params }: { params: { id: string } }
       <div className="max-w-7xl mx-auto py-8">
         <h2 className="text-xl font-bold text-zinc-800 px-6 mb-6">公開中のクイズ</h2>
         {quizzes.length > 0 ? (
-          <QuizClientWrapper initialQuizzes={quizzes} hideHeader={true} />
+          <QuizClientWrapper initialQuizzes={quizzes as any} categories={categories} hideHeader={true} />
         ) : (
           <div className="text-center py-20 text-zinc-500 font-bold">
             まだクイズが投稿されていません

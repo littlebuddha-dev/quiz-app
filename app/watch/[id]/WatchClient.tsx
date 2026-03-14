@@ -10,6 +10,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { Quiz, Locale } from '../../types';
 import CorrectEffect from '../../components/CorrectEffect';
+import AdSense from '../../components/AdSense';
 
 interface WatchClientProps {
   quiz: Quiz;
@@ -172,9 +173,9 @@ export default function WatchClient({
                       </p>
                     </>
                   )}
-                  <p className="text-white text-3xl sm:text-5xl font-black italic tracking-tight">
+                  <div className="text-white text-3xl sm:text-5xl font-black italic tracking-tight">
                     <LatexRenderer text={t.answer} />
-                  </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -221,6 +222,7 @@ export default function WatchClient({
 
             {/* 問題文と回答フォーム */}
             <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] shadow-xl shadow-black/5 mb-8">
+              <AdSense slot="watch" />
               <h3 className="font-black text-lg sm:text-xl mb-6 leading-relaxed">
                 <LatexRenderer text={t.question} />
               </h3>
@@ -319,7 +321,12 @@ export default function WatchClient({
               {relatedQuizzes?.map((rel: any) => (
                 <Link href={`/watch/${rel.id}`} key={rel.id} className="flex gap-4 group cursor-pointer">
                   <div className="w-44 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)] shadow-sm">
-                    <Image src={rel.imageUrl} alt={rel.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                    <Image 
+                      src={rel.imageUrl && rel.imageUrl !== "" ? rel.imageUrl : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop'} 
+                      alt={rel.title} 
+                      fill 
+                      className="object-cover group-hover:scale-110 transition-transform duration-500" 
+                    />
                     <div className="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-white text-[9px] font-black px-1.5 py-0.5 rounded-md border border-white/10">
                       {rel.targetAge}{locale === 'ja' ? '歳' : locale === 'en' ? ' yrs' : '岁'}
                     </div>

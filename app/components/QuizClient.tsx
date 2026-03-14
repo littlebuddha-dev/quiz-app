@@ -13,6 +13,7 @@ import Header from './Header';
 import Footer from './Footer';
 import { Quiz, Locale } from '../types';
 import LatexRenderer from './LatexRenderer';
+import AdSense from './AdSense';
 
 // 定数・辞書は元のpage.tsxから移行
 const DICTIONARY: Record<Locale, { search: string; hint: string; answer: string; submit: string; age: string; close: string; typeAnswer: string; }> = {
@@ -120,6 +121,8 @@ export default function QuizClient({
         <div className="md:hidden flex overflow-x-auto pb-4 gap-2 no-scrollbar -mx-4 px-4 mb-4">
           <SidebarContents locale={locale} categories={categories} activeCategory={activeCategory} onSelectCategory={handleCategorySelect} isMobile />
         </div>
+
+        <AdSense slot="home" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
           {displayQuizzes.length > 0 ? (
