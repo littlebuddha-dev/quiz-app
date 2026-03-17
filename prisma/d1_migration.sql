@@ -20,6 +20,7 @@ CREATE TABLE "Category" (
     "name" TEXT NOT NULL,
     "minAge" INTEGER NOT NULL DEFAULT 0,
     "maxAge" INTEGER,
+    "systemPrompt" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 );

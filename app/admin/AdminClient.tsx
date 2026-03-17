@@ -14,11 +14,14 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
   const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories'>('ai');
   const [categoriesList, setCategoriesList] = useState(categories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
-  const [catFormData, setCatFormData] = useState({ name: '', minAge: 0, maxAge: '' });
+  const [catFormData, setCatFormData] = useState({ name: '', minAge: 0, maxAge: '', systemPrompt: '' });
   const [quizzes, setQuizzes] = useState(initialQuizzes);
   const [loading, setLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
-  const [aiGrade, setAiGrade] = useState('10');
+  const [aiCategoryId, setAiCategoryId] = useState(categories[0]?.id || '');
+  const [aiTargetAge, setAiTargetAge] = useState(6);
+  const [aiType, setAiType] = useState<'TEXT' | 'CHOICE'>('TEXT');
+  const [aiImageUrl, setAiImageUrl] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [showPreview, setShowPreview] = useState(true);
@@ -135,10 +138,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
     setLoading(false);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetLocale?: Locale) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, target?: Locale | 'ai') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const uploadKey = targetLocale || 'global';
+    const uploadKey = target || 'global';
     setUploading(prev => ({ ...prev, [uploadKey]: true }));
     const uploadFormData = new FormData();
     uploadFormData.append('file', file);
@@ -149,12 +152,14 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
       });
       if (res.ok) {
         const data = (await res.json()) as any;
-        if (targetLocale) {
+        if (target === 'ai') {
+          setAiImageUrl(data.imageUrl);
+        } else if (target) {
           setFormData(prev => ({
             ...prev,
             translations: {
               ...prev.translations,
-              [targetLocale]: { ...prev.translations[targetLocale], imageUrl: data.imageUrl }
+              [target as Locale]: { ...prev.translations[target as Locale], imageUrl: data.imageUrl }
             }
           }));
         } else {
@@ -225,7 +230,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: aiTopic,
-          gradeLevel: aiGrade,
+          categoryId: aiCategoryId || categoriesList[0]?.id,
+          targetAge: aiTargetAge,
+          quizType: aiType,
+          imageUrl: aiImageUrl,
           systemPrompt,
           correctionPrompt
         })
@@ -259,30 +267,45 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
         const updated = await res.json();
         if (editingCatId) {
           setCategoriesList(categoriesList.map((c: any) => c.id === editingCatId ? updated : c));
+          alert('ジャンルを更新しました');
         } else {
           setCategoriesList([...categoriesList, updated]);
+          alert('ジャンルを追加しました');
         }
-        setCatFormData({ name: '', minAge: 0, maxAge: '' });
+        setCatFormData({ name: '', minAge: 0, maxAge: '', systemPrompt: '' });
         setEditingCatId(null);
         router.refresh();
+      } else {
+        const err = (await res.json()) as any;
+        alert(`失敗しました: ${err.message || 'エラーが発生しました'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('通信エラーが発生しました');
     }
     setLoading(false);
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm('このジャンルを削除しますか？関連するクイズに影響が出る可能性があります。')) return;
+    if (id === 'その他') {
+      alert('「その他」ジャンルは削除できません');
+      return;
+    }
+    if (!confirm('このジャンルを削除しますか？紐づいているクイズは「その他」ジャンルに自動的に移行されます。')) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/categories?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         setCategoriesList(categoriesList.filter((c: any) => c.id !== id));
+        alert('ジャンルを削除しました（クイズは「その他」に移動されました）');
         router.refresh();
+      } else {
+        const err = (await res.json()) as any;
+        alert(`削除に失敗しました: ${err.message || 'エラーが発生しました'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert('通信エラーが発生しました');
     }
     setLoading(false);
   };
@@ -292,7 +315,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
   return (
     <div className="pt-20 text-[var(--foreground)] min-h-screen">
       <Header locale={locale} setLocale={setLocale} userStatus={userStatus} hideSearch={true} />
-      
+
       <div className="max-w-7xl mx-auto px-4 mb-8">
         <h1 className="text-3xl font-black">管理者ダッシュボード</h1>
       </div>
@@ -347,15 +370,65 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6">AIクイズ生成</h2>
               <form onSubmit={handleAiGenerate} className="space-y-6">
-                <div className="flex gap-4">
-                  <input type="text" placeholder="トピック" value={aiTopic} onChange={e => setAiTopic(e.target.value)} className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-2xl p-4 font-bold" />
-                  <select value={aiGrade} onChange={e => setAiGrade(e.target.value)} className="bg-[var(--background)] border border-[var(--border)] rounded-2xl p-4 font-bold">
-                    <option value="6">小学生</option>
-                    <option value="9">中学生</option>
-                    <option value="12">高校生</option>
-                    <option value="15">大学・一般</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル</label>
+                    <select value={aiCategoryId} onChange={e => setAiCategoryId(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                      {categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">適正年齢</label>
+                    <input type="number" value={aiTargetAge} placeholder="適正年齢" onChange={e => setAiTargetAge(Number(e.target.value))} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">クイズ形式</label>
+                    <select value={aiType} onChange={e => setAiType(e.target.value as 'TEXT' | 'CHOICE')} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                      <option value="TEXT">記述式</option>
+                      <option value="CHOICE">選択式</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">トピック・テーマ</label>
+                    <input type="text" placeholder="例: 宇宙の不思議" value={aiTopic} onChange={e => setAiTopic(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
+                  </div>
+                </div>
+
+                <div className="bg-[var(--background)] p-6 rounded-2xl border-2 border-dashed border-[var(--border)] mb-6">
+                  <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">共通サムネイル画像 (任意)</p>
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <div className="relative w-32 aspect-video bg-zinc-100 dark:bg-zinc-800 rounded-lg overflow-hidden border border-[var(--border)] flex-shrink-0">
+                      {aiImageUrl ? (
+                        <img src={aiImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-zinc-400"><span>No Image</span><span className="text-[8px] text-center mt-1">(空欄の場合はAIが自動生成)</span></div>
+                      )}
+                    </div>
+                    <div className="flex-1 w-full space-y-3">
+                      <input type="text" placeholder="画像URL (空欄なら自動生成)" value={aiImageUrl} onChange={e => setAiImageUrl(e.target.value)} className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900" />
+                      <div className="relative">
+                        <input type="file" accept="image/*" onChange={(e) => handleUpload(e, 'ai')} className="hidden" id="ai-image-upload" />
+                        <label htmlFor="ai-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.ai ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
+                          {uploading.ai ? 'アップロード中...' : 'ファイルを選択...'}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <details className="mt-4 mb-6">
+                  <summary className="cursor-pointer text-sm font-bold text-zinc-500 hover:text-zinc-700">システムプロンプト (高度な設定)</summary>
+                  <div className="mt-4 space-y-4 p-4 border rounded-xl bg-[var(--background)]">
+                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest">要件定義</label>
+                    <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} className="w-full border p-4 rounded-xl font-bold min-h-[100px] text-xs" />
+                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest">追加指示</label>
+                    <textarea value={correctionPrompt} onChange={e => setCorrectionPrompt(e.target.value)} className="w-full border p-4 rounded-xl font-bold min-h-[60px] text-xs" />
+                  </div>
+                </details>
+
                 <button disabled={loading} className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
                   {loading ? '生成中...' : 'AIで高度なクイズを生成する 🚀'}
                 </button>
@@ -364,35 +437,48 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
           )}
 
           {mainTab === 'categories' && (
-             <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
+            <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6">ジャンル管理</h2>
-              <form onSubmit={handleSaveCategory} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-[var(--background)] p-6 rounded-2xl items-end">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル名</label>
-                  <input type="text" required placeholder="ジャンル名" value={catFormData.name} onChange={e => setCatFormData({...catFormData, name: e.target.value})} className="w-full border p-3 rounded-xl font-bold" />
+              <form onSubmit={handleSaveCategory} className="space-y-4 mb-8 bg-[var(--background)] p-6 rounded-2xl">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル名</label>
+                    <input type="text" required placeholder="ジャンル名" value={catFormData.name} onChange={e => setCatFormData({ ...catFormData, name: e.target.value })} className="w-full border p-3 rounded-xl font-bold bg-white dark:bg-zinc-900" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">最小年齢</label>
+                    <input type="number" placeholder="最小年齢" value={catFormData.minAge} onChange={e => setCatFormData({ ...catFormData, minAge: parseInt(e.target.value) })} className="w-full border p-3 rounded-xl font-bold bg-white dark:bg-zinc-900" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">最大年齢</label>
+                    <input type="number" placeholder="最大年齢 (任意)" value={catFormData.maxAge} onChange={e => setCatFormData({ ...catFormData, maxAge: e.target.value })} className="w-full border p-3 rounded-xl font-bold bg-white dark:bg-zinc-900" />
+                  </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">最小年齢</label>
-                  <input type="number" placeholder="最小年齢" value={catFormData.minAge} onChange={e => setCatFormData({...catFormData, minAge: parseInt(e.target.value)})} className="w-full border p-3 rounded-xl font-bold" />
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">個別システムプロンプト (高度な設定)</label>
+                  <textarea placeholder="このジャンルに特化したAIへの指示を入力してください..." value={catFormData.systemPrompt || ''} onChange={e => setCatFormData({ ...catFormData, systemPrompt: e.target.value })} className="w-full border p-4 rounded-xl font-bold min-h-[100px] text-xs bg-white dark:bg-zinc-900" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">最大年齢</label>
-                  <input type="number" placeholder="最大年齢 (任意)" value={catFormData.maxAge} onChange={e => setCatFormData({...catFormData, maxAge: e.target.value})} className="w-full border p-3 rounded-xl font-bold" />
-                </div>
-                <button type="submit" className="bg-amber-500 text-white rounded-xl py-3 font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
-                  {editingCatId ? '更新' : '追加'}
+                <button type="submit" className="w-full bg-amber-500 text-white rounded-xl py-3 font-black shadow-lg shadow-amber-500/20 hover:scale-[1.01] active:scale-95 transition-all">
+                  {editingCatId ? 'ジャンルを更新' : '新しいジャンルを追加'}
                 </button>
               </form>
               <table className="w-full">
-                <thead><tr className="text-left border-b font-black"><th>ジャンル</th><th>対象年齢</th><th>操作</th></tr></thead>
+                <thead><tr className="text-left border-b font-black text-xs text-zinc-400 uppercase tracking-wider"><th className="pb-4">ジャンル</th><th className="pb-4">対象年齢</th><th className="pb-4">プロンプト</th><th className="pb-4">操作</th></tr></thead>
                 <tbody>
                   {categoriesList.map((c: any) => (
-                    <tr key={c.id} className="border-b">
+                    <tr key={c.id} className="border-b border-zinc-100 dark:border-zinc-800">
                       <td className="py-4 font-bold">{c.name || <span className="text-zinc-300 italic">(名称未設定)</span>}</td>
-                      <td>{c.minAge}歳 〜 {c.maxAge ? `${c.maxAge}歳` : 'なし'}</td>
+                      <td className="text-sm font-bold">{c.minAge}歳 〜 {c.maxAge ? `${c.maxAge}歳` : 'なし'}</td>
+                      <td>
+                        {c.systemPrompt ? (
+                          <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-black">設定済み</span>
+                        ) : (
+                          <span className="text-[10px] bg-zinc-100 text-zinc-400 px-2 py-0.5 rounded-full font-black">未設定</span>
+                        )}
+                      </td>
                       <td className="space-x-2">
-                        <button onClick={() => { setEditingCatId(c.id); setCatFormData({name: c.name, minAge: c.minAge, maxAge: c.maxAge || ''}); }}>✏️</button>
-                        <button onClick={() => handleDeleteCategory(c.id)}>🗑️</button>
+                        <button onClick={() => { setEditingCatId(c.id); setCatFormData({ name: c.name, minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '' }); }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">✏️</button>
+                        <button onClick={() => handleDeleteCategory(c.id)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors">🗑️</button>
                       </td>
                     </tr>
                   ))}
@@ -405,18 +491,18 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6">手動作成・編集</h2>
               <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル</label>
-                      <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
-                        {categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">適正年齢</label>
-                      <input type="number" value={formData.targetAge} placeholder="適正年齢" onChange={e => setFormData({...formData, targetAge: Number(e.target.value)})} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
-                    </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル</label>
+                    <select value={formData.categoryId} onChange={e => setFormData({ ...formData, categoryId: e.target.value })} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                      {categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">適正年齢</label>
+                    <input type="number" value={formData.targetAge} placeholder="適正年齢" onChange={e => setFormData({ ...formData, targetAge: Number(e.target.value) })} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
+                  </div>
+                </div>
                 <div className="bg-[var(--background)] p-6 rounded-2xl border-2 border-dashed border-[var(--border)] mb-6">
                   <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">共通サムネイル画像</p>
                   <div className="flex flex-col sm:flex-row gap-4 items-start">
@@ -428,7 +514,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                       )}
                     </div>
                     <div className="flex-1 w-full space-y-3">
-                      <input type="text" placeholder="画像URL (任意)" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900" />
+                      <input type="text" placeholder="画像URL (任意)" value={formData.imageUrl} onChange={e => setFormData({ ...formData, imageUrl: e.target.value })} className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900" />
                       <div className="relative">
                         <input type="file" accept="image/*" onChange={(e) => handleUpload(e)} className="hidden" id="global-image-upload" />
                         <label htmlFor="global-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.global ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
@@ -449,11 +535,11 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">タイトル</label>
-                      <input type="text" placeholder="例: 三平方の定理の基本" value={currentTranslation.title} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, title: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold" />
+                      <input type="text" placeholder="例: 三平方の定理の基本" value={currentTranslation.title} onChange={e => setFormData({ ...formData, translations: { ...formData.translations, [activeTab]: { ...currentTranslation, title: e.target.value } } })} className="w-full border p-4 rounded-2xl font-bold" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">クイズ形式</label>
-                      <select value={currentTranslation.type} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, type: e.target.value as 'TEXT' | 'CHOICE'}}})} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                      <select value={currentTranslation.type} onChange={e => setFormData({ ...formData, translations: { ...formData.translations, [activeTab]: { ...currentTranslation, type: e.target.value as 'TEXT' | 'CHOICE' } } })} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
                         <option value="TEXT">記述式</option>
                         <option value="CHOICE">選択式</option>
                       </select>
@@ -462,24 +548,24 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
 
                   <div className="space-y-2">
                     <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">問題文 (LaTeX可)</label>
-                    <textarea placeholder="問題文を入力..." value={currentTranslation.question} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, question: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold min-h-[120px]" />
+                    <textarea placeholder="問題文を入力..." value={currentTranslation.question} onChange={e => setFormData({ ...formData, translations: { ...formData.translations, [activeTab]: { ...currentTranslation, question: e.target.value } } })} className="w-full border p-4 rounded-2xl font-bold min-h-[120px]" />
                   </div>
 
                   {currentTranslation.type === 'CHOICE' && (
                     <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
                       <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">選択肢 (カンマ区切り)</label>
-                      <input type="text" placeholder="例: 選択肢1, 選択肢2, 選択肢3" value={currentTranslation.options} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, options: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold bg-amber-50/30 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 shadow-inner" />
+                      <input type="text" placeholder="例: 選択肢1, 選択肢2, 選択肢3" value={currentTranslation.options} onChange={e => setFormData({ ...formData, translations: { ...formData.translations, [activeTab]: { ...currentTranslation, options: e.target.value } } })} className="w-full border p-4 rounded-2xl font-bold bg-amber-50/30 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 shadow-inner" />
                     </div>
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">正解</label>
-                      <input type="text" placeholder="例: 答えを入力" value={currentTranslation.answer} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, answer: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold" />
+                      <input type="text" placeholder="例: 答えを入力" value={currentTranslation.answer} onChange={e => setFormData({ ...formData, translations: { ...formData.translations, [activeTab]: { ...currentTranslation, answer: e.target.value } } })} className="w-full border p-4 rounded-2xl font-bold" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ヒント</label>
-                      <input type="text" placeholder="例: ヒントを入力" value={currentTranslation.hint} onChange={e => setFormData({...formData, translations: {...formData.translations, [activeTab]: {...currentTranslation, hint: e.target.value}}})} className="w-full border p-4 rounded-2xl font-bold" />
+                      <input type="text" placeholder="例: ヒントを入力" value={currentTranslation.hint} onChange={e => setFormData({ ...formData, translations: { ...formData.translations, [activeTab]: { ...currentTranslation, hint: e.target.value } } })} className="w-full border p-4 rounded-2xl font-bold" />
                     </div>
                   </div>
                 </div>
