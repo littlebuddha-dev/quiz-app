@@ -6,12 +6,13 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { Locale } from '../types';
 import LatexRenderer from '../components/LatexRenderer';
+import { AI_MODELS, DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 
 export default function AdminClient({ initialQuizzes, categories, userStatus }: any) {
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>('ja');
   const [activeTab, setActiveTab] = useState<Locale>('ja');
-  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories'>('ai');
+  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools'>('ai');
   const [categoriesList, setCategoriesList] = useState(categories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [catFormData, setCatFormData] = useState({ name: '', minAge: 0, maxAge: '', systemPrompt: '' });
@@ -22,6 +23,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
   const [aiTargetAge, setAiTargetAge] = useState(6);
   const [aiType, setAiType] = useState<'TEXT' | 'CHOICE'>('TEXT');
   const [aiImageUrl, setAiImageUrl] = useState('');
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
+  const [usageData, setUsageData] = useState<any>(null);
+  const [newBudget, setNewBudget] = useState<number>(10);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [showPreview, setShowPreview] = useState(true);
@@ -235,7 +239,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
           quizType: aiType,
           imageUrl: aiImageUrl,
           systemPrompt,
-          correctionPrompt
+          correctionPrompt,
+          modelId: getModelById(selectedModel).generatorId
         })
       });
       if (res.ok) {
@@ -310,6 +315,79 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
     setLoading(false);
   };
 
+  const [bulkQuantity, setBulkQuantity] = useState(3);
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const handleBulkGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/admin/auto-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryId: aiCategoryId || categoriesList[0]?.id,
+          targetAge: aiTargetAge,
+          quantity: bulkQuantity,
+          quizType: aiType,
+          modelId: selectedModel
+        })
+      });
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        alert(`${data.count}個のクイズを自動生成しました！`);
+        router.refresh();
+      } else {
+        const err = (await res.json()) as any;
+        alert(err.message || '自動生成に失敗しました');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('エラーが発生しました');
+    }
+    setBulkLoading(false);
+  };
+
+  const fetchUsage = async () => {
+    try {
+      const res = await fetch('/api/admin/usage');
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        setUsageData(data);
+        setNewBudget(data.budget.limit);
+      }
+    } catch (err) {
+      console.error('Failed to fetch usage:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (mainTab === 'usage') {
+      fetchUsage();
+    }
+  }, [mainTab]);
+
+  const handleSaveBudget = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'API_MONTHLY_BUDGET', value: newBudget })
+      });
+      if (res.ok) {
+        alert('予算制限を更新しました');
+        fetchUsage();
+      } else {
+        alert('更新に失敗しました');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
   const currentTranslation = formData.translations[activeTab];
 
   return (
@@ -364,77 +442,139 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             <button onClick={() => setMainTab('ai')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'ai' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🌟 AI生成</button>
             <button onClick={() => setMainTab('manual')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'manual' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>✍️ 手動作成</button>
             <button onClick={() => setMainTab('categories')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'categories' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📁 ジャンル管理</button>
+            <button onClick={() => setMainTab('usage')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'usage' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💳 資金管理</button>
+            <button onClick={() => setMainTab('tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🔗 外部ツール</button>
           </div>
 
           {mainTab === 'ai' && (
-            <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
-              <h2 className="text-xl font-black mb-6">AIクイズ生成</h2>
-              <form onSubmit={handleAiGenerate} className="space-y-6">
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル</label>
-                    <select value={aiCategoryId} onChange={e => setAiCategoryId(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
-                      {categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">適正年齢</label>
-                    <input type="number" value={aiTargetAge} placeholder="適正年齢" onChange={e => setAiTargetAge(Number(e.target.value))} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">クイズ形式</label>
-                    <select value={aiType} onChange={e => setAiType(e.target.value as 'TEXT' | 'CHOICE')} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
-                      <option value="TEXT">記述式</option>
-                      <option value="CHOICE">選択式</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">トピック・テーマ</label>
-                    <input type="text" placeholder="例: 宇宙の不思議" value={aiTopic} onChange={e => setAiTopic(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
-                  </div>
-                </div>
-
-                <div className="bg-[var(--background)] p-6 rounded-2xl border-2 border-dashed border-[var(--border)] mb-6">
-                  <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">共通サムネイル画像 (任意)</p>
-                  <div className="flex flex-col sm:flex-row gap-4 items-start">
-                    <div className="relative w-32 aspect-video bg-zinc-100 dark:bg-zinc-800 rounded-lg overflow-hidden border border-[var(--border)] flex-shrink-0">
-                      {aiImageUrl ? (
-                        <img src={aiImageUrl} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-zinc-400"><span>No Image</span><span className="text-[8px] text-center mt-1">(空欄の場合はAIが自動生成)</span></div>
-                      )}
+            <div className="space-y-8">
+              <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
+                <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+                  <span className="bg-amber-100 text-amber-600 p-2 rounded-xl text-lg">✨</span>
+                  個別AIクイズ生成
+                </h2>
+                <form onSubmit={handleAiGenerate} className="space-y-6">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">生成エンジン</label>
+                      <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30 text-xs text-amber-700 dark:text-amber-500">
+                        {AI_MODELS.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
                     </div>
-                    <div className="flex-1 w-full space-y-3">
-                      <input type="text" placeholder="画像URL (空欄なら自動生成)" value={aiImageUrl} onChange={e => setAiImageUrl(e.target.value)} className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900" />
-                      <div className="relative">
-                        <input type="file" accept="image/*" onChange={(e) => handleUpload(e, 'ai')} className="hidden" id="ai-image-upload" />
-                        <label htmlFor="ai-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.ai ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
-                          {uploading.ai ? 'アップロード中...' : 'ファイルを選択...'}
-                        </label>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">ジャンル</label>
+                      <select value={aiCategoryId} onChange={e => setAiCategoryId(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                        {categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">適正年齢</label>
+                      <input type="number" value={aiTargetAge} placeholder="適正年齢" onChange={e => setAiTargetAge(Number(e.target.value))} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">クイズ形式</label>
+                      <select value={aiType} onChange={e => setAiType(e.target.value as 'TEXT' | 'CHOICE')} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]">
+                        <option value="TEXT">記述式</option>
+                        <option value="CHOICE">選択式</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">トピック・テーマ</label>
+                      <input type="text" placeholder="例: 宇宙の不思議" value={aiTopic} onChange={e => setAiTopic(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
+                    </div>
+                  </div>
+
+                  <div className="bg-[var(--background)] p-6 rounded-2xl border-2 border-dashed border-[var(--border)] mb-6">
+                    <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">共通サムネイル画像 (任意)</p>
+                    <div className="flex flex-col sm:flex-row gap-4 items-start">
+                      <div className="relative w-32 aspect-video bg-zinc-100 dark:bg-zinc-800 rounded-lg overflow-hidden border border-[var(--border)] flex-shrink-0">
+                        {aiImageUrl ? (
+                          <img src={aiImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-zinc-400"><span>No Image</span><span className="text-[8px] text-center mt-1">(空欄の場合はAIが自動生成)</span></div>
+                        )}
+                      </div>
+                      <div className="flex-1 w-full space-y-3">
+                        <input type="text" placeholder="画像URL (空欄なら自動生成)" value={aiImageUrl} onChange={e => setAiImageUrl(e.target.value)} className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900" />
+                        <div className="relative">
+                          <input type="file" accept="image/*" onChange={(e) => handleUpload(e, 'ai')} className="hidden" id="ai-image-upload" />
+                          <label htmlFor="ai-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.ai ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
+                            {uploading.ai ? 'アップロード中...' : 'ファイルを選択...'}
+                          </label>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <details className="mt-4 mb-6">
-                  <summary className="cursor-pointer text-sm font-bold text-zinc-500 hover:text-zinc-700">システムプロンプト (高度な設定)</summary>
-                  <div className="mt-4 space-y-4 p-4 border rounded-xl bg-[var(--background)]">
-                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest">要件定義</label>
-                    <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} className="w-full border p-4 rounded-xl font-bold min-h-[100px] text-xs" />
-                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest">追加指示</label>
-                    <textarea value={correctionPrompt} onChange={e => setCorrectionPrompt(e.target.value)} className="w-full border p-4 rounded-xl font-bold min-h-[60px] text-xs" />
+                  <details className="mt-4 mb-6">
+                    <summary className="cursor-pointer text-sm font-bold text-zinc-500 hover:text-zinc-700">システムプロンプト (高度な設定)</summary>
+                    <div className="mt-4 space-y-4 p-4 border rounded-xl bg-[var(--background)]">
+                      <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest">要件定義</label>
+                      <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} className="w-full border p-4 rounded-xl font-bold min-h-[100px] text-xs" />
+                      <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest">追加指示</label>
+                      <textarea value={correctionPrompt} onChange={e => setCorrectionPrompt(e.target.value)} className="w-full border p-4 rounded-xl font-bold min-h-[60px] text-xs" />
+                    </div>
+                  </details>
+
+                  <button disabled={loading} className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
+                    {loading ? '生成中...' : 'AIでクイズを生成する 🚀'}
+                  </button>
+                </form>
+              </div>
+
+              {/* 🚀 フルオート自動生成セクション */}
+              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-8 rounded-3xl shadow-xl text-white">
+                <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+                  <span className="bg-white/20 p-2 rounded-xl text-lg">🤖</span>
+                  全自動バルク生成
+                  <span className="ml-auto text-[10px] bg-white/20 px-2 py-1 rounded-full uppercase tracking-widest font-bold">New</span>
+                </h2>
+                <p className="text-xs font-bold text-indigo-100 mb-6">
+                  AIが既存のクイズを分析し、新しいトピックを自動で提案して複数のクイズを一括生成します。
+                </p>
+                <form onSubmit={handleBulkGenerate} className="space-y-6">
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1 pr-1">ハイブリッド生成モード</label>
+                      <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-[11px] outline-none focus:bg-white/20 transition-all">
+                        {AI_MODELS.map((m: any) => <option key={m.id} value={m.id} className="text-zinc-800">{m.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">ジャンル</label>
+                      <select value={aiCategoryId} onChange={e => setAiCategoryId(e.target.value)} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all">
+                        {categoriesList.map((c: any) => <option key={c.id} value={c.id} className="text-zinc-800">{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">対象年齢</label>
+                      <input type="number" value={aiTargetAge} onChange={e => setAiTargetAge(Number(e.target.value))} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">生成数</label>
+                      <select value={bulkQuantity} onChange={e => setBulkQuantity(Number(e.target.value))} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all">
+                        {[1, 3, 5, 10].map(n => <option key={n} value={n} className="text-zinc-800">{n}個</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">形式</label>
+                      <select value={aiType} onChange={e => setAiType(e.target.value as 'TEXT' | 'CHOICE')} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all">
+                        <option value="TEXT" className="text-zinc-800">記述式</option>
+                        <option value="CHOICE" className="text-zinc-800">選択式</option>
+                      </select>
+                    </div>
                   </div>
-                </details>
-
-                <button disabled={loading} className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
-                  {loading ? '生成中...' : 'AIで高度なクイズを生成する 🚀'}
-                </button>
-              </form>
+                  <button disabled={bulkLoading || loading} className="w-full bg-white text-indigo-600 py-4 rounded-2xl font-black shadow-xl hover:bg-orange-50 active:scale-95 transition-all text-sm">
+                    {bulkLoading ? '🤖 自動トピック考案 & 生成中...' : 'バルク生成を開始する ⚡️'}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
+
 
           {mainTab === 'categories' && (
             <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
@@ -608,6 +748,199 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+          {mainTab === 'usage' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <div className="bg-gradient-to-br from-zinc-900 to-black p-8 rounded-3xl shadow-2xl text-white border border-white/10">
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <h2 className="text-2xl font-black mb-2 flex items-center gap-3">
+                      <span className="bg-white/10 p-2 rounded-xl text-xl">💳</span>
+                      API 資金・利用上限管理
+                    </h2>
+                    <p className="text-zinc-400 text-sm font-bold">今月の利用状況とコストの見積もりを表示します。</p>
+                  </div>
+                  <div className="bg-white/5 px-4 py-2 rounded-2xl border border-white/10 text-right">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">リセット日</p>
+                    <p className="text-sm font-black">毎月1日</p>
+                  </div>
+                </div>
+
+                {usageData && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">現在の利用額 (推定)</p>
+                      <p className="text-3xl font-black text-amber-500">${usageData.budget.currentUsage.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">月間予算制限</p>
+                      <p className="text-3xl font-black text-white">${usageData.budget.limit.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">予算消化率</p>
+                      <div className="flex items-end gap-2">
+                        <p className="text-3xl font-black text-white">{Math.min(100, Math.round((usageData.budget.currentUsage / usageData.budget.limit) * 100))}%</p>
+                        <p className="text-zinc-500 text-xs mb-1.5 font-bold">/ 100%</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {usageData && (
+                  <div className="mb-10">
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">予算使用状況プログレス</p>
+                      <p className="text-xs font-bold text-zinc-500">${usageData.budget.currentUsage.toFixed(2)} / ${usageData.budget.limit.toFixed(2)}</p>
+                    </div>
+                    <div className="h-4 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-1000 ${usageData.budget.currentUsage > usageData.budget.limit ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
+                        style={{ width: `${Math.min(100, (usageData.budget.currentUsage / usageData.budget.limit) * 100)}%` }}
+                      ></div>
+                    </div>
+                    {usageData.budget.currentUsage >= usageData.budget.limit && (
+                      <p className="mt-3 text-red-400 text-[10px] font-black uppercase tracking-tighter flex items-center gap-1">
+                        ⚠️ 予算制限に達しました。新しいクイズ生成は一時停止されています。
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="bg-zinc-800/50 p-6 rounded-2xl border border-white/5">
+                  <h3 className="text-sm font-black mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                    予算設定の変更
+                  </h3>
+                  <div className="flex gap-4">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-black">$</span>
+                      <input 
+                        type="number" 
+                        value={newBudget} 
+                        onChange={e => setNewBudget(parseFloat(e.target.value))}
+                        className="w-full bg-black border border-white/10 rounded-xl py-3 pl-8 pr-4 font-black outline-none focus:border-amber-500 transition-all"
+                        placeholder="10.00"
+                      />
+                    </div>
+                    <button 
+                      onClick={handleSaveBudget}
+                      disabled={loading}
+                      className="px-8 bg-amber-500 text-black font-black rounded-xl hover:bg-amber-400 active:scale-95 transition-all text-sm"
+                    >
+                      {loading ? '更新中...' : '予算を更新'}
+                    </button>
+                  </div>
+                  <p className="mt-3 text-[10px] text-zinc-500 font-bold italic">※ 予算を超過すると、APIを利用した自動生成機能が一時的に無効化されます。</p>
+                </div>
+              </div>
+
+              <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl">
+                <h2 className="text-lg font-black mb-6 flex items-center gap-2">
+                  <span className="bg-zinc-100 p-2 rounded-xl text-zinc-600">📊</span>
+                  モデル別利用内訳 (今月)
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left border-b border-[var(--border)] font-black text-[10px] text-zinc-400 uppercase tracking-widest">
+                        <th className="pb-4">モデル名</th>
+                        <th className="pb-4">リクエスト数</th>
+                        <th className="pb-4">消費トークン</th>
+                        <th className="pb-4 text-right">推定コスト (USD)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageData?.usageByModel?.map((m: any) => (
+                        <tr key={m.modelId} className="border-b border-[var(--border)] last:border-0">
+                          <td className="py-4">
+                            <span className="font-black text-xs px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg">{m.modelId}</span>
+                          </td>
+                          <td className="py-4 text-sm font-bold">{m.requests}回</td>
+                          <td className="py-4 text-sm font-bold text-zinc-500">{(m.tokens / 1000).toFixed(1)}k tokens</td>
+                          <td className="py-4 text-sm font-black text-right text-amber-600">${m.cost.toFixed(4)}</td>
+                        </tr>
+                      ))}
+                      {(!usageData?.usageByModel || usageData.usageByModel.length === 0) && (
+                        <tr>
+                          <td colSpan={4} className="py-10 text-center text-zinc-400 font-bold italic">データがありません</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+          {mainTab === 'tools' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <a href="http://localhost:5555" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-emerald-100 text-emerald-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">💎</span>
+                    <div>
+                      <h3 className="text-lg font-black">Prisma Studio</h3>
+                      <p className="text-xs font-bold text-zinc-500">Database Management GUI</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
+                    データベース（SQLite）の中身を直接ブラウザで確認・編集できます。
+                    <br />
+                    <span className="text-[10px] text-zinc-400 italic">※ ローカルで `npx prisma studio` が実行中である必要があります</span>
+                  </p>
+                  <div className="flex items-center text-xs font-black text-emerald-600 gap-1">
+                    リンクを開く <span className="text-lg">→</span>
+                  </div>
+                </a>
+
+                <a href="https://dashboard.clerk.com" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-indigo-100 text-indigo-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">🔑</span>
+                    <div>
+                      <h3 className="text-lg font-black">Clerk Dashboard</h3>
+                      <p className="text-xs font-bold text-zinc-500">User Authentication & Roles</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
+                    ユーザーの管理、認証設定、権限（ADMIN/CHILD）の変更などを行います。
+                  </p>
+                  <div className="flex items-center text-xs font-black text-indigo-600 gap-1">
+                    ダッシュボードへ <span className="text-lg">→</span>
+                  </div>
+                </a>
+
+                <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-amber-100 text-amber-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">✨</span>
+                    <div>
+                      <h3 className="text-lg font-black">Google AI Studio</h3>
+                      <p className="text-xs font-bold text-zinc-500">Gemini API & Prompts</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
+                    Gemini APIキーの発行、プロンプトのテスト、クォータの確認ができます。
+                  </p>
+                  <div className="flex items-center text-xs font-black text-amber-600 gap-1">
+                    API管理を開く <span className="text-lg">→</span>
+                  </div>
+                </a>
+
+                <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-orange-100 text-orange-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">☁️</span>
+                    <div>
+                      <h3 className="text-lg font-black">Cloudflare Dashboard</h3>
+                      <p className="text-xs font-bold text-zinc-500">Deployments & D1 Database</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
+                    デプロイのステータス確認、D1データベース（本番環境）の操作などを行います。
+                  </p>
+                  <div className="flex items-center text-xs font-black text-orange-600 gap-1">
+                    コンソールへ <span className="text-lg">→</span>
+                  </div>
+                </a>
               </div>
             </div>
           )}

@@ -7,11 +7,24 @@ import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getPersonaByAge, BASE_SYSTEM_INSTRUCTION } from '@/lib/ai-prompts';
+import { DEFAULT_MODEL_ID } from '@/lib/ai-models';
+import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 
-export async function POST(req: NextRequest, { params }: { params: Promise<any> }) {
+export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+
+    // Budget Check
+    const budget = await checkApiBudget(prisma);
+    if (budget.exceeded) {
+      return NextResponse.json({ 
+        error: 'BUDGET_EXCEEDED', 
+        message: `月間のAPI制約額 ($${budget.limit}) に達しました。管理者にお問い合わせください。` 
+      }, { status: 403 });
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.warn("GEMINI_API_KEY is not set. Skipping AI generation.");
@@ -20,9 +33,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
     const ai = new GoogleGenAI({ apiKey });
 
     const body = (await req.json()) as any;
-    const { topic, categoryId, targetAge, quizType, imageUrl: providedImageUrl, systemPrompt, correctionPrompt } = body;
+    const { topic, categoryId, targetAge, quizType, imageUrl: providedImageUrl, systemPrompt, correctionPrompt, excludeTitles, modelId } = body;
 
+    const selectedModel = modelId || DEFAULT_MODEL_ID;
     const parsedAge = parseInt(targetAge) || 8;
+    const persona = getPersonaByAge(parsedAge);
 
     // カテゴリ固有のシステムプロンプトを取得
     let categorySystemPrompt = '';
@@ -36,58 +51,55 @@ export async function POST(req: NextRequest, { params }: { params: Promise<any> 
       }
     }
 
-    const DEFAULT_SYSTEM_INSTRUCTION = `
-あなたは「学ぶことの楽しさを伝える」教育コンテンツクリエイターです。
-小学生から大学受験レベルまで、幅広い層に向けた高品質な学習クイズを作成します。
-ユーザーの指定する「トピック」と「適正年齢」に基づき、「問題文」「ヒント」「答え」を作成してください。
-
-## 数式の扱い
-* **重要**: 数学や物理などの数式が含まれる場合は、必ず LaTeX 形式（インラインは $...$, ブロックは $$...$$）を使用してください。
-* 例: 二次方程式の解は $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$ です。
-
-## レベル別ガイドライン
-* **小学生（1-6歳〜12歳）**: 直感的でわかりやすい言葉を使い、知的好奇心を刺激します。
-* **中学生（13-15歳）**: 高校入試を視野に入れた、基礎から応用までの論理的思考を問います。
-* **高校生（16-18歳）**: 大学入試レベルの高度な定義・定理解説を含め、深い理解を促します。
-* **大学生・一般（19歳以上）**: 専門的な内容（微分積分、線形代数、高度な歴史背景など）を正確に扱います。
-
-## 制約事項
-* 出力は必ず「日本語(ja)」「英語(en)」「中国語(zh)」の3言語すべて含めてください。
-* 画像生成用にも使われるため、問題文は要点を絞って端潔に記述してください。
-${quizType === 'CHOICE' ? '* **重要**: 選択式クイズです。各言語のJSONに `"options": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"]` として、可能な選択肢を配列で含めてください。必ず正解(answer)を含むようにしてください。' : ''}
-
-## 出力フォーマット
-{
-  "ja": { "title": "...", "question": "...", "hint": "...", "answer": "..."${quizType === 'CHOICE' ? ', "options": ["...", "...", "...", "..."]' : ''} },
-  "en": { "title": "...", "question": "...", "hint": "...", "answer": "..."${quizType === 'CHOICE' ? ', "options": ["...", "...", "...", "..."]' : ''} },
-  "zh": { "title": "...", "question": "...", "hint": "...", "answer": "..."${quizType === 'CHOICE' ? ', "options": ["...", "...", "...", "..."]' : ''} }
-}
+    const agePersonaInstruction = `
+## 対象年齢 (${parsedAge}歳) 向け特別指示 [${persona.description}]:
+${persona.guidelines.map(g => `* ${g}`).join('\n')}
 `;
 
-    const baseSystemPrompt = systemPrompt || DEFAULT_SYSTEM_INSTRUCTION;
-    const finalSystemInstruction = baseSystemPrompt + categorySystemPrompt;
+    const finalSystemInstruction = BASE_SYSTEM_INSTRUCTION + agePersonaInstruction + categorySystemPrompt + (systemPrompt ? `\n\n## ユーザー定義の追加システム要件:\n${systemPrompt}` : '');
 
-    let textPrompt = `適正年齢: ${parsedAge}歳向け, クイズ形式: ${quizType === 'CHOICE' ? '選択式(4択)' : '記述式'}, テーマ: ${topic} で、クイズを3言語(日・英・中)で作成してください。\n${finalSystemInstruction}`;
+    let textPrompt = `
+テーマ: ${topic}
+クイズ形式: ${quizType === 'CHOICE' ? '選択式(4択)' : '記述式'}
+適正年齢: ${parsedAge}歳
+
+以下の情報を参考に、多言語(日・英・中)でクイズを作成してください。
+${excludeTitles && Array.isArray(excludeTitles) && excludeTitles.length > 0 ? `\n*重要*: 以下のタイトルに似た問題は避けてください: ${excludeTitles.slice(0, 10).join(', ')}` : ''}
+
+${finalSystemInstruction}
+`;
+
     if (correctionPrompt) {
       textPrompt += `\n\n## ユーザーからの追加指示（補正）:\n${correctionPrompt}`;
     }
 
     const textResponse = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: selectedModel,
       contents: textPrompt,
       config: { responseMimeType: "application/json" },
     });
 
-    const generatedText = textResponse.text;
-    if (!generatedText) {
-      throw new Error("Failed to generate text content.");
+    const resultText = textResponse.text;
+    const multiLangData = JSON.parse(resultText || '{}');
+
+    // AI Usage Logging
+    const usage = textResponse.usageMetadata;
+    if (usage) {
+      await logApiUsage(prisma, {
+        modelId: selectedModel,
+        promptTokens: usage.promptTokenCount || 0,
+        candidateTokens: usage.candidatesTokenCount || 0,
+        purpose: 'QUIZ_GEN'
+      });
     }
-    const multiLangData = JSON.parse(generatedText);
 
     let imageUrl = providedImageUrl;
     if (!imageUrl) {
-      // 画像が指定されていない場合はAI生成
-      const imageCommand = `Create a whimsical, storybook-style illustration of a fantasy world with themes of ${topic}. The main focus should be the following text written in a cute, legible font, neatly laid out: "${multiLangData.ja.question}". The illustration should be simple and delightful, supporting the text's message. Ensure there are no other words.`;
+      // 画像生成用のプロンプトを最適化
+      const imageCommand = `Educational illustration for kids/adults (Age ${parsedAge}). Theme: ${topic}. 
+Description: ${multiLangData.ja.question}. 
+Style: Whimsical, storybook, or flat clean design depending on age appropriateness. 
+Requirement: No text inside the image. Vibrant colors. High quality.`;
 
       const imageResponse = await ai.models.generateImages({
         model: 'imagen-3.0-generate-002',
@@ -101,9 +113,11 @@ ${quizType === 'CHOICE' ? '* **重要**: 選択式クイズです。各言語の
 
       const generatedImage = imageResponse.generatedImages?.[0]?.image?.imageBytes;
       if (!generatedImage) {
-        throw new Error("Failed to generate image content.");
+        console.warn("Image generation failed, using fallback or empty.");
+        // imageUrl remains empty or use a placeholder if available
+      } else {
+        imageUrl = `data:image/jpeg;base64,${generatedImage}`;
       }
-      imageUrl = `data:image/jpeg;base64,\${generatedImage}`;
     }
 
     // DBへ保存
@@ -111,7 +125,7 @@ ${quizType === 'CHOICE' ? '* **重要**: 選択式クイズです。各言語の
       data: {
         categoryId: categoryId,
         targetAge: parsedAge,
-        imageUrl: imageUrl,
+        imageUrl: imageUrl || '',
         translations: {
           create: [
             {
@@ -121,7 +135,7 @@ ${quizType === 'CHOICE' ? '* **重要**: 選択式クイズです。各言語の
               hint: multiLangData.ja.hint,
               answer: multiLangData.ja.answer,
               type: quizType,
-              options: quizType === 'CHOICE' && multiLangData.ja.options ? JSON.stringify(multiLangData.ja.options) : null,
+              options: quizType === 'CHOICE' && multiLangData.ja.options ? (JSON.stringify(multiLangData.ja.options) as any) : undefined,
             },
             {
               locale: 'en',
@@ -130,7 +144,7 @@ ${quizType === 'CHOICE' ? '* **重要**: 選択式クイズです。各言語の
               hint: multiLangData.en.hint,
               answer: multiLangData.en.answer,
               type: quizType,
-              options: quizType === 'CHOICE' && multiLangData.en.options ? JSON.stringify(multiLangData.en.options) : null,
+              options: quizType === 'CHOICE' && multiLangData.en.options ? (JSON.stringify(multiLangData.en.options) as any) : undefined,
             },
             {
               locale: 'zh',
@@ -139,7 +153,7 @@ ${quizType === 'CHOICE' ? '* **重要**: 選択式クイズです。各言語の
               hint: multiLangData.zh.hint,
               answer: multiLangData.zh.answer,
               type: quizType,
-              options: quizType === 'CHOICE' && multiLangData.zh.options ? JSON.stringify(multiLangData.zh.options) : null,
+              options: quizType === 'CHOICE' && multiLangData.zh.options ? (JSON.stringify(multiLangData.zh.options) as any) : undefined,
             }
           ]
         }
@@ -154,7 +168,6 @@ ${quizType === 'CHOICE' ? '* **重要**: 選択式クイズです。各言語の
   } catch (error: any) {
     console.error('API Error:', error);
 
-    // レート制限エラー (429) のハンドリング
     if (error.status === 429 || error.message?.includes('429')) {
       return NextResponse.json(
         { error: 'RATE_LIMIT_EXCEEDED', message: 'AIの利用制限に達しました。1分ほど待ってから再度お試しください。' },

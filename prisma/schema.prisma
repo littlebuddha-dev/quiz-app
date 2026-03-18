@@ -146,3 +146,14 @@ model Setting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model ApiUsage {
+  id              String   @id @default(cuid())
+  modelId         String
+  promptTokens    Int      @default(0)
+  candidateTokens Int      @default(0)
+  totalTokens     Int      @default(0)
+  estimatedCost   Float    @default(0)
+  timestamp       DateTime @default(now())
+  purpose         String?  // e.g., "QUIZ_GEN", "TOPIC_SUGGEST"
+}
