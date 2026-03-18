@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Header from '@/app/components/Header';
-import { Locale } from '@/app/types';
+import { usePreferredLocale } from '@/app/hooks/usePreferredLocale';
 
 interface AdSenseSettings {
   enabled: boolean;
@@ -18,7 +18,7 @@ interface AdSenseSettings {
 }
 
 export default function AdSenseAdminPage() {
-  const [locale, setLocale] = useState<Locale>('ja');
+  const { locale, setLocale } = usePreferredLocale();
   const [settings, setSettings] = useState<AdSenseSettings>({
     enabled: false,
     snippet: '',

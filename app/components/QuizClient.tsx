@@ -14,6 +14,7 @@ import Footer from './Footer';
 import { Quiz, Locale } from '../types';
 import LatexRenderer from './LatexRenderer';
 import AdSense from './AdSense';
+import { usePreferredLocale } from '../hooks/usePreferredLocale';
 
 // 定数・辞書は元のpage.tsxから移行
 const DICTIONARY: Record<Locale, { search: string; hint: string; answer: string; submit: string; age: string; close: string; typeAnswer: string; }> = {
@@ -53,7 +54,7 @@ export default function QuizClient({
 }: QuizClientProps & { categories: any[], hideHeader?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [locale, setLocale] = useState<Locale>('ja');
+  const { locale, setLocale } = usePreferredLocale();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
 
@@ -128,11 +129,15 @@ export default function QuizClient({
           {displayQuizzes.length > 0 ? (
              displayQuizzes.map((quiz) => {
               const qt = quiz.translations[locale] || quiz.translations['ja'];
-              const cardImage = (qt.imageUrl && qt.imageUrl !== "") 
-                ? qt.imageUrl 
-                : (quiz.imageUrl && quiz.imageUrl !== "") 
-                  ? quiz.imageUrl 
-                  : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
+              const localeImage = quiz.translations[locale]?.imageUrl || null;
+              const jaImage = quiz.translations['ja']?.imageUrl || null;
+              const cardImage = (localeImage && localeImage !== "")
+                ? localeImage
+                : (jaImage && jaImage !== "")
+                  ? jaImage
+                  : (quiz.imageUrl && quiz.imageUrl !== "")
+                    ? quiz.imageUrl
+                    : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
               const isDataUri = cardImage.startsWith('data:');
               const translatedCategory = CATEGORY_MAP[locale][quiz.category] || quiz.category;
 
@@ -145,6 +150,7 @@ export default function QuizClient({
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shadow-md">
                     {cardImage ? (
                       <Image 
+                        key={`${quiz.id}-${locale}-${cardImage}`}
                         src={cardImage} 
                         alt={qt.title} 
                         fill 

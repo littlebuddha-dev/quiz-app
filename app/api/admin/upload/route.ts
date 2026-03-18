@@ -50,20 +50,14 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    // ユニークなファイル名の生成
-    const fileExtension = file.name.split('.').pop() || 'png';
-    const fileName = `${crypto.randomUUID()}.${fileExtension}`;
-    // const path = join(process.cwd(), 'public/uploads', fileName);
-
-    // ファイルの書き込み
-    // await writeFile(path, buffer);
-    const imageUrl = `/uploads/${fileName}`;
+    const base64 = buffer.toString('base64');
+    const mimeType = file.type || 'image/png';
+    const imageUrl = `data:${mimeType};base64,${base64}`;
 
     return NextResponse.json({ 
       success: true, 
       imageUrl,
-      message: "Note: Real file storage is not supported on Cloudflare Workers without R2."
+      message: "Converted to Data URI (Base64)"
     });
   } catch (error) {
     console.error('Image Upload Error:', error);

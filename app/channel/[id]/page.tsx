@@ -10,8 +10,10 @@ import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ChannelPage({ params }: { params: { id: string } }) {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   const { id } = await params;
   const { userId: clerkId } = await auth();
@@ -60,6 +62,7 @@ export default async function ChannelPage({ params }: { params: { id: string } }
       question: '問題文がありません',
       hint: '',
       answer: '',
+      explanation: null,
       type: 'TEXT',
       options: null,
     };
@@ -75,6 +78,7 @@ export default async function ChannelPage({ params }: { params: { id: string } }
           question: t.question,
           hint: t.hint,
           answer: t.answer,
+          explanation: t.explanation || null,
           type: t.type as 'CHOICE' | 'TEXT',
           options: t.options ? (t.options as string[]) : undefined,
         },

@@ -18,6 +18,9 @@ CREATE TABLE "User" (
 CREATE TABLE "Category" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
+    "nameJa" TEXT,
+    "nameEn" TEXT,
+    "nameZh" TEXT,
     "minAge" INTEGER NOT NULL DEFAULT 0,
     "maxAge" INTEGER,
     "systemPrompt" TEXT,
@@ -47,6 +50,7 @@ CREATE TABLE "QuizTranslation" (
     "question" TEXT NOT NULL,
     "hint" TEXT NOT NULL,
     "answer" TEXT NOT NULL,
+    "explanation" TEXT,
     "type" TEXT NOT NULL,
     "options" JSONB,
     "imageUrl" TEXT,
@@ -149,4 +153,3 @@ CREATE UNIQUE INDEX "Channel_userId_key" ON "Channel"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Subscription_userId_channelId_key" ON "Subscription"("userId", "channelId");
-

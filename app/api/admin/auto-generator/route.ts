@@ -10,6 +10,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { getPersonaByAge } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
+import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
 export const runtime = 'edge';
 
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureCategoryLocalizationColumns(prisma as any);
     
     // Budget Check
     const budget = await checkApiBudget(prisma);
@@ -52,12 +54,15 @@ export async function POST(req: NextRequest) {
     });
     const existingTitles = existingQuizzes.map(q => q.translations[0]?.title).filter(Boolean) as string[];
 
-    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    const [category] = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
+      'SELECT "id", "name", "nameJa" FROM "Category" WHERE "id" = ? LIMIT 1',
+      categoryId
+    );
     const persona = getPersonaByAge(parsedAge);
 
     // 2. Ask Gemini (Planner) to suggest N unique sub-topics
     const topicSuggestionPrompt = `
-あなたは教育プランナーです。「${category?.name || '一般'}」というジャンルで、${parsedAge}歳 (${persona.description}) 向けに、新しく面白いクイズのトピックを ${count} 個提案してください。
+あなたは教育プランナーです。「${category?.nameJa || category?.name || '一般'}」というジャンルで、${parsedAge}歳 (${persona.description}) 向けに、新しく面白いクイズのトピックを ${count} 個提案してください。
 
 ## 既存のトピック (これらは避けてください):
 ${existingTitles.join(', ')}

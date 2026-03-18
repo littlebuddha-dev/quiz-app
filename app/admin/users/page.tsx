@@ -8,8 +8,10 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import UserManagementClient from './UserManagementClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function UserManagementPage() {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   const { userId: clerkId } = await auth();
 

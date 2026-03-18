@@ -7,12 +7,12 @@
 import { useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { Locale } from '../../types';
 import { useRouter } from 'next/navigation';
+import { usePreferredLocale } from '../../hooks/usePreferredLocale';
 
 export default function UserManagementClient({ initialUsers, userStatus }: any) {
   const router = useRouter();
-  const [locale, setLocale] = useState<Locale>('ja');
+  const { locale, setLocale } = usePreferredLocale();
   const [users, setUsers] = useState(initialUsers);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingId, setLoadingId] = useState<string | null>(null);

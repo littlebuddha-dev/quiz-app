@@ -10,11 +10,13 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { getPersonaByAge, BASE_SYSTEM_INSTRUCTION } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
+import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
 export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureCategoryLocalizationColumns(prisma as any);
 
     // Budget Check
     const budget = await checkApiBudget(prisma);
@@ -41,11 +43,13 @@ export async function POST(req: NextRequest) {
 
     // カテゴリ固有のシステムプロンプトを取得
     let categorySystemPrompt = '';
+    let categoryName = '';
     if (categoryId) {
-      const category = await prisma.category.findUnique({
-        where: { id: categoryId },
-        select: { systemPrompt: true }
-      });
+      const [category] = await prisma.$queryRawUnsafe<Array<{ systemPrompt: string | null; nameJa: string | null; name: string }>>(
+        'SELECT "systemPrompt", "nameJa", "name" FROM "Category" WHERE "id" = ? LIMIT 1',
+        categoryId
+      );
+      categoryName = category?.nameJa || category?.name || categoryId;
       if (category?.systemPrompt) {
         categorySystemPrompt = `\n\n## ジャンル別個別指示:\n${category.systemPrompt}`;
       }
@@ -60,6 +64,7 @@ ${persona.guidelines.map(g => `* ${g}`).join('\n')}
 
     let textPrompt = `
 テーマ: ${topic}
+ジャンル: ${categoryName || categoryId || '未指定'}
 クイズ形式: ${quizType === 'CHOICE' ? '選択式(4択)' : '記述式'}
 適正年齢: ${parsedAge}歳
 

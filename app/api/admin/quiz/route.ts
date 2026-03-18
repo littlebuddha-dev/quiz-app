@@ -3,8 +3,30 @@ import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
 
 export const runtime = 'edge';
+const SUPPORTED_LOCALES = ['ja', 'en', 'zh'] as const;
+
+function normalizeTranslations(translations: Record<string, any>) {
+  const normalized: Record<string, any> = {};
+  for (const locale of SUPPORTED_LOCALES) {
+    const data = translations?.[locale];
+    if (!data) continue;
+
+    normalized[locale] = {
+      title: data.title || '',
+      question: data.question || '',
+      hint: data.hint || '',
+      answer: data.answer || '',
+      explanation: data.explanation || null,
+      type: data.type || 'TEXT',
+      options: data.type === 'CHOICE' ? data.options : null,
+      imageUrl: data.imageUrl || null,
+    };
+  }
+  return normalized;
+}
 
 // 権限チェックのヘルパー
 async function isAdminOrParent(prisma: PrismaClient) {
@@ -23,6 +45,7 @@ export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureQuizTranslationExplanationColumn(prisma as any);
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -30,8 +53,9 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json()) as any;
     const { categoryId, targetAge, imageUrl, translations } = body;
+    const normalizedTranslations = normalizeTranslations(translations || {});
 
-    if (!categoryId || !translations || !translations.ja) {
+    if (!categoryId || !normalizedTranslations.ja) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -41,21 +65,25 @@ export async function POST(req: NextRequest) {
         categoryId,
         targetAge: Number(targetAge) || 6,
         imageUrl: imageUrl || '',
-        translations: {
-          create: Object.entries(translations).map(([locale, data]: [string, any]) => ({
-            locale,
-            title: data.title || '',
-            question: data.question || '',
-            hint: data.hint || '',
-            answer: data.answer || '',
-            type: data.type || 'TEXT',
-            options: data.type === 'CHOICE' ? data.options : null,
-            // @ts-ignore
-            imageUrl: data.imageUrl || null,
-          })),
-        },
       },
     });
+
+    for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
+      await prisma.$executeRawUnsafe(
+        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        crypto.randomUUID(),
+        newQuiz.id,
+        locale,
+        data.title,
+        data.question,
+        data.hint,
+        data.answer,
+        data.explanation,
+        data.type,
+        data.options ? JSON.stringify(data.options) : null,
+        data.imageUrl
+      );
+    }
 
     return NextResponse.json({ success: true, quiz: newQuiz });
   } catch (error) {
@@ -68,6 +96,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureQuizTranslationExplanationColumn(prisma as any);
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -75,8 +104,9 @@ export async function PATCH(req: NextRequest) {
 
     const body = (await req.json()) as any;
     const { id, categoryId, targetAge, imageUrl, translations } = body;
+    const normalizedTranslations = normalizeTranslations(translations || {});
 
-    if (!id || !categoryId || !translations) {
+    if (!id || !categoryId || !normalizedTranslations.ja) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -91,32 +121,21 @@ export async function PATCH(req: NextRequest) {
     });
 
     // 各翻訳を順次upsert (SQLiteのロック問題を避けるため)
-    for (const [locale, data] of Object.entries(translations) as [string, any][]) {
-      await prisma.quizTranslation.upsert({
-        where: { quizId_locale: { quizId: id, locale } },
-        create: {
-          quizId: id,
-          locale,
-          title: data.title || '',
-          question: data.question || '',
-          hint: data.hint || '',
-          answer: data.answer || '',
-          type: data.type || 'TEXT',
-          options: data.type === 'CHOICE' ? data.options : null,
-          // @ts-ignore
-          imageUrl: data.imageUrl || null,
-        },
-        update: {
-          title: data.title || '',
-          question: data.question || '',
-          hint: data.hint || '',
-          answer: data.answer || '',
-          type: data.type || 'TEXT',
-          options: data.type === 'CHOICE' ? data.options : null,
-          // @ts-ignore
-          imageUrl: data.imageUrl || null,
-        },
-      });
+    for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
+      await prisma.$executeRawUnsafe(
+        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT("quizId", "locale") DO UPDATE SET "title" = excluded."title", "question" = excluded."question", "hint" = excluded."hint", "answer" = excluded."answer", "explanation" = excluded."explanation", "type" = excluded."type", "options" = excluded."options", "imageUrl" = excluded."imageUrl"',
+        crypto.randomUUID(),
+        id,
+        locale,
+        data.title,
+        data.question,
+        data.hint,
+        data.answer,
+        data.explanation,
+        data.type,
+        data.options ? JSON.stringify(data.options) : null,
+        data.imageUrl
+      );
     }
 
     return NextResponse.json({ success: true });

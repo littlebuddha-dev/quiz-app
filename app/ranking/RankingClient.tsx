@@ -4,15 +4,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { Locale } from '../types';
+import { usePreferredLocale } from '../hooks/usePreferredLocale';
 
 type RankingEntry = {
   id: string;
   name: string;
-  clerkId: string;
+  clerkId?: string | null;
   score: number;
   level: number;
   totalAttempts?: number;
@@ -31,19 +31,10 @@ export default function RankingClient({
   currentUserClerkId,
   userStatus,
 }: RankingClientProps) {
-  const [locale, setLocale] = useState<Locale>('ja');
+  const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<'solve' | 'accuracy'>('solve');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const currentRankings = activeTab === 'solve' ? solveRankings : accuracyRankings;
-
-  if (!mounted) {
-    return <div className="min-h-screen bg-[var(--background)]" suppressHydrationWarning />;
-  }
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]" suppressHydrationWarning>

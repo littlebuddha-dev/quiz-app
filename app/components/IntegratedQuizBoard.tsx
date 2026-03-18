@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Header from './Header';
-import { Locale } from '../types';
 import CorrectEffect from './CorrectEffect';
+import { Locale } from '../types';
+import { usePreferredLocale } from '../hooks/usePreferredLocale';
 
 interface Quiz {
   question: string;
@@ -18,7 +19,7 @@ export default function IntegratedQuizBoard() {
   const [loading, setLoading] = useState(false);
   const [gradeLevel, setGradeLevel] = useState('中学年（3-4年）');
   const [topic, setTopic] = useState('ロボット');
-  const [locale, setLocale] = useState<Locale>('ja');
+  const { locale, setLocale } = usePreferredLocale();
   const [showHint, setShowHint] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [showCorrectEffect, setShowCorrectEffect] = useState(false);

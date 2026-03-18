@@ -14,6 +14,7 @@ export interface Quiz {
     question: string;
     hint: string;
     answer: string;
+    explanation?: string | null;
     type: 'CHOICE' | 'TEXT';
     options?: string[];
     imageUrl?: string | null;

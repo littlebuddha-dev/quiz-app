@@ -3,8 +3,22 @@ import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
 export const runtime = 'edge';
+
+type CategoryRow = {
+  id: string;
+  name: string;
+  nameJa: string | null;
+  nameEn: string | null;
+  nameZh: string | null;
+  minAge: number;
+  maxAge: number | null;
+  systemPrompt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 // 管理者権限チェック
 async function checkAdmin(prisma: PrismaClient) {
@@ -20,9 +34,10 @@ async function checkAdmin(prisma: PrismaClient) {
 export async function GET(request: NextRequest) {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
-  const categories = await prisma.category.findMany({
-    orderBy: { minAge: 'asc' },
-  });
+  await ensureCategoryLocalizationColumns(prisma as any);
+  const categories = await prisma.$queryRawUnsafe<CategoryRow[]>(
+    'SELECT * FROM "Category" ORDER BY "minAge" ASC, "createdAt" ASC'
+  );
   return NextResponse.json(categories);
 }
 
@@ -34,27 +49,40 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { name: rawName, minAge, maxAge, systemPrompt } = (await request.json()) as { name: string; minAge: string; maxAge: string | null; systemPrompt?: string };
-    const name = rawName?.trim();
-    if (!name) {
-      return NextResponse.json({ error: 'BAD_REQUEST', message: 'ジャンル名を入力してください。' }, { status: 400 });
+    await ensureCategoryLocalizationColumns(prisma as any);
+    const { nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt } = (await request.json()) as { nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string };
+    const nameJa = rawNameJa?.trim();
+    const nameEn = rawNameEn?.trim() || null;
+    const nameZh = rawNameZh?.trim() || null;
+    if (!nameJa) {
+      return NextResponse.json({ error: 'BAD_REQUEST', message: '日本語のジャンル名を入力してください。' }, { status: 400 });
     }
     
     // 既存のチェック
-    const existing = await prisma.category.findUnique({ where: { id: name } });
-    if (existing) {
+    const existing = await prisma.$queryRawUnsafe<CategoryRow[]>(
+      'SELECT * FROM "Category" WHERE "id" = ? LIMIT 1',
+      nameJa
+    );
+    if (existing.length > 0) {
       return NextResponse.json({ error: 'ALREADY_EXISTS', message: '同じ名前のジャンルが既に存在します。' }, { status: 400 });
     }
 
-    const category = await prisma.category.create({
-      data: {
-        id: name,
-        name,
-        minAge: parseInt(minAge || '0'),
-        maxAge: maxAge ? parseInt(maxAge) : null,
-        systemPrompt,
-      },
-    });
+    await prisma.$executeRawUnsafe(
+      'INSERT INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+      nameJa,
+      nameJa,
+      nameJa,
+      nameEn,
+      nameZh,
+      parseInt(minAge || '0'),
+      maxAge ? parseInt(maxAge) : null,
+      systemPrompt || null
+    );
+
+    const [category] = await prisma.$queryRawUnsafe<CategoryRow[]>(
+      'SELECT * FROM "Category" WHERE "id" = ? LIMIT 1',
+      nameJa
+    );
 
     return NextResponse.json(category);
   } catch (error: any) {
@@ -71,21 +99,41 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { id, name: rawName, minAge, maxAge, systemPrompt } = (await request.json()) as { id: string; name: string; minAge: string; maxAge: string | null; systemPrompt?: string };
-    const name = rawName?.trim();
-    if (!name) {
-      return NextResponse.json({ error: 'BAD_REQUEST', message: 'ジャンル名を入力してください。' }, { status: 400 });
+    await ensureCategoryLocalizationColumns(prisma as any);
+    const { id, nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt } = (await request.json()) as { id: string; nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string };
+    const nameJa = rawNameJa?.trim();
+    const nameEn = rawNameEn?.trim() || null;
+    const nameZh = rawNameZh?.trim() || null;
+    if (!nameJa) {
+      return NextResponse.json({ error: 'BAD_REQUEST', message: '日本語のジャンル名を入力してください。' }, { status: 400 });
     }
 
-    const category = await prisma.category.update({
-      where: { id },
-      data: {
-        name,
-        minAge: parseInt(minAge || '0'),
-        maxAge: maxAge ? parseInt(maxAge) : null,
-        systemPrompt,
-      },
-    });
+    const conflict = await prisma.$queryRawUnsafe<CategoryRow[]>(
+      'SELECT * FROM "Category" WHERE "id" != ? AND ("name" = ? OR "nameJa" = ?) LIMIT 1',
+      id,
+      nameJa,
+      nameJa
+    );
+    if (conflict.length > 0) {
+      return NextResponse.json({ error: 'ALREADY_EXISTS', message: '同じ日本語名のジャンルが既に存在します。' }, { status: 400 });
+    }
+
+    await prisma.$executeRawUnsafe(
+      'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
+      nameJa,
+      nameJa,
+      nameEn,
+      nameZh,
+      parseInt(minAge || '0'),
+      maxAge ? parseInt(maxAge) : null,
+      systemPrompt || null,
+      id
+    );
+
+    const [category] = await prisma.$queryRawUnsafe<CategoryRow[]>(
+      'SELECT * FROM "Category" WHERE "id" = ? LIMIT 1',
+      id
+    );
 
     return NextResponse.json(category);
   } catch (error: any) {
@@ -114,23 +162,27 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    await ensureCategoryLocalizationColumns(prisma as any);
     // 「その他」ジャンルを確保
-    const otherCategory = await prisma.category.upsert({
-      where: { id: 'その他' },
-      update: {},
-      create: { id: 'その他', name: 'その他', minAge: 0 }
-    });
+    await prisma.$executeRawUnsafe(
+      'INSERT OR IGNORE INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+      'その他',
+      'その他',
+      'その他',
+      'Other',
+      '其他',
+      0,
+      null,
+      null
+    );
 
     // 関連するクイズを「その他」へ振り替え
     await prisma.quiz.updateMany({
       where: { categoryId: id },
-      data: { categoryId: otherCategory.id }
+      data: { categoryId: 'その他' }
     });
 
-    // ジャンルを削除
-    await prisma.category.delete({
-      where: { id },
-    });
+    await prisma.$executeRawUnsafe('DELETE FROM "Category" WHERE "id" = ?', id);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

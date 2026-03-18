@@ -7,10 +7,20 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { redirect } from 'next/navigation';
 import OnboardingClient from './OnboardingClient';
+import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+
+type CategoryRow = {
+  id: string;
+  name: string;
+  nameJa: string | null;
+};
+
+export const dynamic = 'force-dynamic';
 
 export default async function OnboardingPage() {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
+  await ensureCategoryLocalizationColumns(prisma as any);
   const { userId: clerkId } = await auth();
   const user = await currentUser();
 
@@ -30,13 +40,13 @@ export default async function OnboardingPage() {
   }
 
   // カテゴリーリストを取得してオンボーディングで選択できるようにする
-  const categories = await prisma.category.findMany({
-    orderBy: { minAge: 'asc' },
-  });
+  const categories = await prisma.$queryRawUnsafe<CategoryRow[]>(
+    'SELECT "id", "name", "nameJa" FROM "Category" ORDER BY "minAge" ASC, "createdAt" ASC'
+  );
 
   const displayCategories = categories.map(c => ({
     id: c.id,
-    name: c.name,
+    name: c.nameJa || c.name,
   }));
 
   const initialData = {

@@ -8,6 +8,19 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz } from './types';
+import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+
+type CategoryRow = {
+  id: string;
+  name: string;
+  nameJa: string | null;
+  nameEn: string | null;
+  nameZh: string | null;
+  minAge: number;
+  maxAge: number | null;
+};
+
+export const dynamic = 'force-dynamic';
 
 // Server Component (async)
 export default async function Home({
@@ -15,8 +28,9 @@ export default async function Home({
 }: {
   searchParams: Promise<{ q?: string; category?: string }>;
 }) {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
+  await ensureCategoryLocalizationColumns(prisma as any);
   const { q: searchQuery, category: activeCategory } = await searchParams;
   const { userId: clerkId } = await auth();
 
@@ -48,7 +62,7 @@ export default async function Home({
   }
 
   // ユーザーの年齢を特定
-  let effectiveAge = userTargetAge || 8; // デフォルト8歳
+  let effectiveAge: number | null = userTargetAge;
   if (clerkId) {
     const user = await prisma.user.findUnique({ where: { clerkId } });
     if (user?.birthDate) {
@@ -64,20 +78,22 @@ export default async function Home({
   }
 
   // カテゴリーを取得
-  const allCategories = await prisma.category.findMany({
-    orderBy: { minAge: 'asc' },
-  });
+  const allCategories = await prisma.$queryRawUnsafe<CategoryRow[]>(
+    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge" FROM "Category" ORDER BY "minAge" ASC, "createdAt" ASC'
+  );
 
   // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）
   // ただし、名前が空のものは除外する
-  const displayCategoriesRaw = allCategories.filter(c => c.name && c.name.trim() !== '');
+  const displayCategoriesRaw = allCategories.filter(c => (c.nameJa || c.name) && (c.nameJa || c.name).trim() !== '');
 
   // クイズフィルタリング用の有効なカテゴリーID
-  const filteredCategories = allCategories.filter(cat => {
-    const minMatch = effectiveAge >= cat.minAge;
-    const maxMatch = cat.maxAge === null || effectiveAge <= cat.maxAge;
-    return minMatch && maxMatch;
-  });
+  const filteredCategories = effectiveAge === null
+    ? allCategories
+    : allCategories.filter(cat => {
+        const minMatch = effectiveAge >= cat.minAge;
+        const maxMatch = cat.maxAge === null || effectiveAge <= cat.maxAge;
+        return minMatch && maxMatch;
+      });
 
   const filteredCategoryIds = filteredCategories.map(c => c.id);
 
@@ -112,17 +128,19 @@ export default async function Home({
   });
 
   // 年齢によるソート (サーバーサイド)
-  rawQuizzes.sort((a, b) => {
-    const diffA = Math.abs(a.targetAge - effectiveAge);
-    const diffB = Math.abs(b.targetAge - effectiveAge);
-    return diffA - diffB;
-  });
+  if (effectiveAge !== null) {
+    rawQuizzes.sort((a, b) => {
+      const diffA = Math.abs(a.targetAge - effectiveAge);
+      const diffB = Math.abs(b.targetAge - effectiveAge);
+      return diffA - diffB;
+    });
+  }
 
   // Prismaの型からフロントエンド用のQuiz型へマッピング
   const quizzes: Quiz[] = rawQuizzes.map((q: any) => {
     const translationsMap: any = {};
     const jaT = q.translations.find((t: any) => t.locale === 'ja') || {
-      title: '名称未設定', question: '問題文がありません', hint: '', answer: '', type: 'TEXT', options: null,
+      title: '名称未設定', question: '問題文がありません', hint: '', answer: '', explanation: null, type: 'TEXT', options: null,
     };
 
     ['ja', 'en', 'zh'].forEach(loc => {
@@ -132,6 +150,7 @@ export default async function Home({
         question: t?.question || jaT.question,
         hint: t?.hint || jaT.hint,
         answer: t?.answer || jaT.answer,
+        explanation: t?.explanation || jaT.explanation || null,
         type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
         options: t?.options ?? jaT.options,
         imageUrl: t?.imageUrl || null,
@@ -149,10 +168,10 @@ export default async function Home({
 
   const displayCategories = displayCategoriesRaw.map(c => ({
     id: c.id,
-    name: c.name,
-    ja: c.name,
-    en: c.name === '算数' ? 'Math' : c.name === '数学' ? 'Advanced Math' : c.name,
-    zh: c.name === '算数' ? '算术' : c.name === '数学' ? '数学' : c.name,
+    name: c.nameJa || c.name,
+    ja: c.nameJa || c.name,
+    en: c.nameEn || c.nameJa || c.name,
+    zh: c.nameZh || c.nameJa || c.name,
   }));
 
   return (

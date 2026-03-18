@@ -7,12 +7,35 @@ import { notFound, redirect } from 'next/navigation';
 import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
 
 import { Metadata } from 'next';
 
+export const dynamic = 'force-dynamic';
+
+function normalizeOptions(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string');
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
+  await ensureQuizTranslationExplanationColumn(prisma as any);
   const { id } = await params;
   const quiz = await prisma.quiz.findUnique({
     where: { id },
@@ -34,8 +57,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function WatchPage({ params }: { params: Promise<{ id: string }> }) {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
+  await ensureQuizTranslationExplanationColumn(prisma as any);
   const { id } = await params;
   const { userId: clerkId } = await auth();
 
@@ -43,7 +67,6 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const rawQuiz = await prisma.quiz.findUnique({
     where: { id },
     include: {
-      translations: true,
       channel: true,
       comments: {
         include: { user: true },
@@ -52,7 +75,26 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     },
   });
 
-  if (!rawQuiz || rawQuiz.translations.length === 0) {
+  if (!rawQuiz) {
+    notFound();
+  }
+
+  const rawTranslations = await prisma.$queryRawUnsafe<Array<{
+    locale: string;
+    title: string;
+    question: string;
+    hint: string;
+    answer: string;
+    explanation: string | null;
+    type: string;
+    options: unknown;
+    imageUrl: string | null;
+  }>>(
+    'SELECT "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl" FROM "QuizTranslation" WHERE "quizId" = ?',
+    id
+  );
+
+  if (rawTranslations.length === 0) {
     notFound();
   }
 
@@ -82,15 +124,16 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
 
   // クライアントコンポーネント用データフォーマット (多言語対応)
   const translationsMap = Object.fromEntries(
-    rawQuiz.translations.map((t) => [
+    rawTranslations.map((t) => [
       t.locale,
       {
         title: t.title,
         question: t.question,
         hint: t.hint,
         answer: t.answer,
+        explanation: t.explanation,
         type: t.type,
-        options: t.options ? (t.options as string[]) : undefined,
+        options: normalizeOptions(t.options),
         imageUrl: t.imageUrl,
       },
     ])
@@ -120,17 +163,32 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     },
     take: 6,
     include: {
-      translations: { where: { locale: 'ja' } },
+      translations: true,
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  const relatedQuizzes = rawRelated.map((q: any) => ({
-    id: q.id,
-    title: q.translations[0]?.title || '無題',
-    imageUrl: q.imageUrl,
-    targetAge: q.targetAge,
-  }));
+  const relatedQuizzes = rawRelated.map((q: any) => {
+    const jaTranslation = q.translations.find((t: any) => t.locale === 'ja') || q.translations[0];
+    const translations = Object.fromEntries(
+      q.translations.map((t: any) => [
+        t.locale,
+        {
+          title: t.title,
+          imageUrl: t.imageUrl,
+          options: normalizeOptions(t.options),
+        },
+      ])
+    );
+
+    return {
+      id: q.id,
+      title: jaTranslation?.title || '無題',
+      imageUrl: q.imageUrl,
+      targetAge: q.targetAge,
+      translations,
+    };
+  });
 
   const initialComments = rawQuiz.comments.map((c) => ({
     id: c.id,

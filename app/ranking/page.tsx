@@ -5,8 +5,10 @@
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@clerk/nextjs/server';
-import RankingClient from './RankingClient';
+import RankingClientWrapper from './RankingClientWrapper';
 import { Metadata } from 'next';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'ランキング | Cue',
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RankingPage() {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   const { userId: clerkId } = await auth();
 
@@ -77,7 +79,7 @@ export default async function RankingPage() {
   .slice(0, 20);
 
   return (
-    <RankingClient 
+    <RankingClientWrapper 
       solveRankings={solveRankings}
       accuracyRankings={accuracyRankings}
       currentUserClerkId={clerkId || undefined}

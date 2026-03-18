@@ -11,6 +11,7 @@ import Footer from '../../components/Footer';
 import { Quiz, Locale } from '../../types';
 import CorrectEffect from '../../components/CorrectEffect';
 import AdSense from '../../components/AdSense';
+import { usePreferredLocale } from '../../hooks/usePreferredLocale';
 
 interface WatchClientProps {
   quiz: Quiz;
@@ -35,7 +36,7 @@ export default function WatchClient({
   userStatus,
   initialLocale = 'ja'
 }: WatchClientProps) {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const { locale, setLocale } = usePreferredLocale();
   const [showHint, setShowHint] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [showCorrectEffect, setShowCorrectEffect] = useState(false);
@@ -45,11 +46,13 @@ export default function WatchClient({
 
   const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState('');
+  const [textAnswer, setTextAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<'correct' | 'incorrect' | null>(null);
 
   // 現在の言語の翻訳を取得。なければ日本語をフォールバックに。
   const t = quiz.translations[locale] || quiz.translations['ja'];
+  const explanation = t.explanation?.trim();
 
   // 画像のフォールバックロジック
   const displayImageUrl = (t.imageUrl && t.imageUrl !== "")
@@ -59,6 +62,9 @@ export default function WatchClient({
       : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
 
   const isDataUri = displayImageUrl.startsWith('data:');
+
+  const normalizeAnswer = (value: string) =>
+    value.trim().replace(/\s+/g, '').toLowerCase();
 
   const handleAction = async (action: 'bookmark' | 'like') => {
     if (!isLoggedIn) return alert('ログインが必要です');
@@ -80,6 +86,7 @@ export default function WatchClient({
   const handleAnswerSubmit = async (isCorrect: boolean) => {
     setLastResult(isCorrect ? 'correct' : 'incorrect');
     setShowAnswer(true);
+    setTextAnswer('');
 
     // ログインしていれば履歴を保存
     if (isCorrect) {
@@ -253,12 +260,41 @@ export default function WatchClient({
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <input type="text" placeholder={locale === 'ja' ? '答えを入力' : locale === 'en' ? 'Your answer' : '输入答案'} className="flex-1 border-2 border-zinc-300 p-3 rounded-xl font-bold focus:outline-none focus:border-amber-500" />
-                      <button onClick={() => handleAnswerSubmit(true)} className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 rounded-xl transition-colors">
+                      <input
+                        type="text"
+                        value={textAnswer}
+                        onChange={(e) => setTextAnswer(e.target.value)}
+                        placeholder={locale === 'ja' ? '答えを入力' : locale === 'en' ? 'Your answer' : '输入答案'}
+                        className="flex-1 border-2 border-zinc-300 p-3 rounded-xl font-bold focus:outline-none focus:border-amber-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAnswerSubmit(normalizeAnswer(textAnswer) === normalizeAnswer(t.answer));
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => handleAnswerSubmit(normalizeAnswer(textAnswer) === normalizeAnswer(t.answer))}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 rounded-xl transition-colors"
+                      >
                         {locale === 'ja' ? '回答する' : locale === 'en' ? 'Submit' : '回答'}
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {showAnswer && explanation && (
+                <div className="mt-6 rounded-2xl border border-blue-200/70 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-900/40 p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">📘</span>
+                    <h4 className="font-black text-sm uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                      {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}
+                    </h4>
+                  </div>
+                  <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)]">
+                    <LatexRenderer text={explanation} />
+                  </div>
                 </div>
               )}
 
@@ -320,10 +356,17 @@ export default function WatchClient({
             <div className="flex flex-col gap-5">
               {relatedQuizzes?.map((rel: any) => (
                 <Link href={`/watch/${rel.id}`} key={rel.id} className="flex gap-4 group cursor-pointer">
+                  {(() => {
+                    const relTranslation = rel.translations?.[locale] || rel.translations?.ja || null;
+                    const relTitle = relTranslation?.title || rel.title;
+                    const relImage = relTranslation?.imageUrl || rel.imageUrl || 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
+
+                    return (
+                      <>
                   <div className="w-44 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)] shadow-sm">
                     <Image 
-                      src={rel.imageUrl && rel.imageUrl !== "" ? rel.imageUrl : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop'} 
-                      alt={rel.title} 
+                      src={relImage}
+                      alt={relTitle} 
                       fill 
                       className="object-cover group-hover:scale-110 transition-transform duration-500" 
                     />
@@ -333,10 +376,13 @@ export default function WatchClient({
                   </div>
                   <div className="flex-1 py-0.5">
                     <h4 className="font-black text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors">
-                      {rel.title}
+                      {relTitle}
                     </h4>
                     <p className="text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-widest">Cue Official</p>
                   </div>
+                      </>
+                    );
+                  })()}
                 </Link>
               ))}
             </div>
