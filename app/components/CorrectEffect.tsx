@@ -252,7 +252,7 @@ export default function CorrectEffect({
   if (!shouldRender) return null;
 
   return (
-    <div 
+    <div
       className={`fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center overflow-hidden transition-all duration-400 ${isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100 pointer-events-all'}`}
     >
       <style jsx>{`
@@ -368,12 +368,12 @@ export default function CorrectEffect({
 
       <div className="overlay-bg"></div>
       <canvas ref={canvasRef}></canvas>
-      
+
       {/* 浮かぶ絵文字 */}
       <div className="absolute inset-0 pointer-events-none">
         {Array.from({ length: 18 }).map((_, i) => (
-          <div 
-            key={i} 
+          <div
+            key={i}
             className="floating-star"
             style={{
               left: `${Math.random() * 95}vw`,

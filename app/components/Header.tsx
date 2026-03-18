@@ -41,8 +41,13 @@ export default function Header({
     <header className="fixed top-0 left-0 right-0 h-16 bg-[var(--card)]/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 border-b border-[var(--border)] z-50 transition-colors" suppressHydrationWarning>
       <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
         <a href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-bold shadow-lg shadow-amber-500/20">Q</div>
-          <span className="text-xl font-black tracking-tight hidden sm:block">Cue</span>
+          <div className="h-8 w-24 sm:h-9 sm:w-28">
+            <img
+              src="/logo-header.png"
+              alt="Cue Logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
         </a>
       </div>
       
