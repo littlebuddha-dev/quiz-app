@@ -45,11 +45,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
 
   // AI生成用の詳細設定
   const [systemPrompt, setSystemPrompt] = useState(`あなたは「小学生向けの楽しい論理的思考」をテーマにした、SNSコンテンツクリエイターです。
-ユーザーの要望に基づき、論理的思考力を養う「問題文」「ヒント」「答え」を作成し、以下のフォーマットのJSONで出力してください。
+ユーザーの要望に基づき、論理的思考力を養う「画像用見出し」「詳細な問題文」「ヒント」「答え」「解説」を作成し、以下のフォーマットのJSONで出力してください。
 出力は必ず「日本語(ja)」「英語(en)」「中国語(zh)」の3言語すべて含めてください。
 
-## 問題作成の制約事項
-* **文字数制限**: 画像内に配置する各言語の「問題文」は「3行以内」かつ「極力短く」必ず収めること。ただし、画像とテキストで相違がない限りは、テキストの問題文の長さはその限りではない。`);
+## 各項目の役割
+* **type**: クイズ形式です。'TEXT' (記述式) または 'CHOICE' (選択式) を指定してください。**重要**: リクエストが記述式であっても、答えが複雑な数式や10文字以上の長い文字列になる場合は、回答しやすさを優先して自動的に 'CHOICE' を選び、選択肢を作成してください。
+* **title (画像用見出し)**: 画像の上に掲載する「見出し」です。**必ず3行以内**で、読みやすくインパクトのあるキャッチコピー風にまとめてください。
+* **question (詳細な問題文)**: 画面下部に表示される詳細な「問題文」です。こちらは制限なく、背景や詳細な条件を含む長文を作成可能です。
+* **options (選択肢)**: 選択式(CHOICE)の場合のみ、正解1つと誤答3つを含む、合計4つの文字列の配列(例: ["りんご", "みかん", "バナナ", "ぶどう"])を作成してください。
+* **answer (解答)**: 選択式(CHOICE)の場合は、optionsの中の1つと完全一致する文字列を返してください。`);
   const [correctionPrompt, setCorrectionPrompt] = useState('');
 
   // 検索・フィルター・ソート用の状態
@@ -663,6 +667,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">ジャンル</label>
                       <select value={aiCategoryId} onChange={e => setAiCategoryId(e.target.value)} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all">
+                        <option value="all" className="text-zinc-800">全ジャンル (各最大2個)</option>
                         {categoriesList.map((c: any) => <option key={c.id} value={c.id} className="text-zinc-800">{c.nameJa || c.name}</option>)}
                       </select>
                     </div>
@@ -684,9 +689,23 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                       </select>
                     </div>
                   </div>
-                  <button disabled={bulkLoading || loading} className="w-full bg-white text-indigo-600 py-4 rounded-2xl font-black shadow-xl hover:bg-orange-50 active:scale-95 transition-all text-sm">
+                  <button disabled={bulkLoading || loading} className="w-full bg-white text-indigo-600 py-4 rounded-2xl font-black shadow-xl hover:bg-orange-50 active:scale-95 transition-all text-sm mb-4">
                     {bulkLoading ? '🤖 自動トピック考案 & 生成中...' : 'バルク生成を開始する ⚡️'}
                   </button>
+
+                  <details className="text-[10px] bg-black/10 rounded-xl p-4 border border-white/10">
+                    <summary className="cursor-pointer font-black text-indigo-200">🕒 定期的な自動公開（Cron）の設定方法</summary>
+                    <div className="mt-3 space-y-3 text-indigo-100 font-medium">
+                      <p>Cloudflare Workers Cron Triggers等を利用して、以下のURLにアクセスすることで定期生成が可能です：</p>
+                      <code className="block bg-black/30 p-2.5 rounded text-[10px] text-white break-all border border-white/5">
+                        {typeof window !== 'undefined' ? window.location.origin : ''}/api/admin/cron?secret=YOUR_SECRET
+                      </code>
+                      <p className="opacity-70 leading-relaxed font-bold">
+                        1. 環境変数 <code>CRON_SECRET</code> を定義してください。<br />
+                        2. <code>?secret=...</code> にその値を指定してGETリクエストを送ると、全ジャンルのクイズが自動で1つずつ生成されます。
+                      </p>
+                    </div>
+                  </details>
                 </form>
               </div>
             </div>

@@ -8,9 +8,13 @@ import { Locale } from '../types';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 
 interface Quiz {
+  type: 'TEXT' | 'CHOICE';
+  title: string;
   question: string;
   hint: string;
   answer: string;
+  explanation: string;
+  options?: string[];
   imageUrl: string;
 }
 
@@ -39,10 +43,19 @@ export default function IntegratedQuizBoard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, gradeLevel, locale }),
       });
+      
       const data = (await res.json()) as any;
-      setQuiz(data);
+
+      if (!res.ok) {
+        alert(data.message || 'クイズの生成に失敗しました。');
+        setQuiz(null);
+      } else {
+        setQuiz(data);
+      }
     } catch (error) {
       console.error(error);
+      alert('通信エラーが発生しました。インターネット接続を確認してください。');
+      setQuiz(null);
     }
     setLoading(false);
   };
@@ -102,7 +115,36 @@ export default function IntegratedQuizBoard() {
                 fill
                 className="object-cover"
               />
+              {/* タイトル（見出し）を画像の上にオーバーレイ表示 */}
+              <div className="absolute top-0 left-0 w-full p-6 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+                <h2 className="text-white text-xl sm:text-2xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight max-w-[90%]">
+                  {quiz.title}
+                </h2>
+              </div>
             </div>
+
+            {/* 詳細な問題文を表示 */}
+            <div className="bg-white p-8 rounded-2xl shadow-lg border border-zinc-200">
+              <h3 className="text-zinc-500 text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-2">
+                <span className="w-1 h-3 bg-amber-500 rounded-full"></span>
+                {locale === 'ja' ? 'もんだい' : locale === 'en' ? 'Question' : '问题'}
+              </h3>
+              <p className="text-zinc-800 font-bold text-xl sm:text-2xl leading-relaxed whitespace-pre-wrap">
+                {quiz.question}
+              </p>
+            </div>
+
+            {/* 選択肢の表示 (選択式の場合) */}
+            {quiz.type === 'CHOICE' && quiz.options && quiz.options.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                {quiz.options.map((opt, i) => (
+                  <div key={i} className="bg-white border-2 border-zinc-200 p-4 rounded-xl font-bold text-zinc-700 flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-sm">{i + 1}</span>
+                    {opt}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
               <div className="bg-white p-6 rounded-2xl shadow-lg border border-amber-200">
                 <button onClick={() => setShowHint(!showHint)} className="w-full text-left flex justify-between items-center mb-3">
@@ -118,7 +160,13 @@ export default function IntegratedQuizBoard() {
                 </button>
                 {showAnswer && (
                   <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <p className="text-zinc-800 font-bold text-2xl leading-relaxed mb-6">{quiz.answer}</p>
+                    <p className="text-zinc-800 font-bold text-2xl leading-relaxed mb-4">{quiz.answer}</p>
+                    {quiz.explanation && (
+                      <div className="bg-amber-50 p-4 rounded-xl border-l-4 border-amber-400 mb-6 shadow-sm">
+                        <h4 className="text-amber-900 font-extrabold text-sm mb-1">🧐 {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}</h4>
+                        <p className="text-zinc-700 text-sm leading-relaxed">{quiz.explanation}</p>
+                      </div>
+                    )}
                     <div className="flex gap-3">
                       <button 
                         onClick={() => setShowCorrectEffect(true)}

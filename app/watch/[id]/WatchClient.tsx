@@ -160,6 +160,13 @@ export default function WatchClient({
                 </div>
               )}
 
+              {/* タイトル（見出し）を画像の上にオーバーレイ表示 */}
+              <div className="absolute top-0 left-0 w-full p-6 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
+                <h2 className="text-white text-xl sm:text-2xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight max-w-[90%]">
+                  <LatexRenderer text={t.title} />
+                </h2>
+              </div>
+
               {showAnswer && (
                 <div className={`absolute inset-0 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300 ${lastResult === 'correct' ? 'bg-green-900/40' : 'bg-red-900/90'}`}>
                   {lastResult === 'correct' ? (

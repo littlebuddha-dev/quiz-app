@@ -30,11 +30,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Auth Check
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
-    if (!user || (user.role !== 'ADMIN' && user.role !== 'PARENT')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const cronSecret = req.headers.get('x-cron-secret');
+    const isCron = cronSecret && cronSecret === process.env.CRON_SECRET;
+
+    if (!isCron) {
+      const { userId } = await auth();
+      if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
+      if (!user || (user.role !== 'ADMIN' && user.role !== 'PARENT')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     const body = (await req.json()) as any;
@@ -47,83 +52,101 @@ export async function POST(req: NextRequest) {
     if (!apiKey) return NextResponse.json({ error: 'API_KEY_MISSING' }, { status: 500 });
     const ai = new GoogleGenAI({ apiKey });
 
-    // 1. Get existing quiz titles for this category/age to ensure uniqueness
-    const existingQuizzes = await prisma.quiz.findMany({
-      where: { categoryId, targetAge: parsedAge },
-      include: { translations: { where: { locale: 'ja' } } }
-    });
-    const existingTitles = existingQuizzes.map(q => q.translations[0]?.title).filter(Boolean) as string[];
-
-    const [category] = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
-      'SELECT "id", "name", "nameJa" FROM "Category" WHERE "id" = ? LIMIT 1',
-      categoryId
-    );
-    const persona = getPersonaByAge(parsedAge);
-
-    // 2. Ask Gemini (Planner) to suggest N unique sub-topics
-    const topicSuggestionPrompt = `
-あなたは教育プランナーです。「${category?.nameJa || category?.name || '一般'}」というジャンルで、${parsedAge}歳 (${persona.description}) 向けに、新しく面白いクイズのトピックを ${count} 個提案してください。
-
-## 既存のトピック (これらは避けてください):
-${existingTitles.join(', ')}
-
-## 制約:
-* 各トピックは具体的で、1つのクイズとして成立するものにしてください。
-* 重複を避け、幅広い知識をカバーするようにしてください。
-* 教育的価値が高いものを優先してください。
-* 出力はJSON形式で、キー "topics" に文字列の配列を入れてください。
-`;
-
-    const suggestionResponse = await ai.models.generateContent({
-      model: hybridModel.plannerId,
-      contents: topicSuggestionPrompt,
-      config: { responseMimeType: "application/json" },
-    });
-
-    const suggestionText = suggestionResponse.text;
-    const usage = suggestionResponse.usageMetadata;
-    if (usage) {
-      await logApiUsage(prisma, {
-        modelId: hybridModel.plannerId,
-        promptTokens: usage.promptTokenCount || 0,
-        candidateTokens: usage.candidatesTokenCount || 0,
-        purpose: 'TOPIC_SUGGEST'
-      });
+    // 1. Get Categories to process
+    let categoriesToProcess = [];
+    if (categoryId === 'all') {
+      categoriesToProcess = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
+        'SELECT "id", "name", "nameJa" FROM "Category" ORDER BY "sortOrder" ASC'
+      );
+    } else {
+      const [cat] = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
+        'SELECT "id", "name", "nameJa" FROM "Category" WHERE "id" = ? LIMIT 1',
+        categoryId
+      );
+      if (cat) categoriesToProcess.push(cat);
     }
 
-    const suggestionData = JSON.parse(suggestionText || '{"topics":[]}');
-    const suggestedTopics = suggestionData.topics || [];
+    if (categoriesToProcess.length === 0) {
+      return NextResponse.json({ error: 'CATEGORY_NOT_FOUND' }, { status: 404 });
+    }
 
-    // 3. Sequential generation
+    const persona = getPersonaByAge(parsedAge);
     const results = [];
     const baseUrl = new URL(req.url).origin;
 
-    for (const topic of suggestedTopics) {
+    // 2. Process each category
+    for (const category of categoriesToProcess) {
+      // Uniqueness check for this specific category
+      const existingQuizzes = await prisma.quiz.findMany({
+        where: { categoryId: category.id, targetAge: parsedAge },
+        include: { translations: { where: { locale: 'ja' } } }
+      });
+      const existingTitles = existingQuizzes.map(q => q.translations[0]?.title).filter(Boolean) as string[];
+
+      // Adjust count per category if "all" is selected to avoid hitting timeout limits
+      const countForThisCat = categoryId === 'all' ? Math.min(count, 2) : count;
+
+      const topicSuggestionPrompt = `
+あなたは教育プランナーです。「${category.nameJa || category.name}」というジャンルで、${parsedAge}歳 (${persona.description}) 向けに、新しく面白いクイズのトピックを ${countForThisCat} 個提案してください。
+
+## 既存のトピック (これらは避けてください):
+${existingTitles.slice(0, 50).join(', ')}
+
+## 制約:
+* 各トピックは具体的で、1つのクイズとして成立するものにしてください。
+* 重複を避け、学習意図が明確なものを優先してください。
+* 出力はJSON形式で、キー "topics" に文字列の配列を入れてください。
+`;
+
       try {
-        const genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic,
-            categoryId: categoryId as string,
-            targetAge: parsedAge,
-            quizType: quizType || 'TEXT',
-            excludeTitles: existingTitles,
-            modelId: hybridModel.generatorId
-          })
+        const suggestionResponse = await ai.models.generateContent({
+          model: hybridModel.plannerId,
+          contents: topicSuggestionPrompt,
+          config: { responseMimeType: "application/json" },
         });
-        if (genRes.ok) {
-          const data = await genRes.json();
-          results.push(data as any);
-        } else {
-          console.error(`Failed to generate for topic: ${topic}`);
+
+        const suggestionData = JSON.parse(suggestionResponse.text || '{"topics":[]}');
+        const suggestedTopics = suggestionData.topics || [];
+
+        // Log Usage
+        const usage = suggestionResponse.usageMetadata;
+        if (usage) {
+          await logApiUsage(prisma, {
+            modelId: hybridModel.plannerId,
+            promptTokens: usage.promptTokenCount || 0,
+            candidateTokens: usage.candidatesTokenCount || 0,
+            purpose: 'TOPIC_SUGGEST'
+          });
         }
-      } catch (e) {
-        console.error(e);
+
+        // 3. Generate Quizzes for suggested topics
+        for (const topic of suggestedTopics) {
+          const genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              topic,
+              categoryId: category.id,
+              targetAge: parsedAge,
+              quizType: quizType || 'TEXT',
+              excludeTitles: existingTitles,
+              modelId: hybridModel.generatorId
+            })
+          });
+          if (genRes.ok) {
+            results.push(await genRes.json());
+          }
+        }
+      } catch (err) {
+        console.error(`Error processing category ${category.id}:`, err);
       }
     }
 
-    return NextResponse.json({ success: true, count: results.length, quizzes: results });
+    return NextResponse.json({ 
+      success: true, 
+      count: results.length, 
+      categoriesProcessed: categoriesToProcess.length 
+    });
 
   } catch (error: any) {
     console.error('Auto-generator Error:', error);

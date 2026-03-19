@@ -8,11 +8,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { getPersonaByAge, BASE_SYSTEM_INSTRUCTION } from '@/lib/ai-prompts';
-import { DEFAULT_MODEL_ID } from '@/lib/ai-models';
+import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
 export async function POST(req: NextRequest) {
+  let selectedModel = DEFAULT_MODEL_ID;
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -37,7 +38,12 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as any;
     const { topic, categoryId, targetAge, quizType, imageUrl: providedImageUrl, systemPrompt, correctionPrompt, excludeTitles, modelId } = body;
 
-    const selectedModel = modelId || DEFAULT_MODEL_ID;
+    const hybridModelId = modelId || DEFAULT_MODEL_ID;
+    const hybridModel = getModelById(hybridModelId);
+    // If modelId is already a raw Gemini model name (passed from auto-generator), use it. 
+    // Otherwise use the generatorId from the hybrid config.
+    selectedModel = (modelId && !modelId.startsWith('hybrid-')) ? modelId : hybridModel.generatorId;
+    
     const parsedAge = parseInt(targetAge) || 8;
     const persona = getPersonaByAge(parsedAge);
 
@@ -85,7 +91,53 @@ ${finalSystemInstruction}
     });
 
     const resultText = textResponse.text;
-    const multiLangData = JSON.parse(resultText || '{}');
+    let multiLangData: any;
+    try {
+      multiLangData = JSON.parse(resultText || '{}');
+    } catch (parseError) {
+      console.error('Initial JSON parse failed. Attempting to sanitize...', parseError);
+      try {
+        // AIがバックスラッシュのエスケープを忘れることがあるため、補正を試みる（特にLaTeXなどで発生しやすい）
+        // JSONで不正なエスケープ（\ の後に特定の文字がない）を検知して補正
+        const sanitized = (resultText || '{}').replace(/\\(?![/"\\bfnrtu])/g, '\\\\');
+        multiLangData = JSON.parse(sanitized);
+        console.log('Sanitization successful.');
+      } catch (retryError: any) {
+        console.error('Sanitization also failed:', retryError);
+        return NextResponse.json({ 
+          error: 'INVALID_JSON', 
+          message: `AIの回答形式が正しくありませんでした。もう一度お試しください。(${retryError.message})`,
+          rawResponse: resultText 
+        }, { status: 500 });
+      }
+    }
+
+    // AIの回答構造を再帰的に検索して標準化 (ネストされている場合の対応)
+    const findQuizRoot = (obj: any): any => {
+      if (obj && typeof obj === 'object' && obj.ja && obj.en && obj.zh) return obj;
+      if (obj && typeof obj === 'object') {
+        for (const key of Object.keys(obj)) {
+          const found = findQuizRoot(obj[key]);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    if (multiLangData && !multiLangData.ja) {
+      const root = findQuizRoot(multiLangData);
+      if (root) multiLangData = root;
+    }
+
+    // 必須データの存在チェック
+    if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
+      console.error('Invalid structure in AI response:', multiLangData);
+      return NextResponse.json({ 
+        error: 'INVALID_STRUCTURE', 
+        message: 'AIの回答データの構造が不完全でした。もう一度お試しください。',
+        rawResponse: multiLangData 
+      }, { status: 500 });
+    }
 
     // AI Usage Logging
     const usage = textResponse.usageMetadata;
@@ -98,32 +150,38 @@ ${finalSystemInstruction}
       });
     }
 
-    let imageUrl = providedImageUrl;
-    if (!imageUrl) {
+    let imageUrl = providedImageUrl || '/images/no-image.png';
+    if (!providedImageUrl) {
       // 画像生成用のプロンプトを最適化
-      const imageCommand = `Educational illustration for kids/adults (Age ${parsedAge}). Theme: ${topic}. 
+      const imageCommand = `Educational illustration for kids/adults (Age ${parsedAge}). 
+Theme: ${topic}. 
 Description: ${multiLangData.ja.question}. 
-Style: Whimsical, storybook, or flat clean design depending on age appropriateness. 
-Requirement: No text inside the image. Vibrant colors. High quality.`;
+Style: ${persona.imageStyle} 
+Requirement: No text inside the image. Vibrant if for children, professional if for adults. High quality.`;
 
-      const imageResponse = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
-        prompt: imageCommand,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: '16:9',
-          outputMimeType: 'image/jpeg',
-        },
-      });
+      let generatedImage: string | undefined;
+      try {
+        const imageResponse = await ai.models.generateImages({
+          model: 'imagen-4.0-generate-001',
+          prompt: imageCommand,
+          config: {
+            numberOfImages: 1,
+            aspectRatio: '16:9',
+            outputMimeType: 'image/jpeg',
+          },
+        });
+        generatedImage = imageResponse.generatedImages?.[0]?.image?.imageBytes;
+      } catch (imageError) {
+        console.warn("Image generation API call failed:", imageError);
+      }
 
-      const generatedImage = imageResponse.generatedImages?.[0]?.image?.imageBytes;
-      if (!generatedImage) {
-        console.warn("Image generation failed, using fallback or empty.");
-        // imageUrl remains empty or use a placeholder if available
-      } else {
+      if (generatedImage) {
         imageUrl = `data:image/jpeg;base64,${generatedImage}`;
       }
     }
+
+    // AIの回答からクイズ形式を決定 (AIが自動で変更した場合に対応)
+    const actualQuizType = (multiLangData.ja.type || quizType || 'TEXT') as 'TEXT' | 'CHOICE';
 
     // DBへ保存
     const savedQuiz = await prisma.quiz.create({
@@ -135,31 +193,34 @@ Requirement: No text inside the image. Vibrant colors. High quality.`;
           create: [
             {
               locale: 'ja',
-              title: multiLangData.ja.title,
+              title: multiLangData.ja.title || topic || 'クイズ',
               question: multiLangData.ja.question,
               hint: multiLangData.ja.hint,
               answer: multiLangData.ja.answer,
-              type: quizType,
-              options: quizType === 'CHOICE' && multiLangData.ja.options ? (JSON.stringify(multiLangData.ja.options) as any) : undefined,
+              explanation: multiLangData.ja.explanation || '',
+              type: actualQuizType,
+              options: actualQuizType === 'CHOICE' && multiLangData.ja.options ? (JSON.stringify(multiLangData.ja.options) as any) : undefined,
             },
             {
               locale: 'en',
-              title: multiLangData.en.title,
+              title: multiLangData.en.title || topic || 'Quiz',
               question: multiLangData.en.question,
               hint: multiLangData.en.hint,
               answer: multiLangData.en.answer,
-              type: quizType,
-              options: quizType === 'CHOICE' && multiLangData.en.options ? (JSON.stringify(multiLangData.en.options) as any) : undefined,
+              explanation: multiLangData.en.explanation || '',
+              type: actualQuizType,
+              options: actualQuizType === 'CHOICE' && multiLangData.en.options ? (JSON.stringify(multiLangData.en.options) as any) : undefined,
             },
             {
               locale: 'zh',
-              title: multiLangData.zh.title,
+              title: multiLangData.zh.title || topic || '问答',
               question: multiLangData.zh.question,
               hint: multiLangData.zh.hint,
               answer: multiLangData.zh.answer,
-              type: quizType,
-              options: quizType === 'CHOICE' && multiLangData.zh.options ? (JSON.stringify(multiLangData.zh.options) as any) : undefined,
-            }
+              explanation: multiLangData.zh.explanation || '',
+              type: actualQuizType,
+              options: actualQuizType === 'CHOICE' && multiLangData.zh.options ? (JSON.stringify(multiLangData.zh.options) as any) : undefined,
+            },
           ]
         }
       },
@@ -171,15 +232,42 @@ Requirement: No text inside the image. Vibrant colors. High quality.`;
     return NextResponse.json({ ...multiLangData.ja, id: savedQuiz.id, imageUrl });
 
   } catch (error: any) {
-    console.error('API Error:', error);
+    console.error('API Error details:', error);
+    
+    const status = error.status || error.response?.status || 500;
+    const errorMessage = error.message || '';
 
-    if (error.status === 429 || error.message?.includes('429')) {
+    if (status === 429 || errorMessage.includes('429') || errorMessage.includes('quota')) {
       return NextResponse.json(
-        { error: 'RATE_LIMIT_EXCEEDED', message: 'AIの利用制限に達しました。1分ほど待ってから再度お試しください。' },
+        { error: 'RATE_LIMIT_EXCEEDED', message: 'AIの利用制限（クォータ）に達しました。無料枠の制限または支払い設定を確認してください。1分ほど待ってから再度お試しください。' },
         { status: 429 }
       );
     }
 
-    return NextResponse.json({ error: 'Failed to generate quiz', message: 'クイズの生成中にエラーが発生しました。' }, { status: 500 });
+    if (status === 404 || errorMessage.includes('404') || errorMessage.includes('not found')) {
+      return NextResponse.json(
+        { error: 'MODEL_NOT_FOUND', message: `指定されたモデル (${selectedModel}) が見つからないか、現在のAPIキーで利用できません。モデル設定を確認してください。` },
+        { status: 404 }
+      );
+    }
+
+    if (status === 503 || errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+      return NextResponse.json(
+        { error: 'SERVICE_UNAVAILABLE', message: 'AIサービスが一時的に混み合っています。少し時間を置いてから再度お試しください。' },
+        { status: 503 }
+      );
+    }
+
+    if (status === 401 || status === 403 || errorMessage.includes('API_KEY_INVALID')) {
+      return NextResponse.json(
+        { error: 'AUTH_ERROR', message: 'APIキーが無効であるか、認証に失敗しました。設定を確認してください。' },
+        { status: status === 401 ? 401 : 403 }
+      );
+    }
+
+    return NextResponse.json({ 
+      error: 'Failed to generate quiz', 
+      message: `クイズの生成中にエラーが発生しました。詳細は管理者にお問い合わせください。(${status})` 
+    }, { status: 500 });
   }
 }
