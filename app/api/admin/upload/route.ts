@@ -22,7 +22,7 @@ async function isAdminOrParent(prisma: PrismaClient) {
   return user && (user.role === 'ADMIN' || user.role === 'PARENT');
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   const isAuthorized = await isAdminOrParent(prisma);

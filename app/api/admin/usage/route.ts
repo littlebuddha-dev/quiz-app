@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/admin/usage/route.ts
 // Title: API Usage Dashboard API
 // Purpose: Returns current month's usage statistics and spending vs budget.
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
@@ -10,7 +11,7 @@ import { checkApiBudget } from '@/lib/ai-usage';
 
 export const runtime = 'edge';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
       }))
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Usage API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

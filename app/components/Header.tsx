@@ -1,10 +1,12 @@
 // Path: app/components/Header.tsx
 // Title: Shared Header Component
 // Purpose: Reusable header with search, language selector, and user status.
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import { useEffect, useState } from 'react';
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import Link from 'next/link';
 import { Locale } from '../types';
 
 const DICTIONARY: Record<Locale, { search: string; }> = {
@@ -34,13 +36,17 @@ export default function Header({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const frame = window.requestAnimationFrame(() => {
+      setMounted(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-[var(--card)]/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 border-b border-[var(--border)] z-50 transition-colors" suppressHydrationWarning>
       <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
-        <a href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <div className="h-8 w-24 sm:h-9 sm:w-28">
             <img
               src="/logo-header.svg"
@@ -48,7 +54,7 @@ export default function Header({
               className="h-full w-full object-contain"
             />
           </div>
-        </a>
+        </Link>
       </div>
 
       {!hideSearch && (
@@ -79,10 +85,10 @@ export default function Header({
           </div>
         )}
 
-        <a href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
+        <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
           <span className="text-lg">🏆</span>
           <span className="hidden xs:block">ランキング</span>
-        </a>
+        </Link>
 
         <div className="flex items-center">
           {mounted ? (

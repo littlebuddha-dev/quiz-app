@@ -6,10 +6,19 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaD1 } from "@prisma/adapter-d1";
 
+type CloudflareEnvLike = {
+  DB?: ConstructorParameters<typeof PrismaD1>[0];
+};
+
+function getGlobalBinding(name: 'DB') {
+  const candidate = globalThis as typeof globalThis & Record<string, unknown>;
+  return candidate[name];
+}
+
 // Cache the Prisma instance per request context if possible, 
 // though on Cloudflare Workers we usually create it per request.
 // This factory function is called per-request in API routes and Server Components.
-export function createPrisma(env: any) {
+export function createPrisma(env: CloudflareEnvLike | null | undefined) {
   // 1. ビルドフェーズのチェック
   // Next.jsのビルド（静的生成）中はD1バインディングが利用できないため、
   // エラーを投げずに通常のPrismaClientを返すことでビルドを継続させます。
@@ -17,7 +26,7 @@ export function createPrisma(env: any) {
   
   // 2. バインディングの探索
   // Cloudflare Workersでは env.DB に入るが、環境によって process.env や globalThis にある可能性も考慮
-  const d1 = env?.DB || (process.env as any).DB || (globalThis as any).DB;
+  const d1 = env?.DB || getGlobalBinding('DB');
 
   if (!d1) {
     if (isBuildPhase) {
@@ -31,9 +40,9 @@ export function createPrisma(env: any) {
   }
 
   try {
-    const adapter = new PrismaD1(d1);
+    const adapter = new PrismaD1(d1 as ConstructorParameters<typeof PrismaD1>[0]);
     return new PrismaClient({ adapter });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to initialize Prisma with D1 adapter:", error);
     // 最後の手段として標準クライアントを試すが、Edge環境ではおそらく失敗する
     return new PrismaClient();

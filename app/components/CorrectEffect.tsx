@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/unsupported-syntax */
 // Path: app/components/CorrectEffect.tsx
 // Title: Correct Answer Animation Component
 // Purpose: Full-screen overlay with canvas-based firework and confetti animations.
@@ -31,7 +32,6 @@ export default function CorrectEffect({
   btnLabel = 'つぎへすすむ →'
 }: CorrectEffectProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [shouldRender, setShouldRender] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const animIdRef = useRef<number | null>(null);
@@ -397,4 +397,3 @@ export default function CorrectEffect({
     </div>
   );
 }
-

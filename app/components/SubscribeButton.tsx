@@ -7,6 +7,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+type SubscriptionResponse = {
+  subscribed: boolean;
+};
+
 export default function SubscribeButton({ channelId, initialSubscribed, isLoggedIn }: { channelId: string, initialSubscribed: boolean, isLoggedIn: boolean }) {
   const [isSubscribed, setIsSubscribed] = useState(initialSubscribed);
   const [loading, setLoading] = useState(false);
@@ -27,7 +31,7 @@ export default function SubscribeButton({ channelId, initialSubscribed, isLogged
       });
 
       if (res.ok) {
-        const data = (await res.json()) as any;
+        const data = (await res.json()) as SubscriptionResponse;
         setIsSubscribed(data.subscribed);
         router.refresh();
       } else {

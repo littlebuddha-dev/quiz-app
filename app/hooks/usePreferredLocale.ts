@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Locale } from '../types';
 
 const STORAGE_KEY = 'cue-locale';
@@ -18,13 +18,14 @@ function normalizeLocale(value?: string | null): Locale {
 }
 
 export function usePreferredLocale() {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_LOCALE;
+    }
 
-  useEffect(() => {
     const savedLocale = window.localStorage.getItem(STORAGE_KEY);
-    const nextLocale = normalizeLocale(savedLocale || navigator.language);
-    setLocaleState(nextLocale);
-  }, []);
+    return normalizeLocale(savedLocale || navigator.language);
+  });
 
   const setLocale = (nextLocale: Locale) => {
     setLocaleState(nextLocale);

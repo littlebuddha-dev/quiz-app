@@ -1,9 +1,8 @@
 // Path: app/components/Footer.tsx
 // Title: Shared Footer Component
 // Purpose: Reusable footer with site logo and copyright information.
+/* eslint-disable @next/next/no-img-element */
 'use client';
-
-import Image from 'next/image';
 
 export default function Footer() {
   return (

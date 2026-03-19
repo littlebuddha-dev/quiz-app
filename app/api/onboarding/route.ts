@@ -20,7 +20,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json() as any;
+    const body = await request.json() as {
+      name?: string;
+      birthDate?: string;
+      preferredCategories?: string[];
+    };
     const { name, birthDate, preferredCategories } = body;
 
     if (!birthDate) {

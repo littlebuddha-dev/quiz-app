@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // /Users/Shared/Program/nextjs/quiz-app/app/onboarding/OnboardingClient.tsx
 // Title: Onboarding Client Component
 // Purpose: Interactive form for new users to set their profile.
@@ -6,7 +7,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 
 export default function OnboardingClient({ initialData, categories }: any) {
   const router = useRouter();

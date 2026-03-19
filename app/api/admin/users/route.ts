@@ -6,11 +6,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { PrismaClient } from '@prisma/client';
 
 export const runtime = 'edge';
 
 // 権限チェック関数
-async function isAdmin(prisma: any, clerkId: string) {
+async function isAdmin(prisma: PrismaClient, clerkId: string) {
   const user = await prisma.user.findUnique({
     where: { clerkId },
     select: { role: true },
@@ -18,7 +19,7 @@ async function isAdmin(prisma: any, clerkId: string) {
   return user?.role === 'ADMIN' || user?.role === 'PARENT';
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -62,7 +63,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = (await request.json()) as any;
+    const body = (await request.json()) as Partial<{
+      id: string;
+      role: string;
+      xp: number;
+      level: number;
+      name: string;
+    }>;
     const { id, role, xp, level, name } = body;
 
     if (!id) {

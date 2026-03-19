@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/channel/[id]/page.tsx
 // Title: Creator Channel Page
 // Purpose: Displays a creator's profile and the quizzes they have created.

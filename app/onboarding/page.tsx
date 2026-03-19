@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // /Users/Shared/Program/nextjs/quiz-app/app/onboarding/page.tsx
 // Title: Onboarding Page (Server)
 // Purpose: Server component for initial onboarding authentication check.

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/page.tsx
 // Title: YouTube-like Main Dashboard (Server Component)
 // Purpose: Fetches quiz data from the database and passes it to the client component.
@@ -5,7 +6,6 @@
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz } from './types';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';

@@ -5,7 +5,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Quiz } from '../types';
+import type { QuizClientWrapperProps } from './QuizClient';
 
 // ssr: false を指定してクライアントサイドでのみレンダリング
 const QuizClient = dynamic(() => import('./QuizClient'), { 
@@ -13,19 +13,6 @@ const QuizClient = dynamic(() => import('./QuizClient'), {
   loading: () => <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-20 text-zinc-500 font-bold">Loading...</div>
 });
 
-type WrapperProps = {
-  initialQuizzes: Quiz[];
-  categories: any[];
-  userBookmarks?: string[];
-  userLikes?: string[];
-  userHistories?: string[];
-  userTargetAge?: number | null;
-  initialSearchQuery?: string;
-  initialCategory?: string;
-  userStatus?: { xp: number; level: number; role: string };
-  hideHeader?: boolean;
-}
-
-export default function QuizClientWrapper(props: WrapperProps) {
+export default function QuizClientWrapper(props: QuizClientWrapperProps) {
   return <QuizClient {...props} />;
 }

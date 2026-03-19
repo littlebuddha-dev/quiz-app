@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/user/actions/route.ts
 export const runtime = 'edge';
 // Title: User Actions API

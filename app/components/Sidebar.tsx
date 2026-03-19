@@ -1,19 +1,29 @@
 // Path: app/components/Sidebar.tsx
 // Title: Navigation Sidebar Component
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import { Locale } from '../types';
 
+type SidebarCategory = {
+  id: string;
+  name?: string;
+  ja?: string;
+  en?: string;
+  zh?: string;
+  icon?: string | null;
+};
+
 interface SidebarProps {
   locale: Locale;
-  categories: any[];
+  categories: SidebarCategory[];
   activeCategory: string;
   onSelectCategory: (category: string) => void;
 }
 
 interface SidebarContentsProps {
   locale: Locale;
-  categories: any[];
+  categories: SidebarCategory[];
   activeCategory: string;
   onSelectCategory: (category: string) => void;
   isMobile?: boolean;

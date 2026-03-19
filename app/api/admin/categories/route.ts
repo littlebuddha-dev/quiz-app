@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
@@ -33,7 +34,7 @@ async function checkAdmin(prisma: PrismaClient) {
   return user?.role === 'ADMIN' || user?.role === 'PARENT';
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const { env } = getCloudflareContext();
   const prisma = createPrisma(env);
   await ensureCategoryLocalizationColumns(prisma as any);

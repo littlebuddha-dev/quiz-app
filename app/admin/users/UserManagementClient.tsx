@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // /Users/Shared/Program/nextjs/quiz-app/app/admin/users/UserManagementClient.tsx
 // Title: User Management Client Component
 // Purpose: Interactive UI for managing users, roles, and progress.
@@ -7,11 +8,9 @@
 import { useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { useRouter } from 'next/navigation';
 import { usePreferredLocale } from '../../hooks/usePreferredLocale';
 
 export default function UserManagementClient({ initialUsers, userStatus }: any) {
-  const router = useRouter();
   const { locale, setLocale } = usePreferredLocale();
   const [users, setUsers] = useState(initialUsers);
   const [searchQuery, setSearchQuery] = useState('');

@@ -6,7 +6,6 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar, { SidebarContents } from './Sidebar';
 import Header from './Header';
@@ -40,18 +39,32 @@ type QuizClientProps = {
   initialCategory?: string;
 }
 
+export type QuizClientWrapperProps = QuizClientProps & {
+  categories: {
+    id: string;
+    name?: string;
+    nameJa?: string | null;
+    nameEn?: string | null;
+    nameZh?: string | null;
+    ja?: string;
+    en?: string;
+    zh?: string;
+    icon?: string | null;
+  }[];
+  hideHeader?: boolean;
+};
+
 export default function QuizClient({ 
   initialQuizzes, 
   categories,
   userBookmarks = [], 
-  userLikes = [], 
   userHistories = [], 
   userTargetAge, 
   userStatus,
   initialSearchQuery = '', 
   initialCategory = 'すべて',
   hideHeader = false 
-}: QuizClientProps & { categories: any[], hideHeader?: boolean }) {
+}: QuizClientWrapperProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale, setLocale } = usePreferredLocale();
@@ -59,8 +72,8 @@ export default function QuizClient({
   const [activeCategory, setActiveCategory] = useState(initialCategory);
 
   // パーソナライズ用の状態管理（セットを使って高速にO(1)で存在確認）
-  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set(userBookmarks));
-  const [histories, setHistories] = useState<Set<string>>(new Set(userHistories));
+  const [bookmarks] = useState<Set<string>>(new Set(userBookmarks));
+  const [histories] = useState<Set<string>>(new Set(userHistories));
 
   const t = DICTIONARY[locale];
 

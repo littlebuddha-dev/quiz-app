@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/admin/page.tsx
 // Title: Admin Dashboard
 // Purpose: Allows admins to manage and create quizzes.

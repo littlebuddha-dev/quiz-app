@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/admin/auto-generator/route.ts
 // Title: Automated Bulk Quiz Generator API
 // Purpose: Automatically suggests unique topics and generates multiple quizzes for a category and age.

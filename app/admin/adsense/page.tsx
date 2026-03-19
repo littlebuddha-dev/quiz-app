@@ -34,9 +34,10 @@ export default function AdSenseAdminPage() {
   useEffect(() => {
     fetch('/api/admin/adsense')
       .then((res) => res.json())
-      .then((data: any) => { // Added 'as any' casting here
-        if (!data.error) {
-          setSettings(data);
+      .then((data) => {
+        const parsed = data as AdSenseSettings & { error?: string };
+        if (!parsed.error) {
+          setSettings(parsed);
         }
         setLoading(false);
       })
@@ -60,7 +61,7 @@ export default function AdSenseAdminPage() {
       } else {
         setMessage('保存に失敗しました。');
       }
-    } catch (err) {
+    } catch {
       setMessage('保存中にエラーが発生しました。');
     } finally {
       setSaving(false);

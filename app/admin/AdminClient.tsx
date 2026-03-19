@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element */
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,11 +12,17 @@ import { usePreferredLocale } from '../hooks/usePreferredLocale';
 
 const SUPPORTED_LOCALES: Locale[] = ['ja', 'en', 'zh'];
 
-export default function AdminClient({ initialQuizzes, categories, userStatus }: any) {
+export type AdminClientProps = {
+  initialQuizzes: any;
+  categories: any;
+  userStatus?: { xp: number; level: number; role: string };
+};
+
+export default function AdminClient({ initialQuizzes, categories, userStatus }: AdminClientProps) {
   const router = useRouter();
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
-  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools'>('ai');
+  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools' | 'backup'>('ai');
   const [categoriesList, setCategoriesList] = useState(categories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [catFormData, setCatFormData] = useState({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
@@ -59,7 +66,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
   // 検索・フィルター・ソート用の状態
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'title'>('newest');
+  const [sortBy] = useState<'newest' | 'oldest' | 'title'>('newest');
 
   const initialForm = {
     categoryId: categoriesList[0]?.id || '',
@@ -77,7 +84,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
 
   // クイズのフィルタリングとソート
   const filteredQuizzes = useMemo(() => {
-    let result = quizzes.filter((q: any) => {
+    const result = quizzes.filter((q: any) => {
       const categoryMatch = selectedCategory === 'all' || q.categoryId === selectedCategory || q.category === selectedCategory;
       const query = searchQuery.toLowerCase();
       const titleMatch = (q.title || '').toLowerCase().includes(query);
@@ -158,6 +165,64 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
       alert('削除に失敗しました');
     }
     setLoading(false);
+  };
+
+  const handleExportBackup = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/backup');
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `quiz_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        alert('エクスポートに失敗しました');
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert('エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm('既存のデータ（クイズ、ジャンル等）がすべて削除され、バックアップの内容で上書きされます。本当によろしいですか？')) {
+      e.target.value = '';
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const content = JSON.parse(await file.text());
+      const res = await fetch('/api/admin/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(content),
+      });
+
+      if (res.ok) {
+        alert('復元が完了しました。ページをリロードします。');
+        window.location.reload();
+        return;
+      }
+
+      const err = (await res.json()) as any;
+      alert(`復元に失敗しました: ${err.message || '不明なエラー'}`);
+    } catch (error: any) {
+      console.error(error);
+      alert(error instanceof SyntaxError ? 'ファイル形式が正しくありません。' : 'エラーが発生しました');
+    } finally {
+      e.target.value = '';
+      setLoading(false);
+    }
   };
 
   const compressImage = async (file: File): Promise<Blob> => {
@@ -565,6 +630,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             <button onClick={() => setMainTab('categories')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'categories' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📁 ジャンル管理</button>
             <button onClick={() => setMainTab('usage')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'usage' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💳 資金管理</button>
             <button onClick={() => setMainTab('tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🔗 外部ツール</button>
+            <button onClick={() => setMainTab('backup')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'backup' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💾 バックアップ</button>
           </div>
 
           {mainTab === 'ai' && (
@@ -1146,41 +1212,123 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                   </div>
                 </a>
 
-                <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 -mr-8 -mt-8 rotate-45"></div>
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-amber-100 text-amber-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">✨</span>
                     <div>
                       <h3 className="text-lg font-black">Google AI Studio</h3>
-                      <p className="text-xs font-bold text-zinc-500">Gemini API & Prompts</p>
+                      <p className="text-xs font-bold text-zinc-500">Gemini API & Setup</p>
                     </div>
                   </div>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
-                    Gemini APIキーの発行、プロンプトのテスト、クォータの確認ができます。
+                    AI生成の要となるGemini APIの管理、APIキーの発行、最新モデルのドキュメントにアクセスできます。
                   </p>
-                  <div className="flex items-center text-xs font-black text-amber-600 gap-1">
-                    API管理を開く <span className="text-lg">→</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                    <a href="https://aistudio.google.com/app/api-keys" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-amber-50 dark:bg-amber-900/10 text-[11px] font-black text-amber-700 dark:text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all">
+                      APIキーの発行・管理 <span>🔑</span>
+                    </a>
+                    <a href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      APIドキュメント <span>📚</span>
+                    </a>
+                    <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      AI Studio (Prompt Lab) <span>🧪</span>
+                    </a>
+                    <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      料金・クォータ制限 <span>💰</span>
+                    </a>
                   </div>
-                </a>
+                </div>
 
-                <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 -mr-8 -mt-8 rotate-45"></div>
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-orange-100 text-orange-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">☁️</span>
                     <div>
-                      <h3 className="text-lg font-black">Cloudflare Dashboard</h3>
-                      <p className="text-xs font-bold text-zinc-500">Deployments & D1 Database</p>
+                      <h3 className="text-lg font-black">Cloudflare Dash</h3>
+                      <p className="text-xs font-bold text-zinc-500">Deploy & Database</p>
                     </div>
                   </div>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
-                    デプロイのステータス確認、D1データベース（本番環境）の操作などを行います。
+                    本番環境のデプロイステータス、D1データベース（SQLite）、環境曲変数などの管理が行えます。
                   </p>
-                  <div className="flex items-center text-xs font-black text-orange-600 gap-1">
-                    コンソールへ <span className="text-lg">→</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                    <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-orange-50 dark:bg-orange-900/10 text-[11px] font-black text-orange-700 dark:text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all">
+                      D1 データベース <span>🗄️</span>
+                    </a>
+                    <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      Pages デプロイ <span>🚀</span>
+                    </a>
                   </div>
-                </a>
+                </div>
+              </div>
+            </div>
+          )}
+          {mainTab === 'backup' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl">
+                <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+                  <span className="bg-amber-100 p-2 rounded-xl text-lg">💾</span>
+                  バックアップ・復元
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Export */}
+                  <div className="space-y-4 p-6 border rounded-2xl bg-zinc-50 dark:bg-zinc-900 shadow-inner">
+                    <h3 className="font-bold flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                      <span>📤</span> エクスポート
+                    </h3>
+                    <p className="text-xs text-zinc-500 leading-relaxed">
+                      現在のすべてのクイズ、ジャンル、設定、統計データをJSONファイルとしてダウンロードします。定期的なバックアップを推奨します。
+                    </p>
+                    <button 
+                      onClick={handleExportBackup} 
+                      disabled={loading}
+                      className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-600/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      バックアップをダウンロード 📦
+                    </button>
+                  </div>
+
+                  {/* Import */}
+                  <div className="space-y-4 p-6 border rounded-2xl bg-red-50/30 dark:bg-red-900/10 border-red-100 dark:border-red-900/30">
+                    <h3 className="font-bold flex items-center gap-2 text-red-700 dark:text-red-400">
+                      <span>📥</span> 復元（インポート）
+                    </h3>
+                    <p className="text-xs text-red-600/70 dark:text-red-400/70 leading-relaxed font-medium">
+                      ⚠️ 警告: ファイルをアップロードすると現在のすべてのデータが消去され、バックアップの内容で上書きされます。
+                    </p>
+                    <div className="relative cursor-pointer">
+                      <input 
+                        type="file" 
+                        accept=".json" 
+                        onChange={handleImportBackup} 
+                        className="hidden" 
+                        id="backup-upload"
+                        disabled={loading}
+                      />
+                      <label 
+                        htmlFor="backup-upload"
+                        className="w-full flex items-center justify-center bg-zinc-800 text-white py-3 rounded-xl font-black shadow-lg shadow-black/20 hover:bg-black cursor-pointer transition-all"
+                      >
+                        {loading ? '処理中...' : 'バックアップファイルを選択 📂'}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl">
+                  <h4 className="text-xs font-black text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-2">仕様上の注意</h4>
+                  <ul className="text-[10px] text-amber-600 dark:text-amber-500/80 space-y-1 font-medium list-disc list-inside">
+                    <li>エクスポートデータには、base64形式で保存された画像データも含まれます。</li>
+                    <li>Clerkのユーザー認証情報は含まれません（管理者のロール設定等は含む）。</li>
+                    <li>復元を実行すると、現在のデータベースは完全にクリアされます。事前にバックアップを取ってから実行してください。</li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
         </main>
+
       </div>
       <Footer />
     </div>

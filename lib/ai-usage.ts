@@ -17,7 +17,7 @@ export async function logApiUsage(prisma: PrismaClient, data: {
   try {
     const estimatedCost = calculateEstimatedCost(data.modelId, data.promptTokens, data.candidateTokens);
     
-    await (prisma as any).apiUsage.create({
+    await prisma.apiUsage.create({
       data: {
         modelId: data.modelId,
         promptTokens: data.promptTokens,
@@ -52,7 +52,7 @@ export async function checkApiBudget(prisma: PrismaClient): Promise<{
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    const usage = await (prisma as any).apiUsage.aggregate({
+    const usage = await prisma.apiUsage.aggregate({
       where: {
         timestamp: {
           gte: firstDayOfMonth

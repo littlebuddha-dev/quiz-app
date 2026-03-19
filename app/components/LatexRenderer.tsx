@@ -28,7 +28,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
         const span = document.createElement('span');
         try {
           katex.render(text, span, { displayMode: false, throwOnError: false });
-        } catch (e) {
+        } catch {
           span.textContent = text;
         }
         containerRef.current.appendChild(span);
@@ -46,7 +46,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
           span.className = 'my-4 overflow-x-auto';
           try {
             katex.render(formula, span, { displayMode: true, throwOnError: false });
-          } catch (e) {
+        } catch {
             span.textContent = part;
           }
           containerRef.current?.appendChild(span);
@@ -56,7 +56,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
           const span = document.createElement('span');
           try {
             katex.render(formula, span, { displayMode: false, throwOnError: false });
-          } catch (e) {
+        } catch {
             span.textContent = part;
           }
           containerRef.current?.appendChild(span);

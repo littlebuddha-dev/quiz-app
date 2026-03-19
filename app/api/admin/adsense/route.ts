@@ -11,7 +11,7 @@ export const runtime = 'edge';
 
 const SETTING_KEY = 'adsense_settings';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = (await request.json()) as any;
+    const body = (await request.json()) as Record<string, unknown>;
     
     const setting = await prisma.setting.upsert({
       where: { key: SETTING_KEY },

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/admin/cron/route.ts
 // Title: Scheduled Bulk Quiz Generator
 // Purpose: Trigger automated quiz generation for all categories via Cron.

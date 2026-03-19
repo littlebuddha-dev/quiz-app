@@ -7,6 +7,10 @@ import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Internal Server Error';
+}
+
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
@@ -22,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { key, value } = (await req.json()) as any;
+    const { key, value } = (await req.json()) as { key?: string; value?: unknown };
     if (!key || value === undefined) {
       return NextResponse.json({ error: 'Missing key or value' }, { status: 400 });
     }
@@ -35,8 +39,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, setting });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Settings API Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

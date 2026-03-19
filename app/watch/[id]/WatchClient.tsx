@@ -8,21 +8,35 @@ import LatexRenderer from '../../components/LatexRenderer';
 // ... (other imports)
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { Quiz, Locale } from '../../types';
+import { Quiz } from '../../types';
 import CorrectEffect from '../../components/CorrectEffect';
 import AdSense from '../../components/AdSense';
 import { usePreferredLocale } from '../../hooks/usePreferredLocale';
 
-interface WatchClientProps {
+type WatchComment = {
+  id: string;
+  content: string;
+  userName: string;
+  createdAt: string;
+};
+
+type RelatedQuiz = {
+  id: string;
+  title: string;
+  imageUrl: string;
+  targetAge: number;
+  translations: Record<string, { title: string; imageUrl: string | null; options?: string[] }>;
+};
+
+export interface WatchClientProps {
   quiz: Quiz;
-  initialComments: any[];
+  initialComments: WatchComment[];
   initialBookmark: boolean;
   initialLike: boolean;
   initialCleared: boolean;
   isLoggedIn: boolean;
-  relatedQuizzes: any[];
+  relatedQuizzes: RelatedQuiz[];
   userStatus?: { xp: number; level: number; role: string };
-  initialLocale?: Locale;
 }
 
 export default function WatchClient({
@@ -33,8 +47,7 @@ export default function WatchClient({
   initialCleared,
   isLoggedIn,
   relatedQuizzes,
-  userStatus,
-  initialLocale = 'ja'
+  userStatus
 }: WatchClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [showHint, setShowHint] = useState(false);
@@ -117,7 +130,7 @@ export default function WatchClient({
     });
 
     if (res.ok) {
-      const addedComment = (await res.json()) as any;
+      const addedComment = (await res.json()) as { comment: WatchComment };
       setComments([addedComment.comment, ...comments]);
       setNewComment('');
     }
@@ -336,7 +349,7 @@ export default function WatchClient({
               )}
 
               <div className="flex flex-col gap-8">
-                {comments.map((c: any) => (
+                {comments.map((c) => (
                   <div key={c.id} className="flex gap-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-black flex-shrink-0 text-sm shadow-md">
                       {c.userName.charAt(0)}
@@ -361,7 +374,7 @@ export default function WatchClient({
               {locale === 'ja' ? '次のおすすめ' : locale === 'en' ? 'Up Next' : '接下来播放'}
             </h3>
             <div className="flex flex-col gap-5">
-              {relatedQuizzes?.map((rel: any) => (
+              {relatedQuizzes?.map((rel) => (
                 <Link href={`/watch/${rel.id}`} key={rel.id} className="flex gap-4 group cursor-pointer">
                   {(() => {
                     const relTranslation = rel.translations?.[locale] || rel.translations?.ja || null;

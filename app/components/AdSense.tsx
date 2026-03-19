@@ -10,16 +10,27 @@ interface AdSenseProps {
   slot: 'home' | 'watch';
 }
 
+type AdSenseSettings = {
+  enabled: boolean;
+  snippet: string;
+  slots: {
+    home: boolean;
+    watch: boolean;
+  };
+  error?: string;
+};
+
 export default function AdSense({ slot }: AdSenseProps) {
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<AdSenseSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/admin/adsense')
       .then((res) => res.json())
-      .then((data: any) => { // Cast 'data' to 'any'
-        if (!data.error) {
-          setSettings(data);
+      .then((data) => {
+        const parsed = data as AdSenseSettings;
+        if (!parsed.error) {
+          setSettings(parsed);
         }
         setLoading(false);
       })

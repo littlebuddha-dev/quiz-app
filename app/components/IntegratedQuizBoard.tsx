@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Header from './Header';
 import CorrectEffect from './CorrectEffect';
@@ -18,6 +18,10 @@ interface Quiz {
   imageUrl: string;
 }
 
+type QuizGeneratorResponse = Quiz & {
+  message?: string;
+};
+
 export default function IntegratedQuizBoard() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,7 +34,11 @@ export default function IntegratedQuizBoard() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const frame = window.requestAnimationFrame(() => {
+      setMounted(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const generateQuiz = async () => {
@@ -44,7 +52,7 @@ export default function IntegratedQuizBoard() {
         body: JSON.stringify({ topic, gradeLevel, locale }),
       });
       
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as QuizGeneratorResponse;
 
       if (!res.ok) {
         alert(data.message || 'クイズの生成に失敗しました。');

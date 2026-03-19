@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/quiz-generator/route.ts
 export const runtime = 'edge';
 // Title: Quiz Generator API Route
