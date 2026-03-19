@@ -18,7 +18,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
   const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools'>('ai');
   const [categoriesList, setCategoriesList] = useState(categories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
-  const [catFormData, setCatFormData] = useState({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '' });
+  const [catFormData, setCatFormData] = useState({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
   const [quizzes, setQuizzes] = useState(initialQuizzes);
   const [loading, setLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
@@ -340,7 +340,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
           setCategoriesList([...categoriesList, updated]);
           alert('ジャンルを追加しました');
         }
-        setCatFormData({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '' });
+        setCatFormData({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
         setEditingCatId(null);
         router.refresh();
       } else {
@@ -410,9 +410,18 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
     } catch (err) {
       console.error(err);
       alert('通信エラーが発生しました');
-      router.refresh();
     }
   };
+
+  const ICONS = [
+    { id: 'math.svg', name: '算数 (Math)' },
+    { id: 'language.svg', name: '国語 (Language)' },
+    { id: 'science.svg', name: '理科 (Science)' },
+    { id: 'social.svg', name: '社会 (Social)' },
+    { id: 'logic.svg', name: '論理 (Logic)' },
+    { id: 'coding.svg', name: 'プログラミング (Coding)' },
+    { id: 'other.svg', name: 'その他 (Other)' },
+  ];
 
   const [bulkQuantity, setBulkQuantity] = useState(3);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -711,6 +720,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">最大年齢</label>
                     <input type="number" placeholder="最大年齢 (任意)" value={catFormData.maxAge} onChange={e => setCatFormData({ ...catFormData, maxAge: e.target.value })} className="w-full border p-3 rounded-xl font-bold bg-white dark:bg-zinc-900" />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">アイコン</label>
+                    <select value={catFormData.icon} onChange={e => setCatFormData({ ...catFormData, icon: e.target.value })} className="w-full border p-3 rounded-xl font-bold bg-white dark:bg-zinc-900">
+                      <option value="">なし</option>
+                      {ICONS.map(icon => (
+                        <option key={icon.id} value={icon.id}>{icon.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">個別システムプロンプト (高度な設定)</label>
@@ -721,7 +739,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                 </button>
               </form>
               <table className="w-full">
-                <thead><tr className="text-left border-b font-black text-xs text-zinc-400 uppercase tracking-wider"><th className="pb-4 w-16">順序</th><th className="pb-4">ジャンル</th><th className="pb-4">対象年齢</th><th className="pb-4">プロンプト</th><th className="pb-4 text-right">操作</th></tr></thead>
+                <thead><tr className="text-left border-b font-black text-xs text-zinc-400 uppercase tracking-wider"><th className="pb-4 w-16">順序</th><th className="pb-4 w-12">アイコン</th><th className="pb-4">ジャンル</th><th className="pb-4">対象年齢</th><th className="pb-4">プロンプト</th><th className="pb-4 text-right">操作</th></tr></thead>
                 <tbody>
                   {categoriesList.map((c: any, index: number) => (
                     <tr key={c.id} className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50/50 transition-colors">
@@ -745,6 +763,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                           </button>
                         </div>
                       </td>
+                      <td className="py-4">
+                        {c.icon && (
+                          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                            <img src={`/icons/${c.icon}`} alt="" className="w-5 h-5 text-zinc-500" style={{ filter: 'grayscale(100%) opacity(0.6)' }} />
+                          </div>
+                        )}
+                      </td>
                       <td className="py-4 font-bold">
                         <div>{c.nameJa || c.name || <span className="text-zinc-300 italic">(名称未設定)</span>}</div>
                         <div className="text-xs text-zinc-400 font-semibold">{c.nameEn || '-'}</div>
@@ -759,7 +784,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                         )}
                       </td>
                       <td className="text-right space-x-1">
-                        <button onClick={() => { setEditingCatId(c.id); setCatFormData({ nameJa: c.nameJa || c.name || '', nameEn: c.nameEn || '', nameZh: c.nameZh || '', minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '' }); }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">✏️</button>
+                        <button onClick={() => { setEditingCatId(c.id); setCatFormData({ nameJa: c.nameJa || c.name || '', nameEn: c.nameEn || '', nameZh: c.nameZh || '', minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '', icon: c.icon || '' }); }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">✏️</button>
                         <button onClick={() => handleDeleteCategory(c.id)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors">🗑️</button>
                       </td>
                     </tr>

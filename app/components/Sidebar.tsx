@@ -36,13 +36,22 @@ export function SidebarContents({ locale, categories, activeCategory, onSelectCa
           <button
             key={cat.id}
             onClick={() => onSelectCategory(cat.id)}
-            className={`text-left px-5 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-3 text-left px-5 py-3 rounded-xl font-bold transition-all ${
               isActive
                 ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-95'
                 : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-[var(--foreground)]'
             } ${isMobile ? 'py-2 px-4 text-sm' : ''}`}
           >
-            {label}
+            {cat.icon ? (
+              <img 
+                src={`/icons/${cat.icon}`} 
+                alt="" 
+                className={`w-5 h-5 transition-colors ${isActive ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} 
+              />
+            ) : (
+              <div className="w-5 h-5 flex-shrink-0" />
+            )}
+            <span className="truncate">{label}</span>
           </button>
         );
       })}

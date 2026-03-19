@@ -22,11 +22,11 @@ type HeaderProps = {
   hideSearch?: boolean;
 }
 
-export default function Header({ 
-  locale, 
-  setLocale, 
-  searchQuery = '', 
-  onSearchChange, 
+export default function Header({
+  locale,
+  setLocale,
+  searchQuery = '',
+  onSearchChange,
   userStatus,
   hideSearch = false
 }: HeaderProps) {
@@ -43,14 +43,14 @@ export default function Header({
         <a href="/" className="flex items-center gap-2">
           <div className="h-8 w-24 sm:h-9 sm:w-28">
             <img
-              src="/logo-header.png"
+              src="/logo-header.svg"
               alt="Cue Logo"
               className="h-full w-full object-contain"
             />
           </div>
         </a>
       </div>
-      
+
       {!hideSearch && (
         <div className="flex-1 max-w-2xl px-2 sm:px-6">
           <input
@@ -71,8 +71,8 @@ export default function Header({
               <span className="text-sm font-black text-amber-500">{userStatus.level}</span>
             </div>
             <div className="w-24 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-500" 
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-500"
                 style={{ width: `${(userStatus.xp / (userStatus.level * 100)) * 100}%` }}
               />
             </div>

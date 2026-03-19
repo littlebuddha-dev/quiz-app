@@ -18,6 +18,7 @@ type CategoryRow = {
   nameZh: string | null;
   minAge: number;
   maxAge: number | null;
+  icon: string | null;
 };
 
 export const dynamic = 'force-dynamic';
@@ -79,7 +80,7 @@ export default async function Home({
 
   // カテゴリーを取得
   const allCategories = await prisma.$queryRawUnsafe<CategoryRow[]>(
-    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge" FROM "Category" ORDER BY "sortOrder" ASC, "minAge" ASC, "createdAt" ASC'
+    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "icon" FROM "Category" ORDER BY "sortOrder" ASC, "minAge" ASC, "createdAt" ASC'
   );
 
   // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）
@@ -163,6 +164,7 @@ export default async function Home({
       targetAge: q.targetAge,
       imageUrl: q.imageUrl,
       translations: translationsMap,
+      createdAt: q.createdAt.toISOString(),
     };
   });
 
@@ -172,6 +174,7 @@ export default async function Home({
     ja: c.nameJa || c.name,
     en: c.nameEn || c.nameJa || c.name,
     zh: c.nameZh || c.nameJa || c.name,
+    icon: c.icon,
   }));
 
   return (

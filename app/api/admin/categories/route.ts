@@ -17,6 +17,7 @@ type CategoryRow = {
   maxAge: number | null;
   systemPrompt: string | null;
   sortOrder: number;
+  icon: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   try {
     await ensureCategoryLocalizationColumns(prisma as any);
-    const { nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt } = (await request.json()) as { nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string };
+    const { nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt, icon } = (await request.json()) as { nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string; icon?: string };
     const nameJa = rawNameJa?.trim();
     const nameEn = rawNameEn?.trim() || null;
     const nameZh = rawNameZh?.trim() || null;
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     const nextSortOrder = (maxSortResult[0]?.maxSort ?? -1) + 1;
 
     await prisma.$executeRawUnsafe(
-      'INSERT INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "sortOrder", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+      'INSERT INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "sortOrder", "icon", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
       nameJa,
       nameJa,
       nameJa,
@@ -84,7 +85,8 @@ export async function POST(request: NextRequest) {
       parseInt(minAge || '0'),
       maxAge ? parseInt(maxAge) : null,
       systemPrompt || null,
-      nextSortOrder
+      nextSortOrder,
+      icon || null
     );
 
     const [category] = await prisma.$queryRawUnsafe<CategoryRow[]>(
@@ -108,7 +110,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     await ensureCategoryLocalizationColumns(prisma as any);
-    const { id, nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt, sortOrder } = (await request.json()) as { id: string; nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string; sortOrder?: number };
+    const { id, nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt, sortOrder, icon } = (await request.json()) as { id: string; nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string; sortOrder?: number; icon?: string };
     const nameJa = rawNameJa?.trim();
     const nameEn = rawNameEn?.trim() || null;
     const nameZh = rawNameZh?.trim() || null;
@@ -129,19 +131,15 @@ export async function PATCH(request: NextRequest) {
     if (sortOrder !== undefined) {
       await prisma.$executeRawUnsafe(
         'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "sortOrder" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
-        nameJa,
-        nameJa,
-        nameEn,
-        nameZh,
-        parseInt(minAge || '0'),
         maxAge ? parseInt(maxAge) : null,
         systemPrompt || null,
         sortOrder,
+        icon || null,
         id
       );
     } else {
       await prisma.$executeRawUnsafe(
-        'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
+        'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "icon" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
         nameJa,
         nameJa,
         nameEn,
@@ -149,6 +147,7 @@ export async function PATCH(request: NextRequest) {
         parseInt(minAge || '0'),
         maxAge ? parseInt(maxAge) : null,
         systemPrompt || null,
+        icon || null,
         id
       );
     }

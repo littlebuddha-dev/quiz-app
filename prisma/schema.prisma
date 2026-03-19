@@ -39,6 +39,7 @@ model Category {
   maxAge       Int?
   systemPrompt String?
   sortOrder    Int      @default(0)
+  icon         String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   quizzes      Quiz[]

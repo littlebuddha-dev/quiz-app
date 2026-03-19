@@ -29,6 +29,10 @@ export async function ensureCategoryLocalizationColumns(prisma: PrismaClient) {
   if (!columnNames.has('sortOrder')) {
     await prisma.$executeRawUnsafe('ALTER TABLE "Category" ADD COLUMN "sortOrder" INTEGER DEFAULT 0');
   }
+  
+  if (!columnNames.has('icon')) {
+    await prisma.$executeRawUnsafe('ALTER TABLE "Category" ADD COLUMN "icon" TEXT');
+  }
 
   ensured = true;
 }

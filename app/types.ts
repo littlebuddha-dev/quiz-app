@@ -24,4 +24,5 @@ export interface Quiz {
     name: string;
     avatarUrl?: string | null;
   };
+  createdAt: string;
 }

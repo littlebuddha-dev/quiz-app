@@ -170,11 +170,26 @@ export default function QuizClient({
                         {locale === 'ja' ? 'クリア！' : locale === 'en' ? 'DONE' : '完成'}
                       </div>
                     )}
-                    {bookmarks.has(quiz.id) && (
-                      <div className="absolute top-2 left-2 bg-blue-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-md border border-white/20">
-                        ★
-                      </div>
-                    )}
+                    {(() => {
+                      const isNew = new Date().getTime() - new Date(quiz.createdAt).getTime() < 2 * 24 * 60 * 60 * 1000;
+                      const hasBookmark = bookmarks.has(quiz.id);
+                      return (
+                        <>
+                          {isNew && (
+                            <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-md border border-white/20 z-10">
+                              NEW
+                            </div>
+                          )}
+                          {hasBookmark && (
+                            <div 
+                              className={`absolute top-2 bg-blue-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-md border border-white/20 ${isNew ? 'left-12' : 'left-2'}`}
+                            >
+                              ★
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div>
                     <h3 className="font-bold line-clamp-2 leading-snug group-hover:text-amber-500 transition-colors">
