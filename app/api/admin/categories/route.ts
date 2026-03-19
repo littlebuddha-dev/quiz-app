@@ -16,6 +16,7 @@ type CategoryRow = {
   minAge: number;
   maxAge: number | null;
   systemPrompt: string | null;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   const prisma = createPrisma(env);
   await ensureCategoryLocalizationColumns(prisma as any);
   const categories = await prisma.$queryRawUnsafe<CategoryRow[]>(
-    'SELECT * FROM "Category" ORDER BY "minAge" ASC, "createdAt" ASC'
+    'SELECT * FROM "Category" ORDER BY "sortOrder" ASC, "minAge" ASC, "createdAt" ASC'
   );
   return NextResponse.json(categories);
 }
@@ -67,8 +68,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ALREADY_EXISTS', message: '同じ名前のジャンルが既に存在します。' }, { status: 400 });
     }
 
+    // 最大のsortOrderを取得
+    const maxSortResult = await prisma.$queryRawUnsafe<Array<{ maxSort: number | null }>>(
+      'SELECT MAX("sortOrder") as maxSort FROM "Category"'
+    );
+    const nextSortOrder = (maxSortResult[0]?.maxSort ?? -1) + 1;
+
     await prisma.$executeRawUnsafe(
-      'INSERT INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+      'INSERT INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "sortOrder", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
       nameJa,
       nameJa,
       nameJa,
@@ -76,7 +83,8 @@ export async function POST(request: NextRequest) {
       nameZh,
       parseInt(minAge || '0'),
       maxAge ? parseInt(maxAge) : null,
-      systemPrompt || null
+      systemPrompt || null,
+      nextSortOrder
     );
 
     const [category] = await prisma.$queryRawUnsafe<CategoryRow[]>(
@@ -100,7 +108,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     await ensureCategoryLocalizationColumns(prisma as any);
-    const { id, nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt } = (await request.json()) as { id: string; nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string };
+    const { id, nameJa: rawNameJa, nameEn: rawNameEn, nameZh: rawNameZh, minAge, maxAge, systemPrompt, sortOrder } = (await request.json()) as { id: string; nameJa: string; nameEn?: string; nameZh?: string; minAge: string; maxAge: string | null; systemPrompt?: string; sortOrder?: number };
     const nameJa = rawNameJa?.trim();
     const nameEn = rawNameEn?.trim() || null;
     const nameZh = rawNameZh?.trim() || null;
@@ -118,17 +126,32 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'ALREADY_EXISTS', message: '同じ日本語名のジャンルが既に存在します。' }, { status: 400 });
     }
 
-    await prisma.$executeRawUnsafe(
-      'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
-      nameJa,
-      nameJa,
-      nameEn,
-      nameZh,
-      parseInt(minAge || '0'),
-      maxAge ? parseInt(maxAge) : null,
-      systemPrompt || null,
-      id
-    );
+    if (sortOrder !== undefined) {
+      await prisma.$executeRawUnsafe(
+        'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "sortOrder" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
+        nameJa,
+        nameJa,
+        nameEn,
+        nameZh,
+        parseInt(minAge || '0'),
+        maxAge ? parseInt(maxAge) : null,
+        systemPrompt || null,
+        sortOrder,
+        id
+      );
+    } else {
+      await prisma.$executeRawUnsafe(
+        'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
+        nameJa,
+        nameJa,
+        nameEn,
+        nameZh,
+        parseInt(minAge || '0'),
+        maxAge ? parseInt(maxAge) : null,
+        systemPrompt || null,
+        id
+      );
+    }
 
     const [category] = await prisma.$queryRawUnsafe<CategoryRow[]>(
       'SELECT * FROM "Category" WHERE "id" = ? LIMIT 1',
@@ -165,7 +188,7 @@ export async function DELETE(request: NextRequest) {
     await ensureCategoryLocalizationColumns(prisma as any);
     // 「その他」ジャンルを確保
     await prisma.$executeRawUnsafe(
-      'INSERT OR IGNORE INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+      'INSERT OR IGNORE INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "sortOrder", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
       'その他',
       'その他',
       'その他',
@@ -173,7 +196,8 @@ export async function DELETE(request: NextRequest) {
       '其他',
       0,
       null,
-      null
+      null,
+      999 // 「その他」は常に後ろの方に
     );
 
     // 関連するクイズを「その他」へ振り替え

@@ -92,7 +92,7 @@ export default async function AdminPage() {
 
   // Fetch categories from DB
   const categories = await prisma.$queryRawUnsafe<CategoryRow[]>(
-    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt" FROM "Category" ORDER BY "minAge" ASC, "createdAt" ASC'
+    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt" FROM "Category" ORDER BY "sortOrder" ASC, "minAge" ASC, "createdAt" ASC'
   );
 
   return <AdminClientWrapper initialQuizzes={quizzes} categories={categories} userStatus={userStatus} />;

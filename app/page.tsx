@@ -79,7 +79,7 @@ export default async function Home({
 
   // カテゴリーを取得
   const allCategories = await prisma.$queryRawUnsafe<CategoryRow[]>(
-    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge" FROM "Category" ORDER BY "minAge" ASC, "createdAt" ASC'
+    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge" FROM "Category" ORDER BY "sortOrder" ASC, "minAge" ASC, "createdAt" ASC'
   );
 
   // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）

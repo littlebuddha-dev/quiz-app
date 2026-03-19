@@ -378,6 +378,42 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
     setLoading(false);
   };
 
+  const handleMoveCategory = async (id: string, direction: 'up' | 'down') => {
+    const index = categoriesList.findIndex((c: any) => c.id === id);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === categoriesList.length - 1) return;
+
+    const newCategories = [...categoriesList];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    // 入れ替え
+    [newCategories[index], newCategories[targetIndex]] = [newCategories[targetIndex], newCategories[index]];
+    
+    // sortOrderをインデックスに基づいて再割り当て
+    const updates = newCategories.map((c, i) => ({ id: c.id, sortOrder: i }));
+    
+    // 楽観的更新
+    setCategoriesList(newCategories.map((c, i) => ({ ...c, sortOrder: i })));
+
+    try {
+      const res = await fetch('/api/admin/categories/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      if (!res.ok) {
+        alert('並び替えの保存に失敗しました');
+        // 失敗した場合は元に戻すが、通常はrouter.refresh()で整合性を取る
+        router.refresh();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('通信エラーが発生しました');
+      router.refresh();
+    }
+  };
+
   const [bulkQuantity, setBulkQuantity] = useState(3);
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -685,10 +721,30 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                 </button>
               </form>
               <table className="w-full">
-                <thead><tr className="text-left border-b font-black text-xs text-zinc-400 uppercase tracking-wider"><th className="pb-4">ジャンル</th><th className="pb-4">対象年齢</th><th className="pb-4">プロンプト</th><th className="pb-4">操作</th></tr></thead>
+                <thead><tr className="text-left border-b font-black text-xs text-zinc-400 uppercase tracking-wider"><th className="pb-4 w-16">順序</th><th className="pb-4">ジャンル</th><th className="pb-4">対象年齢</th><th className="pb-4">プロンプト</th><th className="pb-4 text-right">操作</th></tr></thead>
                 <tbody>
-                  {categoriesList.map((c: any) => (
-                    <tr key={c.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                  {categoriesList.map((c: any, index: number) => (
+                    <tr key={c.id} className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50/50 transition-colors">
+                      <td className="py-4">
+                        <div className="flex flex-col gap-1">
+                          <button 
+                            onClick={() => handleMoveCategory(c.id, 'up')} 
+                            disabled={index === 0}
+                            className={`p-1 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] hover:enabled:bg-amber-100 hover:enabled:text-amber-600 transition-colors ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                            title="上へ"
+                          >
+                            ▲
+                          </button>
+                          <button 
+                            onClick={() => handleMoveCategory(c.id, 'down')} 
+                            disabled={index === categoriesList.length - 1}
+                            className={`p-1 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] hover:enabled:bg-amber-100 hover:enabled:text-amber-600 transition-colors ${index === categoriesList.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                            title="下へ"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </td>
                       <td className="py-4 font-bold">
                         <div>{c.nameJa || c.name || <span className="text-zinc-300 italic">(名称未設定)</span>}</div>
                         <div className="text-xs text-zinc-400 font-semibold">{c.nameEn || '-'}</div>
@@ -702,7 +758,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                           <span className="text-[10px] bg-zinc-100 text-zinc-400 px-2 py-0.5 rounded-full font-black">未設定</span>
                         )}
                       </td>
-                      <td className="space-x-2">
+                      <td className="text-right space-x-1">
                         <button onClick={() => { setEditingCatId(c.id); setCatFormData({ nameJa: c.nameJa || c.name || '', nameEn: c.nameEn || '', nameZh: c.nameZh || '', minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '' }); }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">✏️</button>
                         <button onClick={() => handleDeleteCategory(c.id)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors">🗑️</button>
                       </td>

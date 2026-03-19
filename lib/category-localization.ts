@@ -26,9 +26,9 @@ export async function ensureCategoryLocalizationColumns(prisma: PrismaClient) {
     await prisma.$executeRawUnsafe('ALTER TABLE "Category" ADD COLUMN "nameZh" TEXT');
   }
 
-  await prisma.$executeRawUnsafe(
-    'UPDATE "Category" SET "nameJa" = "name" WHERE "nameJa" IS NULL OR "nameJa" = \'\''
-  );
+  if (!columnNames.has('sortOrder')) {
+    await prisma.$executeRawUnsafe('ALTER TABLE "Category" ADD COLUMN "sortOrder" INTEGER DEFAULT 0');
+  }
 
   ensured = true;
 }
