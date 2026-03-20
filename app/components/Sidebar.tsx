@@ -66,56 +66,70 @@ export function SidebarContents({
     ...categories
   ];
 
-  return (
-    <>
-      {onSelectStudyMode && studyMode && (
-        <div className={`${isMobile ? 'flex gap-2 mb-1' : 'grid grid-cols-3 gap-2 mb-3 px-1'}`}>
-          {(['all', 'review', 'daily'] as const).map((mode) => {
-            const isActive = studyMode === mode;
-            return (
-              <button
-                key={mode}
-                onClick={() => onSelectStudyMode(mode)}
-                className={`rounded-xl font-black transition-all ${
-                  isMobile
-                    ? `px-3 py-1.5 text-xs whitespace-nowrap ${isActive ? 'bg-zinc-900 text-white shadow-md' : 'border border-[var(--border)] text-zinc-500'}`
-                    : `px-2 py-2 text-[11px] ${isActive ? 'bg-zinc-900 text-white shadow-md' : 'border border-[var(--border)] text-zinc-500 hover:text-zinc-900'}`
-                }`}
-              >
-                {STUDY_MODE_LABELS[locale][mode]}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {allCategories.map((cat) => {
-        const label = cat[locale] || cat.name || cat.ja;
-        const isActive = activeCategory === cat.id;
-
+  const studyModeButtons = onSelectStudyMode && studyMode ? (
+    <div className={`${isMobile ? 'flex gap-2 overflow-x-auto no-scrollbar pb-1' : 'grid grid-cols-3 gap-2 mb-3 px-1'}`}>
+      {(['all', 'review', 'daily'] as const).map((mode) => {
+        const isActive = studyMode === mode;
         return (
           <button
-            key={cat.id}
-            onClick={() => onSelectCategory(cat.id)}
-            className={`flex items-center gap-3 text-left px-5 py-3 rounded-xl font-bold transition-all ${
-              isActive
-                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-95'
-                : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-[var(--foreground)]'
-            } ${isMobile ? 'py-2 px-4 text-sm' : ''}`}
+            key={mode}
+            onClick={() => onSelectStudyMode(mode)}
+            className={`rounded-xl font-black transition-all ${
+              isMobile
+                ? `px-4 py-2 text-xs whitespace-nowrap flex-shrink-0 ${isActive ? 'bg-zinc-900 text-white shadow-md' : 'border border-[var(--border)] bg-[var(--card)] text-zinc-500'}`
+                : `px-2 py-2 text-[11px] ${isActive ? 'bg-zinc-900 text-white shadow-md' : 'border border-[var(--border)] text-zinc-500 hover:text-zinc-900'}`
+            }`}
           >
-            {cat.icon ? (
-              <img 
-                src={`/icons/${cat.icon}`} 
-                alt="" 
-                className={`w-5 h-5 transition-colors ${isActive ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} 
-              />
-            ) : (
-              <div className="w-5 h-5 flex-shrink-0" />
-            )}
-            <span className="truncate">{label}</span>
+            {STUDY_MODE_LABELS[locale][mode]}
           </button>
         );
       })}
+    </div>
+  ) : null;
+
+  const categoryButtons = allCategories.map((cat) => {
+    const label = cat[locale] || cat.name || cat.ja;
+    const isActive = activeCategory === cat.id;
+
+    return (
+      <button
+        key={cat.id}
+        onClick={() => onSelectCategory(cat.id)}
+        className={`flex items-center gap-3 text-left rounded-xl font-bold transition-all ${
+          isActive
+            ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-95'
+            : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-[var(--foreground)]'
+        } ${isMobile ? 'py-2 px-4 text-sm whitespace-nowrap flex-shrink-0 bg-[var(--card)] border border-[var(--border)]' : 'px-5 py-3'}`}
+      >
+        {cat.icon ? (
+          <img
+            src={`/icons/${cat.icon}`}
+            alt=""
+            className={`w-5 h-5 transition-colors ${isActive ? 'brightness-0 invert' : 'opacity-60 grayscale'}`}
+          />
+        ) : (
+          <div className="w-5 h-5 flex-shrink-0" />
+        )}
+        <span className={isMobile ? '' : 'truncate'}>{label}</span>
+      </button>
+    );
+  });
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col gap-2">
+        {studyModeButtons}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          {categoryButtons}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {studyModeButtons}
+      {categoryButtons}
     </>
   );
 }

@@ -3,7 +3,7 @@
 // Purpose: Handles state (search, filter, modal) for the Quiz Dashboard
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,6 +14,7 @@ import { Quiz, Locale, StudyRecommendations } from '../types';
 import LatexRenderer from './LatexRenderer';
 import AdSense from './AdSense';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 // 定数・辞書は元のpage.tsxから移行
 const DICTIONARY: Record<Locale, { search: string; hint: string; answer: string; submit: string; age: string; close: string; typeAnswer: string; }> = {
@@ -97,6 +98,52 @@ const CATEGORY_MAP: Record<Locale, Record<string, string>> = {
   zh: { '算数': '算术', '国語': '语文', '理科': '科学', '社会': '社会', '英語': '英语', '論理パズル': '逻辑', 'プログラミング': '编程' },
 };
 
+const OFFLINE_HOME_CACHE_KEY = 'cue-offline-home-cache-v1';
+
+function readOfflineHomeCache() {
+  if (typeof window === 'undefined') {
+    return {
+      quizzes: null,
+      categories: null,
+      studyRecommendations: undefined,
+    } as {
+      quizzes: Quiz[] | null;
+      categories: QuizClientWrapperProps['categories'] | null;
+      studyRecommendations: StudyRecommendations | undefined;
+    };
+  }
+
+  try {
+    const cached = window.localStorage.getItem(OFFLINE_HOME_CACHE_KEY);
+    if (!cached) {
+      return {
+        quizzes: null,
+        categories: null,
+        studyRecommendations: undefined,
+      };
+    }
+
+    const parsed = JSON.parse(cached) as {
+      quizzes?: Quiz[];
+      categories?: QuizClientWrapperProps['categories'];
+      studyRecommendations?: StudyRecommendations;
+    };
+
+    return {
+      quizzes: parsed.quizzes?.length ? parsed.quizzes : null,
+      categories: parsed.categories?.length ? parsed.categories : null,
+      studyRecommendations: parsed.studyRecommendations,
+    };
+  } catch (error) {
+    console.error('Failed to load offline quiz cache:', error);
+    return {
+      quizzes: null,
+      categories: null,
+      studyRecommendations: undefined,
+    };
+  }
+}
+
 type QuizClientProps = {
   initialQuizzes: Quiz[];
   userBookmarks?: string[];
@@ -139,10 +186,14 @@ export default function QuizClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale, setLocale } = usePreferredLocale();
+  const isOnline = useOnlineStatus();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [studyMode, setStudyMode] = useState<'all' | 'review' | 'daily'>('all');
   const [isStudyDashboardOpen, setIsStudyDashboardOpen] = useState(false);
+  const [cachedQuizzes] = useState<Quiz[] | null>(() => readOfflineHomeCache().quizzes);
+  const [cachedCategories] = useState<QuizClientWrapperProps['categories'] | null>(() => readOfflineHomeCache().categories);
+  const [cachedStudyRecommendations] = useState<StudyRecommendations | undefined>(() => readOfflineHomeCache().studyRecommendations);
 
   // パーソナライズ用の状態管理（セットを使って高速にO(1)で存在確認）
   const [bookmarks] = useState<Set<string>>(new Set(userBookmarks));
@@ -150,6 +201,26 @@ export default function QuizClient({
 
   const t = DICTIONARY[locale];
   const studyText = STUDY_COPY[locale];
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        OFFLINE_HOME_CACHE_KEY,
+        JSON.stringify({
+          quizzes: initialQuizzes.slice(0, 80),
+          categories,
+          studyRecommendations,
+          cachedAt: new Date().toISOString(),
+        })
+      );
+    } catch (error) {
+      console.error('Failed to save offline quiz cache:', error);
+    }
+  }, [initialQuizzes, categories, studyRecommendations]);
+
+  const sourceQuizzes = !isOnline && cachedQuizzes?.length ? cachedQuizzes : initialQuizzes;
+  const sourceCategories = !isOnline && cachedCategories?.length ? cachedCategories : categories;
+  const activeStudyRecommendations = !isOnline && cachedStudyRecommendations ? cachedStudyRecommendations : studyRecommendations;
 
   // URLクエリを更新するヘルパー
   const updateQuery = (params: Record<string, string | null>) => {
@@ -176,16 +247,16 @@ export default function QuizClient({
   };
 
   const reviewQuizSet = useMemo(
-    () => new Set(studyRecommendations?.reviewQuizIds || []),
-    [studyRecommendations]
+    () => new Set(activeStudyRecommendations?.reviewQuizIds || []),
+    [activeStudyRecommendations]
   );
   const dailyQuizSet = useMemo(
-    () => new Set(studyRecommendations?.dailyQuizIds || []),
-    [studyRecommendations]
+    () => new Set(activeStudyRecommendations?.dailyQuizIds || []),
+    [activeStudyRecommendations]
   );
 
   // 表示用クイズ（サーバーサイドで既にフィルタリング済みだが、年齢ソートのみクライアントで適用）
-  const sortedQuizzes = [...initialQuizzes].sort((a, b) => {
+  const sortedQuizzes = [...sourceQuizzes].sort((a, b) => {
     // ログインユーザーの対象年齢が設定されている場合、対象年齢に近いクイズを上位に表示
     if (typeof userTargetAge === 'number') {
       const diffA = Math.abs(a.targetAge - userTargetAge);
@@ -224,7 +295,7 @@ export default function QuizClient({
       {/* サイドバー */}
       <Sidebar
         locale={locale}
-        categories={categories}
+        categories={sourceCategories}
         activeCategory={activeCategory}
         onSelectCategory={handleCategorySelect}
         studyMode={studyMode}
@@ -238,7 +309,7 @@ export default function QuizClient({
         <div className="md:hidden flex overflow-x-auto pb-4 gap-2 no-scrollbar -mx-4 px-4 mb-4">
           <SidebarContents
             locale={locale}
-            categories={categories}
+            categories={sourceCategories}
             activeCategory={activeCategory}
             onSelectCategory={handleCategorySelect}
             studyMode={studyMode}
@@ -247,9 +318,27 @@ export default function QuizClient({
           />
         </div>
 
-        <AdSense slot="home" />
+        {isOnline && <AdSense slot="home" />}
 
-        {studyRecommendations && (
+        {!isOnline && (
+          <section className="mb-5 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 p-4 shadow-sm">
+            <div className="flex flex-col gap-1">
+              <div className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Offline</div>
+              <h2 className="text-base sm:text-lg font-black text-emerald-900">
+                {locale === 'ja' ? 'オフライン軽量モード' : locale === 'en' ? 'Offline light mode' : '离线轻量模式'}
+              </h2>
+              <p className="text-xs sm:text-sm font-semibold text-emerald-800/80">
+                {locale === 'ja'
+                  ? '最近表示した問題とおすすめを、画像を減らした軽い表示で使えます。'
+                  : locale === 'en'
+                    ? 'Recently viewed quizzes and recommendations are available in a lighter, image-reduced view.'
+                    : '最近查看过的题目和推荐会以更轻量、减少图片的方式显示。'}
+              </p>
+            </div>
+          </section>
+        )}
+
+        {activeStudyRecommendations && (
           <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-5 sm:p-7 shadow-xl shadow-black/5">
             <div className="flex flex-col gap-4">
               <button
@@ -260,7 +349,7 @@ export default function QuizClient({
               >
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500 mb-1">
-                    {studyRecommendations.todayLabel}
+                    {activeStudyRecommendations.todayLabel}
                   </div>
                   <h2 className="text-lg sm:text-2xl font-black">{studyText.panelTitle}</h2>
                   {!isStudyDashboardOpen && (
@@ -314,9 +403,9 @@ export default function QuizClient({
 
                   <div className="rounded-3xl border border-amber-200/60 bg-amber-50/60 p-4">
                     <div className="text-xs sm:text-sm font-black text-amber-600 mb-2">{studyText.weaknessTitle}</div>
-                    {studyRecommendations.weakCategories.length > 0 ? (
+                    {activeStudyRecommendations.weakCategories.length > 0 ? (
                       <div className="space-y-2">
-                        {studyRecommendations.weakCategories.map((category) => (
+                        {activeStudyRecommendations.weakCategories.map((category) => (
                           <button
                             key={category.categoryId}
                             onClick={() => {
@@ -344,6 +433,7 @@ export default function QuizClient({
           </section>
         )}
 
+        {isOnline ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
           {displayQuizzes.length > 0 ? (
              displayQuizzes.map((quiz) => {
@@ -426,6 +516,56 @@ export default function QuizClient({
              </div>
           )}
         </div>
+        ) : (
+          <div className="space-y-3">
+            {displayQuizzes.length > 0 ? (
+              displayQuizzes.map((quiz) => {
+                const qt = quiz.translations[locale] || quiz.translations['ja'];
+                const translatedCategory = CATEGORY_MAP[locale][quiz.category] || quiz.category;
+
+                return (
+                  <Link
+                    href={`/watch/${quiz.id}`}
+                    key={quiz.id}
+                    className="block rounded-3xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-bold leading-snug line-clamp-2">
+                          <LatexRenderer text={qt.title} />
+                        </h3>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600">
+                            {translatedCategory}
+                          </span>
+                          <span className="rounded-full bg-zinc-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                            {quiz.targetAge}{t.age}
+                          </span>
+                          {histories.has(quiz.id) && (
+                            <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-green-600">
+                              {locale === 'ja' ? 'クリア' : locale === 'en' ? 'Done' : '已完成'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="flex-shrink-0 text-xs font-black text-emerald-600">
+                        {locale === 'ja' ? 'オフライン' : locale === 'en' ? 'Offline' : '离线'}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })
+            ) : (
+              <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-8 text-center text-sm font-bold text-zinc-500">
+                {locale === 'ja'
+                  ? 'この端末にはまだオフライン用の問題が保存されていません。オンライン時に数問開くと使えるようになります。'
+                  : locale === 'en'
+                    ? 'No offline quizzes are stored on this device yet. Open a few quizzes while online to make them available.'
+                    : '这台设备上还没有保存离线题目。联网时先打开几道题，就可以离线使用了。'}
+              </div>
+            )}
+          </div>
+        )}
       </main>
       <div className="md:pl-72">
         <Footer />

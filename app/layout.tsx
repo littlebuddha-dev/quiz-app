@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { getSiteUrl } from "@/lib/site-config";
+import ServiceWorkerRegistrar from "./components/ServiceWorkerRegistrar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,6 +24,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
+  manifest: '/manifest.webmanifest',
   title: {
     default: "Cue | すべての人に学ぶことの楽しさを",
     template: "%s | Cue"
@@ -74,6 +76,7 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          <ServiceWorkerRegistrar />
           {children}
         </body>
       </html>
@@ -86,6 +89,7 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          <ServiceWorkerRegistrar />
           {children}
         </body>
       </html>

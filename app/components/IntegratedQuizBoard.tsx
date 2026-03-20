@@ -6,6 +6,7 @@ import Header from './Header';
 import CorrectEffect from './CorrectEffect';
 import { Locale } from '../types';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
+import { buildGentleExplanation } from '@/lib/explanation-mode';
 
 interface Quiz {
   type: 'TEXT' | 'CHOICE';
@@ -32,6 +33,7 @@ export default function IntegratedQuizBoard() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [showCorrectEffect, setShowCorrectEffect] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [explanationMode, setExplanationMode] = useState<'gentle' | 'full'>('gentle');
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -45,6 +47,7 @@ export default function IntegratedQuizBoard() {
     setLoading(true);
     setShowHint(false);
     setShowAnswer(false);
+    setExplanationMode('gentle');
     try {
       const res = await fetch('/api/quiz-generator', {
         method: 'POST',
@@ -69,6 +72,9 @@ export default function IntegratedQuizBoard() {
   };
 
   if (!mounted) return null;
+
+  const gentleExplanation = quiz ? buildGentleExplanation(locale, quiz.answer, quiz.explanation) : '';
+  const displayedExplanation = explanationMode === 'gentle' ? gentleExplanation : quiz?.explanation;
 
   return (
     <div className="flex flex-col items-center bg-zinc-100 min-h-screen text-zinc-900">
@@ -171,8 +177,30 @@ export default function IntegratedQuizBoard() {
                     <p className="text-zinc-800 font-bold text-2xl leading-relaxed mb-4">{quiz.answer}</p>
                     {quiz.explanation && (
                       <div className="bg-amber-50 p-4 rounded-xl border-l-4 border-amber-400 mb-6 shadow-sm">
-                        <h4 className="text-amber-900 font-extrabold text-sm mb-1">🧐 {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}</h4>
-                        <p className="text-zinc-700 text-sm leading-relaxed">{quiz.explanation}</p>
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                          <h4 className="text-amber-900 font-extrabold text-sm">🧐 {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}</h4>
+                          <div className="inline-flex rounded-full border border-amber-200 overflow-hidden bg-white/80">
+                            <button
+                              type="button"
+                              onClick={() => setExplanationMode('gentle')}
+                              className={`px-3 py-1 text-[11px] font-black transition-colors ${
+                                explanationMode === 'gentle' ? 'bg-amber-500 text-white' : 'text-amber-900'
+                              }`}
+                            >
+                              {locale === 'ja' ? 'やさしい版' : locale === 'en' ? 'Simple' : '简明版'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExplanationMode('full')}
+                              className={`px-3 py-1 text-[11px] font-black transition-colors ${
+                                explanationMode === 'full' ? 'bg-amber-500 text-white' : 'text-amber-900'
+                              }`}
+                            >
+                              {locale === 'ja' ? 'しっかり版' : locale === 'en' ? 'Detailed' : '详细版'}
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-zinc-700 text-sm leading-relaxed">{displayedExplanation || quiz.explanation}</p>
                       </div>
                     )}
                     <div className="flex gap-3">

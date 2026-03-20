@@ -1,3 +1,5 @@
+import type { Locale } from '@/app/types';
+
 type CurriculumSourceLevel = 'elementary' | 'juniorHigh' | 'highSchool';
 
 export type CurriculumSubject = {
@@ -83,6 +85,20 @@ export const CURRICULUM_SOURCE_LABELS: Record<CurriculumSourceLevel, string> = {
   elementary: '文部科学省 小学校学習指導要領',
   juniorHigh: '文部科学省 中学校学習指導要領',
   highSchool: '文部科学省 高等学校学習指導要領関連資料',
+};
+
+const CURRICULUM_SOURCE_LABELS_I18N: Record<Locale, Record<CurriculumSourceLevel, string>> = {
+  ja: CURRICULUM_SOURCE_LABELS,
+  en: {
+    elementary: 'MEXT Elementary School Course of Study',
+    juniorHigh: 'MEXT Junior High School Course of Study',
+    highSchool: 'MEXT High School Curriculum Materials',
+  },
+  zh: {
+    elementary: '日本文部科学省 小学学习指导要领',
+    juniorHigh: '日本文部科学省 初中学习指导要领',
+    highSchool: '日本文部科学省 高中课程相关资料',
+  },
 };
 
 export const CURRICULUM_COURSES: CurriculumCourse[] = [
@@ -448,6 +464,95 @@ export const ABILITY_DOMAINS: AbilityDomain[] = [
     description: '歴史、地理、社会の仕組みを読み解き、背景を考える力です。',
   },
 ];
+
+const COURSE_LABELS_I18N: Record<string, Record<Locale, string>> = {
+  'elementary-1-2': { ja: '小学1-2年コース', en: 'Elementary Grades 1-2', zh: '小学1-2年课程' },
+  'elementary-3-4': { ja: '小学3-4年コース', en: 'Elementary Grades 3-4', zh: '小学3-4年课程' },
+  'elementary-5-6': { ja: '小学5-6年コース', en: 'Elementary Grades 5-6', zh: '小学5-6年课程' },
+  'junior-high-1': { ja: '中学1年コース', en: 'Junior High Grade 1', zh: '初中1年课程' },
+  'junior-high-2': { ja: '中学2年コース', en: 'Junior High Grade 2', zh: '初中2年课程' },
+  'junior-high-3': { ja: '中学3年コース', en: 'Junior High Grade 3', zh: '初中3年课程' },
+  'high-school-foundation': { ja: '高校基礎コース', en: 'High School Foundation', zh: '高中基础课程' },
+};
+
+const SUBJECT_LABELS_I18N: Record<string, Record<Locale, string>> = {
+  'japanese-foundation': { ja: '国語の基礎', en: 'Japanese Basics', zh: '国语基础' },
+  'math-foundation': { ja: '算数の基礎', en: 'Math Basics', zh: '算数基础' },
+  'life-studies': { ja: '生活・身の回り', en: 'Life Studies', zh: '生活与身边世界' },
+  'japanese-elementary-mid': { ja: '国語', en: 'Japanese', zh: '国语' },
+  'math-elementary-mid': { ja: '算数', en: 'Math', zh: '算数' },
+  'science-elementary-mid': { ja: '理科', en: 'Science', zh: '理科' },
+  'social-elementary-mid': { ja: '社会', en: 'Social Studies', zh: '社会' },
+  'japanese-elementary-upper': { ja: '国語', en: 'Japanese', zh: '国语' },
+  'math-elementary-upper': { ja: '算数', en: 'Math', zh: '算数' },
+  'science-elementary-upper': { ja: '理科', en: 'Science', zh: '理科' },
+  'social-elementary-upper': { ja: '社会', en: 'Social Studies', zh: '社会' },
+  'english-elementary': { ja: '英語活動', en: 'English Activities', zh: '英语活动' },
+  'japanese-jh-1': { ja: '国語', en: 'Japanese', zh: '国语' },
+  'math-jh-1': { ja: '数学', en: 'Mathematics', zh: '数学' },
+  'science-jh-1': { ja: '理科', en: 'Science', zh: '理科' },
+  'social-jh-1': { ja: '社会', en: 'Social Studies', zh: '社会' },
+  'english-jh-1': { ja: '英語', en: 'English', zh: '英语' },
+  'japanese-jh-2': { ja: '国語', en: 'Japanese', zh: '国语' },
+  'math-jh-2': { ja: '数学', en: 'Mathematics', zh: '数学' },
+  'science-jh-2': { ja: '理科', en: 'Science', zh: '理科' },
+  'social-jh-2': { ja: '社会', en: 'Social Studies', zh: '社会' },
+  'english-jh-2': { ja: '英語', en: 'English', zh: '英语' },
+  'japanese-jh-3': { ja: '国語', en: 'Japanese', zh: '国语' },
+  'math-jh-3': { ja: '数学', en: 'Mathematics', zh: '数学' },
+  'science-jh-3': { ja: '理科', en: 'Science', zh: '理科' },
+  'social-jh-3': { ja: '社会', en: 'Social Studies', zh: '社会' },
+  'english-jh-3': { ja: '英語', en: 'English', zh: '英语' },
+  'high-japanese': { ja: '現代の国語', en: 'Modern Japanese', zh: '现代国语' },
+  'high-math': { ja: '数学I・A', en: 'Math I & A', zh: '数学I・A' },
+  'high-science': { ja: '理科基礎', en: 'Basic Science', zh: '理科基础' },
+  'high-social': { ja: '地理歴史・公民', en: 'Geography, History & Civics', zh: '地理历史与公民' },
+  'high-english': { ja: '英語コミュニケーション', en: 'English Communication', zh: '英语沟通' },
+  'high-info': { ja: '情報I・発展学習', en: 'Informatics I & Extended Study', zh: '信息I与拓展学习' },
+};
+
+const ABILITY_DOMAIN_LABELS_I18N: Record<string, Record<Locale, { label: string; description: string }>> = {
+  language: {
+    ja: { label: '言語理解', description: '読解、表現、語彙、文法、異言語運用に関する力です。' },
+    en: { label: 'Language', description: 'Reading, expression, vocabulary, grammar, and multilingual usage skills.' },
+    zh: { label: '语言理解', description: '与阅读、表达、词汇、语法和多语言运用相关的能力。' },
+  },
+  logic: {
+    ja: { label: '論理思考', description: '筋道立てて考える力、条件整理、計算、アルゴリズムの力です。' },
+    en: { label: 'Logic', description: 'Structured thinking, condition handling, calculation, and algorithmic reasoning.' },
+    zh: { label: '逻辑思维', description: '有条理思考、条件整理、计算与算法推理能力。' },
+  },
+  science: {
+    ja: { label: '科学理解', description: '自然現象を観察し、法則や因果関係を理解する力です。' },
+    en: { label: 'Science', description: 'Observing natural phenomena and understanding rules and causality.' },
+    zh: { label: '科学理解', description: '观察自然现象并理解规律与因果关系的能力。' },
+  },
+  social: {
+    ja: { label: '社会・探究', description: '歴史、地理、社会の仕組みを読み解き、背景を考える力です。' },
+    en: { label: 'Society & Inquiry', description: 'Understanding history, geography, and social systems with context.' },
+    zh: { label: '社会与探究', description: '解读历史、地理与社会结构，并思考其背景的能力。' },
+  },
+};
+
+export function getCurriculumSourceLabel(locale: Locale, sourceLevel: CurriculumSourceLevel) {
+  return CURRICULUM_SOURCE_LABELS_I18N[locale][sourceLevel];
+}
+
+export function getCourseLabel(locale: Locale, courseId: string, fallback: string) {
+  return COURSE_LABELS_I18N[courseId]?.[locale] || fallback;
+}
+
+export function getSubjectLabel(locale: Locale, subjectId: string, fallback: string) {
+  return SUBJECT_LABELS_I18N[subjectId]?.[locale] || fallback;
+}
+
+export function getAbilityDomainText(locale: Locale, domainId: string, fallbackLabel: string, fallbackDescription: string) {
+  const localized = ABILITY_DOMAIN_LABELS_I18N[domainId]?.[locale];
+  return {
+    label: localized?.label || fallbackLabel,
+    description: localized?.description || fallbackDescription,
+  };
+}
 
 function normalizeText(value: string) {
   return value.toLowerCase().replace(/\s+/g, '').trim();

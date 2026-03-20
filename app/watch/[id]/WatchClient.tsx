@@ -12,6 +12,8 @@ import { Quiz } from '../../types';
 import CorrectEffect from '../../components/CorrectEffect';
 import AdSense from '../../components/AdSense';
 import { usePreferredLocale } from '../../hooks/usePreferredLocale';
+import { buildGentleExplanation } from '@/lib/explanation-mode';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
 type WatchComment = {
   id: string;
@@ -50,6 +52,7 @@ export default function WatchClient({
   userStatus
 }: WatchClientProps) {
   const { locale, setLocale } = usePreferredLocale();
+  const isOnline = useOnlineStatus();
   const [showHint, setShowHint] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [showCorrectEffect, setShowCorrectEffect] = useState(false);
@@ -62,10 +65,13 @@ export default function WatchClient({
   const [textAnswer, setTextAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [explanationMode, setExplanationMode] = useState<'gentle' | 'full'>('gentle');
 
   // 現在の言語の翻訳を取得。なければ日本語をフォールバックに。
   const t = quiz.translations[locale] || quiz.translations['ja'];
   const explanation = t.explanation?.trim();
+  const gentleExplanation = buildGentleExplanation(locale, t.answer, explanation);
+  const displayedExplanation = explanationMode === 'gentle' ? gentleExplanation : explanation;
 
   // 画像のフォールバックロジック
   const displayImageUrl = (t.imageUrl && t.imageUrl !== "")
@@ -80,6 +86,16 @@ export default function WatchClient({
     value.trim().replace(/\s+/g, '').toLowerCase();
 
   const handleAction = async (action: 'bookmark' | 'like') => {
+    if (!isOnline) {
+      return alert(
+        locale === 'ja'
+          ? 'オフライン中はこの操作はできません。'
+          : locale === 'en'
+            ? 'This action is unavailable offline.'
+            : '离线状态下无法执行此操作。'
+      );
+    }
+
     if (!isLoggedIn) return alert('ログインが必要です');
 
     if (action === 'bookmark') {
@@ -100,6 +116,7 @@ export default function WatchClient({
     setLastResult(isCorrect ? 'correct' : 'incorrect');
     setShowAnswer(true);
     setTextAnswer('');
+    setExplanationMode('gentle');
 
     // ログインしていれば履歴を保存
     if (isCorrect) {
@@ -120,7 +137,7 @@ export default function WatchClient({
 
   const submitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !isLoggedIn) return;
+    if (!newComment.trim() || !isLoggedIn || !isOnline) return;
 
     setIsSubmitting(true);
     const res = await fetch('/api/comments', {
@@ -158,6 +175,18 @@ export default function WatchClient({
 
           {/* 左側: メインプレイヤーエリア */}
           <div className="flex-1">
+            {!isOnline && (
+              <div className="mb-4 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 px-4 py-3">
+                <div className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Offline</div>
+                <div className="mt-1 text-sm font-bold text-emerald-900">
+                  {locale === 'ja'
+                    ? 'オフライン軽量モードです。問題は解けますが、コメント・いいね・保存は接続後に使えます。'
+                    : locale === 'en'
+                      ? 'You are in offline light mode. You can solve quizzes, but comments, likes, and saves need a connection.'
+                      : '当前为离线轻量模式。你可以做题，但评论、点赞和收藏需要联网后使用。'}
+                </div>
+              </div>
+            )}
             <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black relative mb-4">
               {displayImageUrl ? (
                 <Image
@@ -249,7 +278,7 @@ export default function WatchClient({
 
             {/* 問題文と回答フォーム */}
             <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] shadow-xl shadow-black/5 mb-8">
-              <AdSense slot="watch" />
+              {isOnline && <AdSense slot="watch" />}
               <h3 className="font-black text-lg sm:text-xl mb-6 leading-relaxed">
                 <LatexRenderer text={t.question} />
               </h3>
@@ -306,14 +335,40 @@ export default function WatchClient({
 
               {showAnswer && explanation && (
                 <div className="mt-6 rounded-2xl border border-blue-200/70 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-900/40 p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">📘</span>
-                    <h4 className="font-black text-sm uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                      {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}
-                    </h4>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">📘</span>
+                      <h4 className="font-black text-sm uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                        {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}
+                      </h4>
+                    </div>
+                    <div className="inline-flex rounded-full border border-blue-200 dark:border-blue-800 overflow-hidden bg-white/70 dark:bg-blue-950/30">
+                      <button
+                        type="button"
+                        onClick={() => setExplanationMode('gentle')}
+                        className={`px-3 py-1.5 text-xs font-black transition-colors ${
+                          explanationMode === 'gentle'
+                            ? 'bg-blue-500 text-white'
+                            : 'text-blue-700 dark:text-blue-200'
+                        }`}
+                      >
+                        {locale === 'ja' ? 'やさしい版' : locale === 'en' ? 'Simple' : '简明版'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExplanationMode('full')}
+                        className={`px-3 py-1.5 text-xs font-black transition-colors ${
+                          explanationMode === 'full'
+                            ? 'bg-blue-500 text-white'
+                            : 'text-blue-700 dark:text-blue-200'
+                        }`}
+                      >
+                        {locale === 'ja' ? 'しっかり版' : locale === 'en' ? 'Detailed' : '详细版'}
+                      </button>
+                    </div>
                   </div>
                   <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)]">
-                    <LatexRenderer text={explanation} />
+                    <LatexRenderer text={displayedExplanation || explanation} />
                   </div>
                 </div>
               )}
@@ -336,7 +391,7 @@ export default function WatchClient({
                   <div className="flex-1">
                     <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={locale === 'ja' ? '質問や感想を書いてみよう...' : locale === 'en' ? 'Write a comment...' : '写点什么吧...'} className="w-full border-b-2 border-[var(--border)] p-2 focus:outline-none focus:border-amber-500 bg-transparent transition-colors" />
                     <div className="flex justify-end mt-3">
-                      <button disabled={isSubmitting || !newComment.trim()} className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-black py-2.5 px-8 rounded-full text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+                      <button disabled={isSubmitting || !newComment.trim() || !isOnline} className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-black py-2.5 px-8 rounded-full text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95">
                         {locale === 'ja' ? 'コメントする' : locale === 'en' ? 'Post' : '发布'}
                       </button>
                     </div>

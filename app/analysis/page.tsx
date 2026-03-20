@@ -63,7 +63,11 @@ export default async function AnalysisPage() {
 
   const quizById = new Map(quizzes.map((quiz) => [quiz.id, quiz]));
   const categoryLabelMap = new Map(
-    categories.map((category) => [category.id, category.nameJa || category.name])
+    categories.map((category) => [category.id, {
+      ja: category.nameJa || category.name,
+      en: category.nameEn || category.nameJa || category.name,
+      zh: category.nameZh || category.nameJa || category.name,
+    }])
   );
   const categoryStats = new Map<string, { total: number; correct: number; wrong: number }>();
 
@@ -82,7 +86,9 @@ export default async function AnalysisPage() {
     .filter(([, stats]) => stats.total >= 2)
     .map(([categoryId, stats]) => ({
       categoryId,
-      label: categoryLabelMap.get(categoryId) || categoryId,
+      label: categoryLabelMap.get(categoryId)?.ja || categoryId,
+      labelEn: categoryLabelMap.get(categoryId)?.en || categoryId,
+      labelZh: categoryLabelMap.get(categoryId)?.zh || categoryId,
       totalAttempts: stats.total,
       correctCount: stats.correct,
       wrongCount: stats.wrong,

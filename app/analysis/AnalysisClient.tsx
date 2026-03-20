@@ -5,10 +5,13 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import type { AbilityDomainScore } from '@/lib/learning';
+import { getAbilityDomainText } from '@/lib/learning';
 
 type WeakCategory = {
   categoryId: string;
   label: string;
+  labelEn?: string | null;
+  labelZh?: string | null;
   totalAttempts: number;
   correctCount: number;
   wrongCount: number;
@@ -37,6 +40,7 @@ const COPY = {
     weaknesses: '重点復習カテゴリ',
     attemptsLabel: '挑戦',
     suggest: 'この分野を復習',
+    noHistory: 'まだ十分な履歴がありません。数問解くと、苦手なカテゴリがここに表示されます。',
   },
   en: {
     hero: 'Learning Analysis',
@@ -49,6 +53,7 @@ const COPY = {
     weaknesses: 'Priority review categories',
     attemptsLabel: 'Attempts',
     suggest: 'Review this topic',
+    noHistory: 'There is not enough history yet. Solve a few more quizzes and your weaker categories will appear here.',
   },
   zh: {
     hero: '学习分析',
@@ -61,6 +66,7 @@ const COPY = {
     weaknesses: '重点复习分类',
     attemptsLabel: '作答',
     suggest: '复习这个领域',
+    noHistory: '目前还没有足够的记录。先多做几道题，这里就会显示你的薄弱分类。',
   },
 } as const;
 
@@ -85,7 +91,7 @@ export default function AnalysisClient({
       <main className="pt-24 max-w-6xl mx-auto px-4 pb-12">
         <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8 shadow-xl shadow-black/5">
           <div className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500 mb-2">
-            Analytics
+            {locale === 'ja' ? '学習分析' : locale === 'en' ? 'Analytics' : '学习分析'}
           </div>
           <h1 className="text-3xl sm:text-4xl font-black mb-3">{t.hero}</h1>
           <p className="text-sm sm:text-base font-semibold text-zinc-500">{t.body}</p>
@@ -111,19 +117,26 @@ export default function AnalysisClient({
             <div className="space-y-4">
               {sortedDomains.map((score) => (
                 <div key={score.domain.id} className="rounded-3xl border border-[var(--border)] bg-white/70 dark:bg-zinc-900/30 p-4">
-                  <div className="flex items-center justify-between gap-4 mb-2">
-                    <div>
-                      <div className="font-black">{score.domain.label}</div>
-                      <div className="text-xs font-semibold text-zinc-500 mt-1">{score.domain.description}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-black text-amber-600">{score.accuracy}%</div>
-                      <div className="text-[11px] font-bold text-zinc-400">{t.attemptsLabel}: {score.totalAttempts}</div>
-                    </div>
-                  </div>
-                  <div className="h-3 rounded-full bg-zinc-200 overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600" style={{ width: `${score.accuracy}%` }} />
-                  </div>
+                  {(() => {
+                    const domainText = getAbilityDomainText(locale, score.domain.id, score.domain.label, score.domain.description);
+                    return (
+                      <>
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <div>
+                            <div className="font-black">{domainText.label}</div>
+                            <div className="text-xs font-semibold text-zinc-500 mt-1">{domainText.description}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-black text-amber-600">{score.accuracy}%</div>
+                            <div className="text-[11px] font-bold text-zinc-400">{t.attemptsLabel}: {score.totalAttempts}</div>
+                          </div>
+                        </div>
+                        <div className="h-3 rounded-full bg-zinc-200 overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600" style={{ width: `${score.accuracy}%` }} />
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -141,7 +154,7 @@ export default function AnalysisClient({
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <div className="font-black">{category.label}</div>
+                        <div className="font-black">{locale === 'en' ? category.labelEn || category.label : locale === 'zh' ? category.labelZh || category.label : category.label}</div>
                         <div className="text-xs font-semibold text-zinc-500 mt-1">
                           {t.attemptsLabel}: {category.totalAttempts} · {t.accuracy}: {category.accuracy}%
                         </div>
@@ -152,7 +165,7 @@ export default function AnalysisClient({
                 ))
               ) : (
                 <div className="text-sm font-semibold text-zinc-500">
-                  まだ十分な履歴がありません。数問解くと、苦手なカテゴリがここに表示されます。
+                  {t.noHistory}
                 </div>
               )}
             </div>

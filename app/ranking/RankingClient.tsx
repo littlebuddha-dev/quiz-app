@@ -25,6 +25,54 @@ type RankingClientProps = {
   userStatus?: { xp: number; level: number; role: string };
 };
 
+const COPY = {
+  ja: {
+    hero: 'ランキング',
+    body: '学ぶ楽しさを追求する、トップランナーたちの記録です。',
+    solveTab: '解いた問題数',
+    accuracyTab: '正解率',
+    rankUser: '順位 / ユーザー',
+    solved: '解答数',
+    accuracy: '正解率',
+    attempts: '挑戦',
+    scoreUnit: '問',
+    noData: 'データがまだありません',
+    solveNote: '* 正解したユニークなクイズの合計数です。',
+    accuracyNote: '* 最低 5 問以上のクイズに挑戦したユーザーのみ表示されます。',
+    realtime: 'ランキングはリアルタイムで集計されます。',
+  },
+  en: {
+    hero: 'Top Learners',
+    body: 'A live record of the learners who keep challenging themselves.',
+    solveTab: 'Solved quizzes',
+    accuracyTab: 'Accuracy',
+    rankUser: 'Rank / User',
+    solved: 'Solved',
+    accuracy: 'Accuracy',
+    attempts: 'Attempts',
+    scoreUnit: 'q',
+    noData: 'No ranking data yet',
+    solveNote: '* Based on the total number of unique quizzes answered correctly.',
+    accuracyNote: '* Only users with at least 5 attempts are shown.',
+    realtime: 'Rankings are updated in real time.',
+  },
+  zh: {
+    hero: '排行榜',
+    body: '这里记录着不断挑战自我、持续学习的优秀用户。',
+    solveTab: '解答题目数',
+    accuracyTab: '正确率',
+    rankUser: '排名 / 用户',
+    solved: '解答数',
+    accuracy: '正确率',
+    attempts: '作答',
+    scoreUnit: '题',
+    noData: '暂时还没有排行榜数据',
+    solveNote: '* 统计的是答对过的不同题目总数。',
+    accuracyNote: '* 只显示至少作答 5 题的用户。',
+    realtime: '排行榜会实时更新。',
+  },
+} as const;
+
 export default function RankingClient({
   solveRankings,
   accuracyRankings,
@@ -33,6 +81,7 @@ export default function RankingClient({
 }: RankingClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<'solve' | 'accuracy'>('solve');
+  const t = COPY[locale];
 
   const currentRankings = activeTab === 'solve' ? solveRankings : accuracyRankings;
 
@@ -52,10 +101,10 @@ export default function RankingClient({
              <span className="text-5xl">🏆</span>
           </div>
           <h1 className="text-4xl font-black mb-4 bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
-            Top Learners
+            {t.hero}
           </h1>
           <p className="text-zinc-500 font-bold max-w-md mx-auto">
-            学ぶ楽しさを追求する、トップランナーたちの記録です。
+            {t.body}
           </p>
         </section>
 
@@ -67,7 +116,7 @@ export default function RankingClient({
               activeTab === 'solve' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
           >
-            🧩 解いた問題数
+            🧩 {t.solveTab}
           </button>
           <button 
             onClick={() => setActiveTab('accuracy')}
@@ -75,16 +124,16 @@ export default function RankingClient({
               activeTab === 'accuracy' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
           >
-            🎯 正解率
+            🎯 {t.accuracyTab}
           </button>
         </div>
 
         {/* ランキングリスト */}
         <div className="bg-[var(--card)] rounded-3xl border border-[var(--border)] shadow-xl overflow-hidden">
           <div className="p-6 border-b border-[var(--border)] flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
-             <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">Rank / User</span>
+             <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t.rankUser}</span>
              <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">
-               {activeTab === 'solve' ? 'Solved' : 'Accuracy'}
+               {activeTab === 'solve' ? t.solved : t.accuracy}
              </span>
           </div>
 
@@ -128,7 +177,7 @@ export default function RankingClient({
                         <div className="flex items-center gap-2">
                            <span className="text-[10px] font-black text-zinc-400">LV.{user.level}</span>
                            {activeTab === 'accuracy' && (
-                             <span className="text-[10px] font-bold text-zinc-300">({user.totalAttempts} 挑戦)</span>
+                             <span className="text-[10px] font-bold text-zinc-300">({user.totalAttempts} {t.attempts})</span>
                            )}
                         </div>
                       </div>
@@ -139,7 +188,7 @@ export default function RankingClient({
                       <div className={`text-xl font-black ${isTop3 ? 'text-[var(--foreground)]' : 'text-zinc-500'}`}>
                         {user.score}
                         <span className="text-xs ml-1 opacity-60">
-                          {activeTab === 'solve' ? '問' : '%'}
+                          {activeTab === 'solve' ? t.scoreUnit : '%'}
                         </span>
                       </div>
                     </div>
@@ -148,7 +197,7 @@ export default function RankingClient({
               })
             ) : (
               <div className="p-20 text-center text-zinc-400 font-bold">
-                データがまだありません
+                {t.noData}
               </div>
             )}
           </div>
@@ -157,12 +206,12 @@ export default function RankingClient({
         {/* 補足情報 */}
         <p className="mt-8 text-center text-xs font-bold text-zinc-400 leading-relaxed">
           {activeTab === 'solve' ? (
-            "* 正解したユニークなクイズの合計数です。"
+            t.solveNote
           ) : (
-            "* 最低 5 問以上のクイズに挑戦したユーザーのみ表示されます。"
+            t.accuracyNote
           )}
           <br />
-          ランキングはリアルタイムで集計されます。
+          {t.realtime}
         </p>
       </main>
       <Footer />
