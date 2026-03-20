@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
+import { getSiteUrl } from "@/lib/site-config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,7 +22,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://cue-quiz.vercel.app'), // 本番環境のURLに合わせて更新
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: "Cue | すべての人に学ぶことの楽しさを",
     template: "%s | Cue"
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ja_JP",
-    url: "https://cue-quiz.vercel.app", // 仮のURL
+    url: getSiteUrl(),
     siteName: "Cue",
     title: "Cue | すべての人に学ぶことの楽しさを",
     description: "直感的なクイズで知的好奇心を刺激。学ぶことの楽しさを、すべての人へ。",

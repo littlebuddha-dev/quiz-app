@@ -10,8 +10,43 @@ import SubscribeButton from '../../components/SubscribeButton';
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import type { Metadata } from 'next';
+import { getSiteUrl } from '@/lib/site-config';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { env } = await getCloudflareContext({ async: true });
+  const prisma = createPrisma(env);
+  const { id } = await params;
+
+  const channel = await prisma.channel.findUnique({
+    where: { id },
+    select: {
+      name: true,
+      description: true,
+      avatarUrl: true,
+    },
+  });
+
+  if (!channel) {
+    return { title: 'チャンネルが見つかりません' };
+  }
+
+  return {
+    title: `${channel.name} | チャンネル`,
+    description: channel.description || `${channel.name} が公開している学習クイズ一覧です。`,
+    alternates: {
+      canonical: `${getSiteUrl()}/channel/${id}`,
+    },
+    openGraph: {
+      title: `${channel.name} | Cue`,
+      description: channel.description || `${channel.name} が公開している学習クイズ一覧です。`,
+      url: `${getSiteUrl()}/channel/${id}`,
+      images: [channel.avatarUrl || '/og-image.png'],
+    },
+  };
+}
 
 export default async function ChannelPage({ params }: { params: { id: string } }) {
   const { env } = await getCloudflareContext({ async: true });

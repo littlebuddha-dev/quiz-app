@@ -9,10 +9,10 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { Locale } from '../types';
 
-const DICTIONARY: Record<Locale, { search: string; }> = {
-  ja: { search: '検索...' },
-  en: { search: 'Search...' },
-  zh: { search: '搜索...' },
+const DICTIONARY: Record<Locale, { search: string; ranking: string; courses: string; analysis: string; login: string; }> = {
+  ja: { search: '検索...', ranking: 'ランキング', courses: 'コース', analysis: '分析', login: 'ログイン' },
+  en: { search: 'Search...', ranking: 'Ranking', courses: 'Courses', analysis: 'Analysis', login: 'Log in' },
+  zh: { search: '搜索...', ranking: '排行榜', courses: '课程', analysis: '分析', login: '登录' },
 };
 
 type HeaderProps = {
@@ -87,7 +87,17 @@ export default function Header({
 
         <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
           <span className="text-lg">🏆</span>
-          <span className="hidden xs:block">ランキング</span>
+          <span className="hidden md:block">{t.ranking}</span>
+        </Link>
+
+        <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
+          <span className="text-lg">📚</span>
+          <span className="hidden md:block">{t.courses}</span>
+        </Link>
+
+        <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
+          <span className="text-lg">📈</span>
+          <span className="hidden md:block">{t.analysis}</span>
         </Link>
 
         <div className="flex items-center">
@@ -112,7 +122,7 @@ export default function Header({
             <SignedOut>
               <SignInButton mode="modal">
                 <button className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 sm:py-2 px-3 sm:px-6 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap">
-                  ログイン
+                  {t.login}
                 </button>
               </SignInButton>
             </SignedOut>

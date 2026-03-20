@@ -43,7 +43,7 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   "gemini-1.5-flash": { input: 0.075, output: 0.30 },
 };
 
-export const DEFAULT_MODEL_ID = "hybrid-gemini3.1-pro";
+export const DEFAULT_MODEL_ID = "hybrid-gemini2-flash";
 
 export function getModelById(id: string): AIModel {
   return AI_MODELS.find(m => m.id === id) || AI_MODELS[0];

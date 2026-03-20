@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { getPersonaByAge } from '@/lib/ai-prompts';
+import { buildTopicPlannerPrompt } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
@@ -71,7 +71,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'CATEGORY_NOT_FOUND' }, { status: 404 });
     }
 
-    const persona = getPersonaByAge(parsedAge);
     const results = [];
     const baseUrl = new URL(req.url).origin;
 
@@ -87,17 +86,12 @@ export async function POST(req: NextRequest) {
       // Adjust count per category if "all" is selected to avoid hitting timeout limits
       const countForThisCat = categoryId === 'all' ? Math.min(count, 2) : count;
 
-      const topicSuggestionPrompt = `
-あなたは教育プランナーです。「${category.nameJa || category.name}」というジャンルで、${parsedAge}歳 (${persona.description}) 向けに、新しく面白いクイズのトピックを ${countForThisCat} 個提案してください。
-
-## 既存のトピック (これらは避けてください):
-${existingTitles.slice(0, 50).join(', ')}
-
-## 制約:
-* 各トピックは具体的で、1つのクイズとして成立するものにしてください。
-* 重複を避け、学習意図が明確なものを優先してください。
-* 出力はJSON形式で、キー "topics" に文字列の配列を入れてください。
-`;
+      const topicSuggestionPrompt = buildTopicPlannerPrompt(
+        parsedAge,
+        category.nameJa || category.name,
+        countForThisCat,
+        existingTitles
+      );
 
       try {
         const suggestionResponse = await ai.models.generateContent({

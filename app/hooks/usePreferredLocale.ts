@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { Locale } from '../types';
 
 const STORAGE_KEY = 'cue-locale';
@@ -18,18 +18,21 @@ function normalizeLocale(value?: string | null): Locale {
 }
 
 export function usePreferredLocale() {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window === 'undefined') {
-      return DEFAULT_LOCALE;
-    }
-
-    const savedLocale = window.localStorage.getItem(STORAGE_KEY);
-    return normalizeLocale(savedLocale || navigator.language);
-  });
+  const locale = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener('storage', onStoreChange);
+      return () => window.removeEventListener('storage', onStoreChange);
+    },
+    () => {
+      const savedLocale = window.localStorage.getItem(STORAGE_KEY);
+      return normalizeLocale(savedLocale || navigator.language);
+    },
+    () => DEFAULT_LOCALE
+  );
 
   const setLocale = (nextLocale: Locale) => {
-    setLocaleState(nextLocale);
     window.localStorage.setItem(STORAGE_KEY, nextLocale);
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY, newValue: nextLocale }));
   };
 
   return { locale, setLocale };

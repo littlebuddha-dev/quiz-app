@@ -4,6 +4,23 @@
 
 export type Locale = 'ja' | 'en' | 'zh';
 
+export interface WeakCategoryInsight {
+  categoryId: string;
+  label: string;
+  totalAttempts: number;
+  correctCount: number;
+  wrongCount: number;
+  accuracy: number;
+  focusQuizIds: string[];
+}
+
+export interface StudyRecommendations {
+  todayLabel: string;
+  dailyQuizIds: string[];
+  reviewQuizIds: string[];
+  weakCategories: WeakCategoryInsight[];
+}
+
 export interface Quiz {
   id: string;
   category: string;

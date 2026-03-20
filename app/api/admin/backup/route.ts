@@ -111,69 +111,82 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Delete children first to satisfy foreign key constraints.
-      await tx.comment.deleteMany({});
-      await tx.quizLike.deleteMany({});
-      await tx.quizHistory.deleteMany({});
-      await tx.bookmark.deleteMany({});
-      await tx.subscription.deleteMany({});
-      await tx.quizTranslation.deleteMany({});
-      await tx.quiz.deleteMany({});
-      await tx.channel.deleteMany({});
-      await tx.user.deleteMany({});
-      await tx.category.deleteMany({});
-      await tx.apiUsage.deleteMany({});
-      await tx.setting.deleteMany({});
+    // Cloudflare D1 does not support interactive transactions (`$transaction(async tx => ...)`).
+    // Run each dependency layer as a batch transaction instead.
+    await prisma.$transaction([
+      prisma.comment.deleteMany({}),
+      prisma.quizLike.deleteMany({}),
+      prisma.quizHistory.deleteMany({}),
+      prisma.bookmark.deleteMany({}),
+      prisma.subscription.deleteMany({}),
+      prisma.quizTranslation.deleteMany({}),
+    ]);
 
-      if (Array.isArray(data.users) && data.users.length > 0) {
-        await tx.user.createMany({ data: data.users as Prisma.UserCreateManyInput[] });
-      }
+    await prisma.$transaction([
+      prisma.quiz.deleteMany({}),
+      prisma.channel.deleteMany({}),
+      prisma.user.deleteMany({}),
+      prisma.category.deleteMany({}),
+      prisma.apiUsage.deleteMany({}),
+      prisma.setting.deleteMany({}),
+    ]);
 
-      if (data.categories.length > 0) {
-        await tx.category.createMany({ data: data.categories as Prisma.CategoryCreateManyInput[] });
-      }
+    const phaseOneWrites: Prisma.PrismaPromise<unknown>[] = [];
+    if (Array.isArray(data.users) && data.users.length > 0) {
+      phaseOneWrites.push(prisma.user.createMany({ data: data.users as Prisma.UserCreateManyInput[] }));
+    }
+    if (data.categories.length > 0) {
+      phaseOneWrites.push(prisma.category.createMany({ data: data.categories as Prisma.CategoryCreateManyInput[] }));
+    }
+    if (Array.isArray(data.channels) && data.channels.length > 0) {
+      phaseOneWrites.push(prisma.channel.createMany({ data: data.channels as Prisma.ChannelCreateManyInput[] }));
+    }
+    if (phaseOneWrites.length > 0) {
+      await prisma.$transaction(phaseOneWrites);
+    }
 
-      if (Array.isArray(data.channels) && data.channels.length > 0) {
-        await tx.channel.createMany({ data: data.channels as Prisma.ChannelCreateManyInput[] });
-      }
+    const phaseTwoWrites: Prisma.PrismaPromise<unknown>[] = [];
+    if (data.quizzes.length > 0) {
+      phaseTwoWrites.push(prisma.quiz.createMany({ data: data.quizzes as Prisma.QuizCreateManyInput[] }));
+    }
+    if (data.translations.length > 0) {
+      phaseTwoWrites.push(
+        prisma.quizTranslation.createMany({ data: data.translations as Prisma.QuizTranslationCreateManyInput[] })
+      );
+    }
+    if (phaseTwoWrites.length > 0) {
+      await prisma.$transaction(phaseTwoWrites);
+    }
 
-      if (data.quizzes.length > 0) {
-        await tx.quiz.createMany({ data: data.quizzes as Prisma.QuizCreateManyInput[] });
-      }
-
-      if (data.translations.length > 0) {
-        await tx.quizTranslation.createMany({ data: data.translations as Prisma.QuizTranslationCreateManyInput[] });
-      }
-
-      if (Array.isArray(data.comments) && data.comments.length > 0) {
-        await tx.comment.createMany({ data: data.comments as Prisma.CommentCreateManyInput[] });
-      }
-
-      if (Array.isArray(data.bookmarks) && data.bookmarks.length > 0) {
-        await tx.bookmark.createMany({ data: data.bookmarks as Prisma.BookmarkCreateManyInput[] });
-      }
-
-      if (Array.isArray(data.histories) && data.histories.length > 0) {
-        await tx.quizHistory.createMany({ data: data.histories as Prisma.QuizHistoryCreateManyInput[] });
-      }
-
-      if (Array.isArray(data.likes) && data.likes.length > 0) {
-        await tx.quizLike.createMany({ data: data.likes as Prisma.QuizLikeCreateManyInput[] });
-      }
-
-      if (Array.isArray(data.subscriptions) && data.subscriptions.length > 0) {
-        await tx.subscription.createMany({ data: data.subscriptions as Prisma.SubscriptionCreateManyInput[] });
-      }
-
-      if (data.settings && data.settings.length > 0) {
-        await tx.setting.createMany({ data: data.settings as Prisma.SettingCreateManyInput[] });
-      }
-
-      if (data.apiUsage && data.apiUsage.length > 0) {
-        await tx.apiUsage.createMany({ data: data.apiUsage as Prisma.ApiUsageCreateManyInput[] });
-      }
-    });
+    const phaseThreeWrites: Prisma.PrismaPromise<unknown>[] = [];
+    if (Array.isArray(data.comments) && data.comments.length > 0) {
+      phaseThreeWrites.push(prisma.comment.createMany({ data: data.comments as Prisma.CommentCreateManyInput[] }));
+    }
+    if (Array.isArray(data.bookmarks) && data.bookmarks.length > 0) {
+      phaseThreeWrites.push(prisma.bookmark.createMany({ data: data.bookmarks as Prisma.BookmarkCreateManyInput[] }));
+    }
+    if (Array.isArray(data.histories) && data.histories.length > 0) {
+      phaseThreeWrites.push(
+        prisma.quizHistory.createMany({ data: data.histories as Prisma.QuizHistoryCreateManyInput[] })
+      );
+    }
+    if (Array.isArray(data.likes) && data.likes.length > 0) {
+      phaseThreeWrites.push(prisma.quizLike.createMany({ data: data.likes as Prisma.QuizLikeCreateManyInput[] }));
+    }
+    if (Array.isArray(data.subscriptions) && data.subscriptions.length > 0) {
+      phaseThreeWrites.push(
+        prisma.subscription.createMany({ data: data.subscriptions as Prisma.SubscriptionCreateManyInput[] })
+      );
+    }
+    if (data.settings && data.settings.length > 0) {
+      phaseThreeWrites.push(prisma.setting.createMany({ data: data.settings as Prisma.SettingCreateManyInput[] }));
+    }
+    if (data.apiUsage && data.apiUsage.length > 0) {
+      phaseThreeWrites.push(prisma.apiUsage.createMany({ data: data.apiUsage as Prisma.ApiUsageCreateManyInput[] }));
+    }
+    if (phaseThreeWrites.length > 0) {
+      await prisma.$transaction(phaseThreeWrites);
+    }
 
     return NextResponse.json({ success: true, message: 'Restore completed successfully' });
   } catch (error: unknown) {

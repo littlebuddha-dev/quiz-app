@@ -9,6 +9,7 @@ import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { getSiteUrl } from '@/lib/site-config';
 
 import { Metadata } from 'next';
 
@@ -49,9 +50,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: t?.title || 'クイズ詳細',
     description: t?.question || 'クイズに挑戦して、学ぶ楽しさを体験しよう。',
+    alternates: {
+      canonical: `${getSiteUrl()}/watch/${id}`,
+    },
     openGraph: {
       title: `${t?.title} | Cue`,
       description: t?.question,
+      url: `${getSiteUrl()}/watch/${id}`,
       images: [quiz.imageUrl || '/og-image.png'],
     },
   };

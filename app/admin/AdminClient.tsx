@@ -114,6 +114,29 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
         const fullQuiz = (await res.json()) as any;
         const newTranslations: any = { ...initialForm.translations };
         fullQuiz.translations.forEach((t: any) => {
+          const parsedOptions = (() => {
+            if (!t.options) return '';
+            if (Array.isArray(t.options)) return t.options.join(', ');
+            if (typeof t.options === 'string') {
+              try {
+                const parsed = JSON.parse(t.options);
+                if (Array.isArray(parsed)) return parsed.join(', ');
+                if (typeof parsed === 'string') {
+                  try {
+                    const nested = JSON.parse(parsed);
+                    return Array.isArray(nested) ? nested.join(', ') : parsed;
+                  } catch {
+                    return parsed;
+                  }
+                }
+                return t.options;
+              } catch {
+                return t.options;
+              }
+            }
+            return '';
+          })();
+
           newTranslations[t.locale as Locale] = {
             title: t.title || '',
             question: t.question || '',
@@ -121,7 +144,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             answer: t.answer || '',
             explanation: t.explanation || '',
             type: t.type || 'TEXT',
-            options: t.options ? (Array.isArray(t.options) ? t.options.join(', ') : t.options) : '',
+            options: parsedOptions,
             imageUrl: t.imageUrl || '',
           };
         });
