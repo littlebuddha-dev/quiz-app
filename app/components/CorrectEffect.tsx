@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 
 interface CorrectEffectProps {
   isVisible: boolean;
@@ -389,7 +390,7 @@ export default function CorrectEffect({
 
       <div className="center-content text-white">
         <div className="star-burst">
-          <img src="/icons/ranking.svg" alt="" className="w-24 h-24 filter drop-shadow-[0_0_20px_#ffee00]" />
+          <Image src="/icons/ranking.svg" alt="" width={96} height={96} className="w-24 h-24 filter drop-shadow-[0_0_20px_#ffee00]" />
         </div>
         <div className="correct-text">CORRECT!</div>
         <div className="sub-text">{message}</div>

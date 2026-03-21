@@ -1,4 +1,4 @@
-// Path: proxy.ts
+// Path: middleware.ts
 // Title: Clerk Middleware
 // Purpose: Protects application routes requiring authentication while keeping public pages accessible.
 
@@ -6,9 +6,9 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 // ログインしていなくてもアクセス可能なパブリックなルートを定義
 const isPublicRoute = createRouteMatcher([
-  '/', 
+  '/',
   '/api/quiz-generator', // API系は一旦パブリック（フロントから呼ぶため）
-  '/api/webhooks/clerk' // Webhook受信用
+  '/api/webhooks/clerk', // Webhook受信用
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

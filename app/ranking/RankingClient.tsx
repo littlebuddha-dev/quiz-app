@@ -5,6 +5,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
@@ -98,7 +99,7 @@ export default function RankingClient({
         {/* ヒーローセクション */}
         <section className="text-center mb-12">
           <div className="inline-block p-5 bg-amber-500/10 rounded-3xl mb-4">
-             <img src="/icons/ranking.svg" alt="" className="w-12 h-12 opacity-80" />
+            <Image src="/icons/ranking.svg" alt="" width={48} height={48} className="w-12 h-12 opacity-80" />
           </div>
           <h1 className="text-4xl font-black mb-4 bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
             {t.hero}
@@ -116,7 +117,7 @@ export default function RankingClient({
               activeTab === 'solve' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
           >
-            <img src="/icons/puzzle.svg" alt="" className={`w-4 h-4 transition-colors ${activeTab === 'solve' ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
+            <Image src="/icons/puzzle.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${activeTab === 'solve' ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
             {t.solveTab}
           </button>
           <button 
@@ -125,7 +126,7 @@ export default function RankingClient({
               activeTab === 'accuracy' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
           >
-            <img src="/icons/target.svg" alt="" className={`w-4 h-4 transition-colors ${activeTab === 'accuracy' ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
+            <Image src="/icons/target.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${activeTab === 'accuracy' ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
             {t.accuracyTab}
           </button>
         </div>

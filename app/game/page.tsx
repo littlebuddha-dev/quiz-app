@@ -10,14 +10,13 @@ export default async function GamePage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
 
-  const allIds = await prisma.quiz.findMany({ select: { id: true } });
-  
-  if (allIds.length === 0) {
+  const selectedIds = (
+    await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM Quiz ORDER BY RANDOM() LIMIT 10`
+  ).map((quiz) => quiz.id);
+
+  if (selectedIds.length === 0) {
     return <div className="p-10 text-center font-bold">クイズがありません</div>;
   }
-
-  const shuffledIds = [...allIds].sort(() => 0.5 - Math.random());
-  const selectedIds = shuffledIds.slice(0, 10).map(q => q.id);
 
   const rawQuizzes = await prisma.quiz.findMany({
     where: { id: { in: selectedIds } },

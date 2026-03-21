@@ -1,7 +1,7 @@
 // Path: app/game/GameClient.tsx
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Quiz } from '../types';
@@ -22,7 +22,7 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTick = useRef<number>(0);
 
-  const startTimer = useCallback(() => {
+  const startTimer = () => {
     setTimeLeft(TIME_LIMIT);
     lastTick.current = Date.now();
     
@@ -39,13 +39,12 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
       });
       lastTick.current = now;
     }, 50); // High frequency for smooth progress bar
-  }, []);
+  };
 
-  const handleTimeout = useCallback(() => {
+  const handleTimeout = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     showFeedback('timeout');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   const startGame = () => {
     setScore(0);

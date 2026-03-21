@@ -209,7 +209,7 @@ export default function WatchClient({
                   {lastResult === 'correct' ? (
                     <>
                       <div className="w-32 h-32 mb-6 animate-bounce filter drop-shadow-[0_0_30px_rgba(255,255,255,0.8)] flex items-center justify-center">
-                        <img src="/icons/circle.svg" alt="" className="w-full h-full brightness-0 invert opacity-90" />
+                        <Image src="/icons/circle.svg" alt="" width={128} height={128} className="w-full h-full brightness-0 invert opacity-90" />
                       </div>
                       <h2 className="text-white font-black text-6xl mb-2 drop-shadow-lg">
                         {locale === 'ja' ? '正解！' : locale === 'en' ? 'Bingo!' : '答对了！'}
@@ -218,7 +218,7 @@ export default function WatchClient({
                   ) : (
                     <>
                       <div className="w-24 h-24 mb-6 text-white opacity-80 flex items-center justify-center">
-                        <img src="/icons/cross.svg" alt="" className="w-full h-full brightness-0 invert" />
+                        <Image src="/icons/cross.svg" alt="" width={96} height={96} className="w-full h-full brightness-0 invert" />
                       </div>
                       <h2 className="text-white font-bold text-4xl mb-2">
                         {locale === 'ja' ? 'おしい！' : locale === 'en' ? 'Too bad!' : '可惜！'}
@@ -275,11 +275,11 @@ export default function WatchClient({
 
               <div className="ml-auto flex gap-2 sm:gap-3">
                 <button onClick={() => handleAction('like')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-pink-500 hover:border-pink-500'}`}>
-                  <img src="/icons/heart.svg" alt="" className={`w-4 h-4 transition-colors ${isLiked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
+                  <Image src="/icons/heart.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${isLiked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
                   {locale === 'ja' ? 'いいね' : locale === 'en' ? 'Like' : '点赞'}
                 </button>
                 <button onClick={() => handleAction('bookmark')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isBookmarked ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-blue-500 hover:border-blue-500'}`}>
-                  <img src="/icons/star.svg" alt="" className={`w-4 h-4 transition-colors ${isBookmarked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
+                  <Image src="/icons/star.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${isBookmarked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
                   {locale === 'ja' ? '保存' : locale === 'en' ? 'Save' : '收藏'}
                 </button>
               </div>
@@ -296,13 +296,13 @@ export default function WatchClient({
                 <div className="mb-6">
                   {!showHint ? (
                     <button onClick={() => setShowHint(true)} className="text-sm text-blue-500 font-black hover:underline mb-6 flex items-center gap-1.5">
-                      <img src="/icons/hint.svg" alt="" className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
+                      <Image src="/icons/hint.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
                       {locale === 'ja' ? 'ヒントをみる' : locale === 'en' ? 'Show hint' : '看提示'}
                     </button>
                   ) : (
                     <div className="text-sm bg-blue-500/10 text-blue-500 p-5 rounded-2xl mb-6 font-bold border border-blue-500/20">
                       <div className="flex items-center gap-1.5 mb-1.5">
-                        <img src="/icons/hint.svg" alt="" className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
+                        <Image src="/icons/hint.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
                         <span className="uppercase text-[10px] tracking-widest font-black">Hint</span>
                       </div>
                       <LatexRenderer text={t.hint} />
@@ -347,7 +347,7 @@ export default function WatchClient({
                 <div className="mt-6 rounded-2xl border border-blue-200/70 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-900/40 p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <div className="flex items-center gap-2">
-                      <img src="/icons/explanation.svg" alt="" className="w-4 h-4 opacity-70 grayscale brightness-0 invert-0 dark:invert" style={{ filter: locale === 'ja' ? 'none' : 'none' }} />
+                      <Image src="/icons/explanation.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-70 grayscale brightness-0 invert-0 dark:invert" style={{ filter: locale === 'ja' ? 'none' : 'none' }} />
                       <h4 className="font-black text-sm uppercase tracking-wider text-blue-700 dark:text-blue-300">
                         {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}
                       </h4>
