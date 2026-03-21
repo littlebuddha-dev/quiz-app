@@ -132,7 +132,7 @@ export default async function ChannelPage({ params }: { params: { id: string } }
       <div className="bg-white border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-zinc-200 overflow-hidden relative border-4 border-white shadow-sm flex-shrink-0">
+            <div className="w-24 h-24 rounded-full bg-zinc-200 overflow-hidden relative border-4 border-white flex-shrink-0">
               {channel.avatarUrl ? (
                 <Image src={channel.avatarUrl} alt={channel.name} fill className="object-cover" />
               ) : (

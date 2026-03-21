@@ -277,7 +277,7 @@ export default function WatchClient({
             </div>
 
             {/* 問題文と回答フォーム */}
-            <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] shadow-xl shadow-black/5 mb-8">
+            <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] mb-8">
               {isOnline && <AdSense slot="watch" />}
               <h3 className="font-black text-lg sm:text-xl mb-6 leading-relaxed">
                 <LatexRenderer text={t.question} />
@@ -302,7 +302,7 @@ export default function WatchClient({
                   {t.type === 'CHOICE' && t.options ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {t.options.map((opt: string, i: number) => (
-                        <button key={i} onClick={() => handleAnswerSubmit(opt === t.answer)} className="bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-black py-4 rounded-2xl transition-all active:scale-[0.98] text-center shadow-sm">
+                        <button key={i} onClick={() => handleAnswerSubmit(opt === t.answer)} className="bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-black py-4 rounded-2xl transition-all active:scale-[0.98] text-center">
                           {opt}
                         </button>
                       ))}
@@ -398,7 +398,7 @@ export default function WatchClient({
                   </div>
                 </form>
               ) : (
-                <div className="bg-[var(--card)] p-6 rounded-2xl text-center text-sm font-black text-zinc-500 mb-10 border border-[var(--border)] shadow-sm">
+                <div className="bg-[var(--card)] p-6 rounded-2xl text-center text-sm font-black text-zinc-500 mb-10 border border-[var(--border)]">
                   {locale === 'ja' ? 'コメントするにはログインしてください' : locale === 'en' ? 'Log in to comment' : '登录后评论'}
                 </div>
               )}
@@ -438,7 +438,7 @@ export default function WatchClient({
 
                     return (
                       <>
-                  <div className="w-44 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)] shadow-sm">
+                  <div className="w-44 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)]">
                     <Image 
                       src={relImage}
                       alt={relTitle} 

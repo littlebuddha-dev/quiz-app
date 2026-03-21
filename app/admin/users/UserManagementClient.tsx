@@ -53,7 +53,7 @@ export default function UserManagementClient({ initialUsers, userStatus }: any) 
           <p className="text-zinc-500 font-bold">アプリを利用しているユーザーの権限やステータスを管理します。</p>
         </div>
 
-        <div className="bg-[var(--card)] rounded-3xl shadow-xl border border-[var(--border)] overflow-hidden">
+        <div className="bg-[var(--card)] rounded-3xl border border-[var(--border)] overflow-hidden">
           <div className="p-6 border-b border-[var(--border)] bg-zinc-50/50 dark:bg-zinc-900/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">
               <input 

@@ -63,7 +63,7 @@ export default function CoursesClient({ currentCourse, roadmap }: CoursesClientP
       <Header locale={locale} setLocale={setLocale} hideSearch />
 
       <main className="pt-24 max-w-6xl mx-auto px-4 pb-12">
-        <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8 shadow-xl shadow-black/5">
+        <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
           <div className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500 mb-2">
             {locale === 'ja' ? '学習コース' : locale === 'en' ? 'Course Path' : '学习路径'}
           </div>
@@ -84,7 +84,7 @@ export default function CoursesClient({ currentCourse, roadmap }: CoursesClientP
             </a>
           </div>
 
-          <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6 shadow-xl shadow-black/5">
+          <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
               <div>
                 <div className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500 mb-2">
@@ -157,7 +157,7 @@ export default function CoursesClient({ currentCourse, roadmap }: CoursesClientP
           <h2 className="text-xl sm:text-2xl font-black mb-4">{t.roadmap}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {roadmap.map((courseProgress) => (
-              <div key={courseProgress.course.id} className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-lg shadow-black/5">
+              <div key={courseProgress.course.id} className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
                 <div className="text-sm font-black mb-1">{getCourseLabel(locale, courseProgress.course.id, courseProgress.course.label)}</div>
                 <p className="text-xs font-semibold text-zinc-500 mb-4 line-clamp-3">{courseProgress.course.overview}</p>
                 <div className="flex items-center justify-between text-xs font-black text-zinc-500 mb-2">

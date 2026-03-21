@@ -115,26 +115,45 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Generate Quizzes for suggested topics
+        // 元リクエストのCookieを取得（認証情報の転送用）
+        const forwardCookie = req.headers.get('cookie');
         for (const topic of suggestedTopics) {
-          const genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              topic,
-              categoryId: category.id,
-              targetAge: parsedAge,
-              quizType: quizType || 'TEXT',
-              excludeTitles: existingTitles,
-              modelId: hybridModel.generatorId
-            })
-          });
-          if (genRes.ok) {
-            results.push(await genRes.json());
+          try {
+            const genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(forwardCookie ? { cookie: forwardCookie } : {}),
+              },
+              body: JSON.stringify({
+                topic,
+                categoryId: category.id,
+                targetAge: parsedAge,
+                quizType: quizType || 'TEXT',
+                excludeTitles: existingTitles,
+                modelId: hybridModel.generatorId
+              })
+            });
+            if (genRes.ok) {
+              results.push(await genRes.json());
+            } else {
+              const errBody = await genRes.text();
+              console.error(`quiz-generator failed for topic "${topic}":`, genRes.status, errBody);
+            }
+          } catch (fetchErr) {
+            console.error(`Failed to fetch quiz-generator for topic "${topic}":`, fetchErr);
           }
         }
       } catch (err) {
         console.error(`Error processing category ${category.id}:`, err);
       }
+    }
+
+    if (results.length === 0) {
+      return NextResponse.json({ 
+        error: 'NO_QUIZZES_GENERATED', 
+        message: 'トピックの提案は成功しましたが、クイズの生成に失敗しました。サーバーログを確認してください。' 
+      }, { status: 500 });
     }
 
     return NextResponse.json({ 

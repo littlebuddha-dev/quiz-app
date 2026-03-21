@@ -9,7 +9,7 @@ export default function Footer() {
     <footer className="w-full py-12 pb-24 md:pb-12 bg-transparent border-t border-[var(--border)] mt-auto mt-20" suppressHydrationWarning>
       <div className="container mx-auto px-6 flex flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-2 group transition-transform hover:scale-105 duration-300">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 drop-shadow-2xl">
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20">
             <img
               src="/logo.svg"
               alt="Cue Logo"

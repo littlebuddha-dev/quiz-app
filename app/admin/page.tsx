@@ -46,6 +46,31 @@ export default async function AdminPage() {
   const userStatus = { xp: user.xp || 0, level: user.level || 1, role: user.role };
   await ensureCategoryLocalizationColumns(prisma as any);
 
+  // Fetch comments
+  const rawComments = await prisma.comment.findMany({
+    include: {
+      user: { select: { name: true } },
+      quiz: {
+        include: {
+          translations: {
+            where: { locale: 'ja' },
+            select: { title: true }
+          }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const initialComments = rawComments.map((c: any) => ({
+    id: c.id,
+    content: c.content,
+    userName: c.user?.name || 'ゲスト',
+    quizId: c.quizId,
+    quizTitle: c.quiz.translations[0]?.title || '無題のクイズ',
+    createdAt: c.createdAt.toISOString(),
+  }));
+
   // Fetch all quizzes
   const rawQuizzes = await prisma.quiz.findMany({
     include: {
@@ -97,5 +122,5 @@ export default async function AdminPage() {
     'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "icon" FROM "Category" ORDER BY "sortOrder" ASC, "minAge" ASC, "createdAt" ASC'
   );
 
-  return <AdminClientWrapper initialQuizzes={quizzes} categories={categories} userStatus={userStatus} />;
+  return <AdminClientWrapper initialQuizzes={quizzes} categories={categories} userStatus={userStatus} initialComments={initialComments} />;
 }

@@ -85,17 +85,17 @@ export default function Header({
           </div>
         )}
 
-        <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
+        <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
           <span className="text-lg">🏆</span>
           <span className="hidden md:block">{t.ranking}</span>
         </Link>
 
-        <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
+        <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
           <span className="text-lg">📚</span>
           <span className="hidden md:block">{t.courses}</span>
         </Link>
 
-        <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 shadow-sm border border-transparent hover:border-amber-100">
+        <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
           <span className="text-lg">📈</span>
           <span className="hidden md:block">{t.analysis}</span>
         </Link>

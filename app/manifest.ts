@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Cue',
     short_name: 'Cue',
-    description: 'お金がなくても自由に学べるクイズ学習プラットフォーム',
+    description: '自由に学べるクイズ学習プラットフォーム',
     start_url: '/',
     display: 'standalone',
     background_color: '#f8fafc',

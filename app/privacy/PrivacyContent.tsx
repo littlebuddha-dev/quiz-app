@@ -41,7 +41,7 @@ export default function PrivacyContent() {
         <Link href="/" className="text-sm font-black text-amber-600 hover:text-amber-500 transition-colors">
           ← Cueへ戻る
         </Link>
-        <div className="mt-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-8 sm:p-12 shadow-xl shadow-black/5">
+        <div className="mt-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-8 sm:p-12">
           <p className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500">Privacy</p>
           <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">プライバシーポリシー</h1>
           <p className="mt-4 text-sm leading-7 text-zinc-500">

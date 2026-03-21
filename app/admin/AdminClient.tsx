@@ -16,13 +16,14 @@ export type AdminClientProps = {
   initialQuizzes: any;
   categories: any;
   userStatus?: { xp: number; level: number; role: string };
+  initialComments?: any[]; // コメント管理用
 };
 
-export default function AdminClient({ initialQuizzes, categories, userStatus }: AdminClientProps) {
+export default function AdminClient({ initialQuizzes, categories, userStatus, initialComments = [] }: AdminClientProps) {
   const router = useRouter();
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
-  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools' | 'backup'>('ai');
+  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools' | 'backup' | 'comments'>('ai');
   const [categoriesList, setCategoriesList] = useState(categories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [catFormData, setCatFormData] = useState({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
@@ -38,6 +39,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
   const [newBudget, setNewBudget] = useState<number>(10);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const [comments, setComments] = useState(initialComments);
 
   // サーバーサイドからのデータ更新を反映
   useEffect(() => {
@@ -186,6 +188,28 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
       router.refresh();
     } else {
       alert('削除に失敗しました');
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteComment = async (id: string) => {
+    if (!confirm('このコメントを削除しますか？')) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/comments', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        setComments(comments.filter((c: any) => c.id !== id));
+        alert('コメントを削除しました');
+      } else {
+        alert('削除に失敗しました');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('エラーが発生しました');
     }
     setLoading(false);
   };
@@ -601,7 +625,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
       <div className="flex flex-col-reverse lg:flex-row gap-8 relative max-w-7xl mx-auto px-4 pb-10">
         {/* サイドバー: リスト */}
         <aside className="lg:w-80 w-full shrink-0">
-          <div className="bg-[var(--card)] p-6 rounded-3xl shadow-xl shadow-black/5 border border-[var(--border)] lg:sticky top-24 lg:max-h-[calc(100vh-120px)] flex flex-col">
+          <div className="bg-[var(--card)] p-6 rounded-3xl border border-[var(--border)] lg:sticky top-24 lg:max-h-[calc(100vh-120px)] flex flex-col">
             <h2 className="text-lg font-black mb-4 flex items-center justify-between">
               <span>登録済みクイズ</span>
               <span className="text-xs bg-[var(--background)] px-2 py-1 rounded-full text-zinc-400 font-bold">{quizzes.length}</span>
@@ -651,6 +675,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
             <button onClick={() => setMainTab('ai')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'ai' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🌟 AI生成</button>
             <button onClick={() => setMainTab('manual')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'manual' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>✍️ 手動作成</button>
             <button onClick={() => setMainTab('categories')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'categories' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📁 ジャンル管理</button>
+            <button onClick={() => setMainTab('comments')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'comments' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💬 コメント管理</button>
             <button onClick={() => setMainTab('usage')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'usage' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💳 資金管理</button>
             <button onClick={() => setMainTab('tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🔗 外部ツール</button>
             <button onClick={() => setMainTab('backup')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'backup' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💾 バックアップ</button>
@@ -658,7 +683,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
 
           {mainTab === 'ai' && (
             <div className="space-y-8">
-              <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
+              <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
                 <h2 className="text-xl font-black mb-6 flex items-center gap-2">
                   <span className="bg-amber-100 text-amber-600 p-2 rounded-xl text-lg">✨</span>
                   個別AIクイズ生成
@@ -802,7 +827,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
 
 
           {mainTab === 'categories' && (
-            <div className="bg-[var(--card)] p-8 rounded-3xl shadow-xl border border-[var(--border)]">
+            <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6">ジャンル管理</h2>
               <form onSubmit={handleSaveCategory} className="space-y-4 mb-8 bg-[var(--background)] p-6 rounded-2xl">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1161,7 +1186,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                 </div>
               </div>
 
-              <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl">
+              <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
                 <h2 className="text-lg font-black mb-6 flex items-center gap-2">
                   <span className="bg-zinc-100 p-2 rounded-xl text-zinc-600">📊</span>
                   モデル別利用内訳 (今月)
@@ -1201,7 +1226,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
           {mainTab === 'tools' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <a href="http://localhost:5555" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                <a href="http://localhost:5555" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-emerald-100 text-emerald-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">💎</span>
                     <div>
@@ -1219,7 +1244,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                   </div>
                 </a>
 
-                <a href="https://dashboard.clerk.com" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group">
+                <a href="https://dashboard.clerk.com" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-indigo-100 text-indigo-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">🔑</span>
                     <div>
@@ -1235,7 +1260,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                   </div>
                 </a>
 
-                <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group relative overflow-hidden">
+                <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 -mr-8 -mt-8 rotate-45"></div>
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-amber-100 text-amber-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">✨</span>
@@ -1263,7 +1288,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
                   </div>
                 </div>
 
-                <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl hover:scale-[1.02] hover:shadow-2xl transition-all group relative overflow-hidden">
+                <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 -mr-8 -mt-8 rotate-45"></div>
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-orange-100 text-orange-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">☁️</span>
@@ -1289,7 +1314,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
           )}
           {mainTab === 'backup' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-xl">
+              <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
                 <h2 className="text-xl font-black mb-6 flex items-center gap-2">
                   <span className="bg-amber-100 p-2 rounded-xl text-lg">💾</span>
                   バックアップ・復元
@@ -1350,6 +1375,61 @@ export default function AdminClient({ initialQuizzes, categories, userStatus }: 
               </div>
             </div>
           )}
+
+          {mainTab === 'comments' && (
+            <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
+              <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+                <span className="bg-amber-100 text-amber-600 p-2 rounded-xl text-lg">💬</span>
+                コメント管理
+                <span className="ml-auto text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-bold px-3 py-1 rounded-full">{comments.length}件</span>
+              </h2>
+
+              <div className="flex flex-col gap-4">
+                {comments.length > 0 ? (
+                  comments.map((comment: any) => (
+                    <div key={comment.id} className="flex flex-col sm:flex-row gap-4 p-5 rounded-2xl border border-[var(--border)] bg-[var(--background)] hover:border-blue-300 transition-colors group">
+                      <div className="flex flex-col gap-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-black text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-md">
+                            {comment.userName}
+                          </span>
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                            {new Date(comment.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold leading-relaxed break-words whitespace-pre-wrap text-zinc-700 dark:text-zinc-200">
+                          {comment.content}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1 border-t border-[var(--border)] pt-2 lg:border-none lg:pt-0">
+                          <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">対象クイズ</span>
+                          <span className="text-[11px] font-bold text-zinc-500 truncate" title={comment.quizTitle}>
+                            <LatexRenderer text={comment.quizTitle} />
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 flex-shrink-0">
+                        <a href={`/watch/${comment.quizId}`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-black text-blue-500 hover:text-blue-600 border border-blue-200 hover:border-blue-400 bg-blue-50/50 px-3 py-1.5 rounded-xl transition-colors">
+                          確認 ↗
+                        </a>
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="text-[11px] font-black text-red-500 hover:text-white border border-red-200 hover:bg-red-500 hover:border-red-500 bg-red-50/50 px-3 py-1.5 rounded-xl transition-colors"
+                          disabled={loading}
+                        >
+                          {loading ? '処理中...' : '削除 🗑️'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center p-12 text-zinc-500 font-bold border border-dashed border-[var(--border)] rounded-2xl">
+                    コメントはまだありません
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </main>
 
       </div>

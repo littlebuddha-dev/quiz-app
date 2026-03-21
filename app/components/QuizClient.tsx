@@ -321,7 +321,7 @@ export default function QuizClient({
         {isOnline && <AdSense slot="home" />}
 
         {!isOnline && (
-          <section className="mb-5 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 p-4 shadow-sm">
+          <section className="mb-5 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 p-4">
             <div className="flex flex-col gap-1">
               <div className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Offline</div>
               <h2 className="text-base sm:text-lg font-black text-emerald-900">
@@ -339,7 +339,7 @@ export default function QuizClient({
         )}
 
         {activeStudyRecommendations && (
-          <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-5 sm:p-7 shadow-xl shadow-black/5">
+          <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-5 sm:p-7">
             <div className="flex flex-col gap-4">
               <button
                 type="button"
@@ -456,7 +456,7 @@ export default function QuizClient({
                   key={quiz.id} 
                   className="group cursor-pointer flex flex-col gap-3"
                 >
-                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shadow-md">
+                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                     {cardImage ? (
                       <Image 
                         key={`${quiz.id}-${locale}-${cardImage}`}
@@ -527,7 +527,7 @@ export default function QuizClient({
                   <Link
                     href={`/watch/${quiz.id}`}
                     key={quiz.id}
-                    className="block rounded-3xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 shadow-sm"
+                    className="block rounded-3xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

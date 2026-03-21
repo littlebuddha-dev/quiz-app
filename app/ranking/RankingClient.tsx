@@ -109,7 +109,7 @@ export default function RankingClient({
         </section>
 
         {/* タブ切り替え */}
-        <div className="flex bg-[var(--card)] p-1.5 rounded-2xl border border-[var(--border)] mb-8 shadow-sm">
+        <div className="flex bg-[var(--card)] p-1.5 rounded-2xl border border-[var(--border)] mb-8">
           <button 
             onClick={() => setActiveTab('solve')}
             className={`flex-1 py-3 px-6 rounded-xl font-black text-sm transition-all ${
@@ -129,7 +129,7 @@ export default function RankingClient({
         </div>
 
         {/* ランキングリスト */}
-        <div className="bg-[var(--card)] rounded-3xl border border-[var(--border)] shadow-xl overflow-hidden">
+        <div className="bg-[var(--card)] rounded-3xl border border-[var(--border)] overflow-hidden">
           <div className="p-6 border-b border-[var(--border)] flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
              <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t.rankUser}</span>
              <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">

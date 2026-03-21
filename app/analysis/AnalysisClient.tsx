@@ -89,7 +89,7 @@ export default function AnalysisClient({
       <Header locale={locale} setLocale={setLocale} userStatus={userStatus} hideSearch />
 
       <main className="pt-24 max-w-6xl mx-auto px-4 pb-12">
-        <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8 shadow-xl shadow-black/5">
+        <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
           <div className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500 mb-2">
             {locale === 'ja' ? '学習分析' : locale === 'en' ? 'Analytics' : '学习分析'}
           </div>
@@ -104,7 +104,7 @@ export default function AnalysisClient({
             { label: t.accuracy, value: `${overallAccuracy}%` },
             { label: t.days, value: activeDays14 },
           ].map((item) => (
-            <div key={item.label} className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-lg shadow-black/5">
+            <div key={item.label} className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="text-xs font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">{item.label}</div>
               <div className="text-2xl sm:text-3xl font-black">{item.value}</div>
             </div>
@@ -112,7 +112,7 @@ export default function AnalysisClient({
         </section>
 
         <section className="grid grid-cols-1 xl:grid-cols-[1.35fr_0.95fr] gap-6">
-          <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl shadow-black/5">
+          <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6">
             <h2 className="text-xl sm:text-2xl font-black mb-5">{t.strengths}</h2>
             <div className="space-y-4">
               {sortedDomains.map((score) => (
@@ -142,7 +142,7 @@ export default function AnalysisClient({
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl shadow-black/5">
+          <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6">
             <h2 className="text-xl sm:text-2xl font-black mb-5">{t.weaknesses}</h2>
             <div className="space-y-3">
               {weakCategories.length > 0 ? (

@@ -80,7 +80,7 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
         </div>
 
         <div className="grid gap-6">
-          <section className="bg-[var(--card)] rounded-3xl p-6 shadow-xl border border-[var(--border)] overflow-hidden">
+          <section className="bg-[var(--card)] rounded-3xl p-6 border border-[var(--border)] overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold mb-1">広告表示</h2>
@@ -98,7 +98,7 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
             </div>
           </section>
 
-          <section className="bg-[var(--card)] rounded-3xl p-6 shadow-xl border border-[var(--border)]">
+          <section className="bg-[var(--card)] rounded-3xl p-6 border border-[var(--border)]">
             <h2 className="text-xl font-bold mb-4">AdSense アカウント設定</h2>
             <p className="text-sm text-zinc-500 mb-4">AdSense の公開者 ID と、表示位置ごとの広告スロット ID を入力してください。</p>
             <div className="space-y-4">
@@ -118,7 +118,7 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
             </div>
           </section>
 
-          <section className="bg-[var(--card)] rounded-3xl p-6 shadow-xl border border-[var(--border)]">
+          <section className="bg-[var(--card)] rounded-3xl p-6 border border-[var(--border)]">
             <h2 className="text-xl font-bold mb-4">表示位置の設定</h2>
             <div className="space-y-4">
               <div className="rounded-2xl border border-[var(--border)] p-4 space-y-3">
