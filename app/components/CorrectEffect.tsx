@@ -387,11 +387,13 @@ export default function CorrectEffect({
         ))}
       </div>
 
-      <div className="center-content">
-        <div className="star-burst">🌟</div>
+      <div className="center-content text-white">
+        <div className="star-burst">
+          <img src="/icons/ranking.svg" alt="" className="w-24 h-24 filter drop-shadow-[0_0_20px_#ffee00]" />
+        </div>
         <div className="correct-text">CORRECT!</div>
         <div className="sub-text">{message}</div>
-        <div className="score-badge">🎉 {score} 🎉</div>
+        <div className="score-badge">{score}</div>
         <button className="close-btn" onClick={handleClose}>{btnLabel}</button>
       </div>
     </div>

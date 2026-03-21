@@ -129,12 +129,7 @@ export default function IntegratedQuizBoard() {
                 fill
                 className="object-cover"
               />
-              {/* タイトル（見出し）を画像の上にオーバーレイ表示 */}
-              <div className="absolute top-0 left-0 w-full p-6 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-                <h2 className="text-white text-xl sm:text-2xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight max-w-[90%]">
-                  {quiz.title}
-                </h2>
-              </div>
+
             </div>
 
             {/* 詳細な問題文を表示 */}
@@ -143,6 +138,9 @@ export default function IntegratedQuizBoard() {
                 <span className="w-1 h-3 bg-amber-500 rounded-full"></span>
                 {locale === 'ja' ? 'もんだい' : locale === 'en' ? 'Question' : '问题'}
               </h3>
+              <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 mb-4 leading-tight">
+                {quiz.title}
+              </h2>
               <p className="text-zinc-800 font-bold text-xl sm:text-2xl leading-relaxed whitespace-pre-wrap">
                 {quiz.question}
               </p>

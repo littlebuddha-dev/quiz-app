@@ -48,6 +48,20 @@ next-env.d.ts
 # OpenNext
 .open-next
 
+# databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+
+# local uploads
+/public/uploads/*
+!/public/uploads/.gitkeep
+
 # wrangler files
 .wrangler
 .dev.vars*

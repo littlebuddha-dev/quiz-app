@@ -541,6 +541,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
   const [bulkQuantity, setBulkQuantity] = useState(3);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [autoBalance, setAutoBalance] = useState(false);
 
   const handleBulkGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -554,7 +555,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           targetAge: aiTargetAge,
           quantity: bulkQuantity,
           quizType: aiType,
-          modelId: selectedModel
+          modelId: selectedModel,
+          autoBalance
         })
       });
       if (res.ok) {
@@ -659,8 +661,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       <span className="text-[8px] font-black bg-zinc-100 px-1.5 py-0.5 rounded">{q.targetAge}歳</span>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => handleEdit(q)} className="p-1 bg-blue-500 text-white rounded">✏️</button>
-                      <button onClick={() => handleDelete(q.id)} className="p-1 bg-red-500 text-white rounded">🗑️</button>
+                      <button onClick={() => handleEdit(q)} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors"><img src="/icons/edit.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
+                      <button onClick={() => handleDelete(q.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"><img src="/icons/delete.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
                     </div>
                   </div>
                 </div>
@@ -740,6 +742,48 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                             {uploading.ai ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const title = aiTopic || '未設定';
+                            const question = '未作成（AIが自動生成します）';
+                            const options = aiType === 'CHOICE' ? '未作成（AIが自動生成します）' : 'なし (記述式)';
+                            const answer = '未作成（AIが自動生成します）';
+                            const hintText = '未作成（AIが自動生成します）';
+                            const explText = '未作成（AIが自動生成します）';
+
+                            const prompt = `以下のテーマについて、教育的で視覚的に魅力的な、非常に高画質でディティールの豊富なイラストを生成してください。
+タイトル: ${title}
+問題文: ${question}
+選択肢・記述式: ${options}
+正解: ${answer}
+ヒント: ${hintText}
+解説: ${explText}
+
+## 1. 作成プロセス
+1. **思考フェーズ**: 指定された条件で、読解力と論理的思考が必要な「問題文」と「正解・解説」を内部で決定します。
+2. **画像生成フェーズ**: 決定した問題文を配置した挿絵画像を生成します。
+3. **出力フェーズ**: 生成された画像の下に、決定しておいた「テキスト情報」を出力します。
+
+## 2. 画像生成の制約事項
+* **アスペクト比**: 8k解像度（横型 16:9）。
+* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生はNEWTON誌に掲載されているような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **文字の配置**: 画像内に問題文を配置すること。文字は可愛らしく、読みやすくレイアウトしてください。
+* **文字数制限**: 画像に重ねる文字は必ず「3行以内」または「60文字以内」に収めること。別途、問題文や解説、ヒントは長文でも良い。
+* **構成**: 1コマの中に、イラストと画像用の短い問題文が共存する形にします。
+
+## 3. 問題作成のガイドライン
+* **重視点**: 計算力だけでなく、文章から条件を整理し、筋道立てて答えを導くプロセス。
+* **形式**: 穴埋め、記述、整序など。
+* **重要**: イラストと問題文を見ただけで答えるのに必要な情報が全て含まれていること。`;
+                            navigator.clipboard.writeText(prompt);
+                            alert('Gemini3 (nanobanana2) 用の高品位プロンプトをクリップボードにコピーしました！');
+                          }}
+                          className="text-[11px] font-bold text-indigo-500 hover:text-indigo-600 underline flex items-center gap-1.5 mt-2 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                          nanobanana2 高品位画像プロンプトをコピー
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -771,6 +815,18 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   AIが既存のクイズを分析し、新しいトピックを自動で提案して複数のクイズを一括生成します。
                 </p>
                 <form onSubmit={handleBulkGenerate} className="space-y-6">
+                  <div className="flex items-start gap-3 mb-4 bg-white/10 p-4 rounded-xl border border-white/20">
+                    <input 
+                      type="checkbox" 
+                      id="autoBalance"
+                      checked={autoBalance}
+                      onChange={e => setAutoBalance(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded appearance-none cursor-pointer bg-white/20 checked:bg-indigo-500 border border-white/30 checked:border-indigo-500 transition-all flex-shrink-0 relative before:content-['✓'] before:absolute before:text-white before:text-[10px] before:font-bold before:opacity-0 checked:before:opacity-100 before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 leading-none"
+                    />
+                    <label htmlFor="autoBalance" className="text-xs md:text-sm font-bold text-indigo-50 cursor-pointer leading-relaxed">
+                      💡 <span className="text-amber-300">自動バランス生成</span>：0歳〜18歳の全対象年齢×全ジャンルを分析し、現在クイズが一番少ないところに自動で割り当てて生成します。
+                    </label>
+                  </div>
                   <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-indigo-200 uppercase ml-1 pr-1">ハイブリッド生成モード</label>
@@ -778,16 +834,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         {AI_MODELS.map((m: any) => <option key={m.id} value={m.id} className="text-zinc-800">{m.name}</option>)}
                       </select>
                     </div>
-                    <div className="space-y-1">
+                    <div className={`space-y-1 transition-opacity ${autoBalance ? 'opacity-30' : ''}`}>
                       <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">ジャンル</label>
-                      <select value={aiCategoryId} onChange={e => setAiCategoryId(e.target.value)} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all">
+                      <select disabled={autoBalance} value={aiCategoryId} onChange={e => setAiCategoryId(e.target.value)} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all">
                         <option value="all" className="text-zinc-800">全ジャンル (各最大2個)</option>
                         {categoriesList.map((c: any) => <option key={c.id} value={c.id} className="text-zinc-800">{c.nameJa || c.name}</option>)}
                       </select>
                     </div>
-                    <div className="space-y-1">
+                    <div className={`space-y-1 transition-opacity ${autoBalance ? 'opacity-30' : ''}`}>
                       <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">対象年齢</label>
-                      <input type="number" value={aiTargetAge} onChange={e => setAiTargetAge(Number(e.target.value))} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all" />
+                      <input disabled={autoBalance} type="number" value={aiTargetAge} onChange={e => setAiTargetAge(Number(e.target.value))} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">生成数</label>
@@ -881,18 +937,18 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           <button 
                             onClick={() => handleMoveCategory(c.id, 'up')} 
                             disabled={index === 0}
-                            className={`p-1 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] hover:enabled:bg-amber-100 hover:enabled:text-amber-600 transition-colors ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                            className={`p-1.5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:enabled:bg-amber-100 transition-colors ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
                             title="上へ"
                           >
-                            ▲
+                            <img src="/icons/chevron-up.svg" alt="" className="w-3 h-3 opacity-70 grayscale" />
                           </button>
                           <button 
                             onClick={() => handleMoveCategory(c.id, 'down')} 
                             disabled={index === categoriesList.length - 1}
-                            className={`p-1 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] hover:enabled:bg-amber-100 hover:enabled:text-amber-600 transition-colors ${index === categoriesList.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                            className={`p-1.5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:enabled:bg-amber-100 transition-colors ${index === categoriesList.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
                             title="下へ"
                           >
-                            ▼
+                            <img src="/icons/chevron-down.svg" alt="" className="w-3 h-3 opacity-70 grayscale" />
                           </button>
                         </div>
                       </td>
@@ -917,8 +973,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         )}
                       </td>
                       <td className="text-right space-x-1">
-                        <button onClick={() => { setEditingCatId(c.id); setCatFormData({ nameJa: c.nameJa || c.name || '', nameEn: c.nameEn || '', nameZh: c.nameZh || '', minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '', icon: c.icon || '' }); }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">✏️</button>
-                        <button onClick={() => handleDeleteCategory(c.id)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors">🗑️</button>
+                        <button onClick={() => { setEditingCatId(c.id); setCatFormData({ nameJa: c.nameJa || c.name || '', nameEn: c.nameEn || '', nameZh: c.nameZh || '', minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '', icon: c.icon || '' }); }} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"><img src="/icons/edit.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
+                        <button onClick={() => handleDeleteCategory(c.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"><img src="/icons/delete.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
                       </td>
                     </tr>
                   ))}
@@ -968,6 +1024,49 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                             {uploading.global ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const title = currentTranslation.title || formData.translations.ja?.title || '未入力';
+                            const question = currentTranslation.question || formData.translations.ja?.question || '未入力';
+                            const type = currentTranslation.type || formData.translations.ja?.type || 'TEXT';
+                            const options = type === 'CHOICE' ? (currentTranslation.options || formData.translations.ja?.options || '未入力') : 'なし (記述式)';
+                            const answer = currentTranslation.answer || formData.translations.ja?.answer || '未入力';
+                            const hintText = currentTranslation.hint || formData.translations.ja?.hint || '未入力';
+                            const explText = currentTranslation.explanation || formData.translations.ja?.explanation || '未入力';
+
+                            const prompt = `以下のテーマについて、教育的で視覚的に魅力的な、非常に高画質でディティールの豊富なイラストを生成してください。
+タイトル: ${title}
+問題文: ${question}
+選択肢・記述式: ${options}
+正解: ${answer}
+ヒント: ${hintText}
+解説: ${explText}
+
+## 1. 作成プロセス
+1. **思考フェーズ**: 指定された条件で、読解力と論理的思考が必要な「問題文」と「正解・解説」を内部で決定します。
+2. **画像生成フェーズ**: 決定した問題文を配置した挿絵画像を生成します。
+3. **出力フェーズ**: 生成された画像の下に、決定しておいた「テキスト情報」を出力します。
+
+## 2. 画像生成の制約事項
+* **アスペクト比**: 8k解像度（横型 16:9）。
+* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生はNEWTON誌に掲載されているような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **文字の配置**: 画像内に問題文を配置すること。文字は可愛らしく、読みやすくレイアウトしてください。
+* **文字数制限**: 画像に重ねる文字は必ず「3行以内」または「60文字以内」に収めること。別途、問題文や解説、ヒントは長文でも良い。
+* **構成**: 1コマの中に、イラストと画像用の短い問題文が共存する形にします。
+
+## 3. 問題作成のガイドライン
+* **重視点**: 計算力だけでなく、文章から条件を整理し、筋道立てて答えを導くプロセス。
+* **形式**: 穴埋め、記述、整序など。
+* **重要**: イラストと問題文を見ただけで答えるのに必要な情報が全て含まれていること。`;
+                            navigator.clipboard.writeText(prompt);
+                            alert('Gemini3 (nanobanana2) 用の高品位プロンプトをクリップボードにコピーしました！');
+                          }}
+                          className="text-[11px] font-bold text-indigo-500 hover:text-indigo-600 underline flex items-center gap-1.5 mt-2 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                          nanobanana2 高品位画像プロンプトをコピー
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1007,6 +1106,49 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                             {uploading[activeTab] ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const title = currentTranslation.title || formData.translations.ja?.title || '未入力';
+                            const question = currentTranslation.question || formData.translations.ja?.question || '未入力';
+                            const type = currentTranslation.type || formData.translations.ja?.type || 'TEXT';
+                            const options = type === 'CHOICE' ? (currentTranslation.options || formData.translations.ja?.options || '未入力') : 'なし (記述式)';
+                            const answer = currentTranslation.answer || formData.translations.ja?.answer || '未入力';
+                            const hintText = currentTranslation.hint || formData.translations.ja?.hint || '未入力';
+                            const explText = currentTranslation.explanation || formData.translations.ja?.explanation || '未入力';
+
+                            const prompt = `以下のテーマについて、教育的で視覚的に魅力的な、非常に高画質でディティールの豊富なイラストを生成してください。
+タイトル: ${title}
+問題文: ${question}
+選択肢・記述式: ${options}
+正解: ${answer}
+ヒント: ${hintText}
+解説: ${explText}
+
+## 1. 作成プロセス
+1. **思考フェーズ**: 指定された条件で、読解力と論理的思考が必要な「問題文」と「正解・解説」を内部で決定します。
+2. **画像生成フェーズ**: 決定した問題文を配置した挿絵画像を生成します。
+3. **出力フェーズ**: 生成された画像の下に、決定しておいた「テキスト情報」を出力します。
+
+## 2. 画像生成の制約事項
+* **アスペクト比**: 8k解像度（横型 16:9）。
+* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生はNEWTON誌に掲載されているような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **文字の配置**: 画像内に問題文を配置すること。文字は可愛らしく、読みやすくレイアウトしてください。
+* **文字数制限**: 画像に重ねる文字は必ず「3行以内」または「60文字以内」に収めること。別途、問題文や解説、ヒントは長文でも良い。
+* **構成**: 1コマの中に、イラストと画像用の短い問題文が共存する形にします。
+
+## 3. 問題作成のガイドライン
+* **重視点**: 計算力だけでなく、文章から条件を整理し、筋道立てて答えを導くプロセス。
+* **形式**: 穴埋め、記述、整序など。
+* **重要**: イラストと問題文を見ただけで答えるのに必要な情報が全て含まれていること。`;
+                            navigator.clipboard.writeText(prompt);
+                            alert('Gemini3 (nanobanana2) 用の高品位プロンプトをクリップボードにコピーしました！');
+                          }}
+                          className="text-[11px] font-bold text-indigo-500 hover:text-indigo-600 underline flex items-center gap-1.5 mt-2 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                          nanobanana2 高品位画像プロンプトをコピー
+                        </button>
                       </div>
                     </div>
                   </div>

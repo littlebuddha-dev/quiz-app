@@ -97,8 +97,8 @@ export default function RankingClient({
       <main className="pt-24 max-w-4xl mx-auto px-4">
         {/* ヒーローセクション */}
         <section className="text-center mb-12">
-          <div className="inline-block p-4 bg-amber-500/10 rounded-3xl mb-4">
-             <span className="text-5xl">🏆</span>
+          <div className="inline-block p-5 bg-amber-500/10 rounded-3xl mb-4">
+             <img src="/icons/ranking.svg" alt="" className="w-12 h-12 opacity-80" />
           </div>
           <h1 className="text-4xl font-black mb-4 bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
             {t.hero}
@@ -112,19 +112,21 @@ export default function RankingClient({
         <div className="flex bg-[var(--card)] p-1.5 rounded-2xl border border-[var(--border)] mb-8">
           <button 
             onClick={() => setActiveTab('solve')}
-            className={`flex-1 py-3 px-6 rounded-xl font-black text-sm transition-all ${
+            className={`flex-1 py-3 px-6 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 ${
               activeTab === 'solve' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
           >
-            🧩 {t.solveTab}
+            <img src="/icons/puzzle.svg" alt="" className={`w-4 h-4 transition-colors ${activeTab === 'solve' ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
+            {t.solveTab}
           </button>
           <button 
             onClick={() => setActiveTab('accuracy')}
-            className={`flex-1 py-3 px-6 rounded-xl font-black text-sm transition-all ${
+            className={`flex-1 py-3 px-6 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 ${
               activeTab === 'accuracy' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
           >
-            🎯 {t.accuracyTab}
+            <img src="/icons/target.svg" alt="" className={`w-4 h-4 transition-colors ${activeTab === 'accuracy' ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
+            {t.accuracyTab}
           </button>
         </div>
 

@@ -40,3 +40,12 @@ body {
     display: none;
   }
 }
+
+/* Ensure all interactive elements have a pointer cursor */
+a, button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"] {
+  cursor: pointer;
+}
+
+button:disabled, input:disabled {
+  cursor: not-allowed;
+}

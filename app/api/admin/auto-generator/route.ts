@@ -44,9 +44,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json()) as any;
-    const { categoryId, targetAge, quantity, quizType, modelId } = body;
+    const { categoryId, targetAge, quantity, quizType, modelId, autoBalance } = body;
     const hybridModel = getModelById(modelId || DEFAULT_MODEL_ID);
-    const parsedAge = parseInt(targetAge) || 8;
+    let parsedAge = parseInt(targetAge) || 8;
     const count = Math.min(parseInt(quantity) || 3, 10); // Max 10 at once
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -54,17 +54,51 @@ export async function POST(req: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     // 1. Get Categories to process
-    let categoriesToProcess = [];
-    if (categoryId === 'all') {
-      categoriesToProcess = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
+    let categoriesToProcess: Array<{ id: string; name: string; nameJa: string | null }> = [];
+    
+    if (autoBalance) {
+      const allCategoriesRaw = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
         'SELECT "id", "name", "nameJa" FROM "Category" ORDER BY "sortOrder" ASC'
       );
+      
+      const counts = await prisma.quiz.groupBy({
+        by: ['categoryId', 'targetAge'],
+        _count: { id: true }
+      });
+
+      const countMap = new Map();
+      counts.forEach((c: any) => {
+        countMap.set(`${c.categoryId}-${c.targetAge}`, c._count.id);
+      });
+
+      let minCount = Infinity;
+      let bestCombo = { categoryId: allCategoriesRaw[0]?.id, age: 0 };
+
+      for (const cat of allCategoriesRaw) {
+        for (let age = 0; age <= 18; age++) {
+          const currentCount = countMap.get(`${cat.id}-${age}`) || 0;
+          if (currentCount < minCount) {
+            minCount = currentCount;
+            bestCombo = { categoryId: cat.id, age };
+          }
+        }
+      }
+
+      parsedAge = bestCombo.age;
+      const selectedCat = allCategoriesRaw.find(c => c.id === bestCombo.categoryId);
+      if (selectedCat) categoriesToProcess.push(selectedCat);
     } else {
-      const [cat] = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
-        'SELECT "id", "name", "nameJa" FROM "Category" WHERE "id" = ? LIMIT 1',
-        categoryId
-      );
-      if (cat) categoriesToProcess.push(cat);
+      if (categoryId === 'all') {
+        categoriesToProcess = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
+          'SELECT "id", "name", "nameJa" FROM "Category" ORDER BY "sortOrder" ASC'
+        );
+      } else {
+        const [cat] = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
+          'SELECT "id", "name", "nameJa" FROM "Category" WHERE "id" = ? LIMIT 1',
+          categoryId
+        );
+        if (cat) categoriesToProcess.push(cat);
+      }
     }
 
     if (categoriesToProcess.length === 0) {

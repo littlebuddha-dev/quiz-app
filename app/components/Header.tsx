@@ -86,17 +86,17 @@ export default function Header({
         )}
 
         <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
-          <span className="text-lg">🏆</span>
+          <img src="/icons/ranking.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
           <span className="hidden md:block">{t.ranking}</span>
         </Link>
 
         <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
-          <span className="text-lg">📚</span>
+          <img src="/icons/course.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
           <span className="hidden md:block">{t.courses}</span>
         </Link>
 
         <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
-          <span className="text-lg">📈</span>
+          <img src="/icons/analysis.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
           <span className="hidden md:block">{t.analysis}</span>
         </Link>
 
@@ -132,17 +132,17 @@ export default function Header({
                   <UserButton.MenuItems>
                     <UserButton.Link
                       label="管理者ダッシュボード"
-                      labelIcon={<div className="w-4 h-4 bg-amber-500 rounded flex items-center justify-center text-[10px] text-white font-bold">A</div>}
+                      labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                       href="/admin"
                     />
                     <UserButton.Link
                       label="ユーザー管理"
-                      labelIcon={<div className="w-4 h-4 bg-blue-500 rounded flex items-center justify-center text-[10px] text-white font-bold">U</div>}
+                      labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                       href="/admin/users"
                     />
                     <UserButton.Link
                       label="Google AdSense"
-                      labelIcon={<div className="w-4 h-4 bg-zinc-700 rounded flex items-center justify-center text-[10px] text-white font-bold">$</div>}
+                      labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                       href="/admin/adsense"
                     />
                   </UserButton.MenuItems>
