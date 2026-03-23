@@ -319,7 +319,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     if (!rawFile) return;
     const uploadKey = target || 'global';
     setUploading(prev => ({ ...prev, [uploadKey]: true }));
-    
+
     try {
       // クライアントサイドで圧縮
       const compressedBlob = await compressImage(rawFile);
@@ -327,7 +327,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
-      
+
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
         body: uploadFormData,
@@ -490,13 +490,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           ...prev,
           translations: {
             ...prev.translations,
-            en: { 
-              ...prev.translations.en, 
+            en: {
+              ...prev.translations.en,
               ...data.en,
               options: Array.isArray(data.en?.options) ? data.en.options.join(', ') : (data.en?.options || '')
             },
-            zh: { 
-              ...prev.translations.zh, 
+            zh: {
+              ...prev.translations.zh,
               ...data.zh,
               options: Array.isArray(data.zh?.options) ? data.zh.options.join(', ') : (data.zh?.options || '')
             }
@@ -579,13 +579,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
     const newCategories = [...categoriesList];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
+
     // 入れ替え
     [newCategories[index], newCategories[targetIndex]] = [newCategories[targetIndex], newCategories[index]];
-    
+
     // sortOrderをインデックスに基づいて再割り当て
     const updates = newCategories.map((c, i) => ({ id: c.id, sortOrder: i }));
-    
+
     // 楽観的更新
     setCategoriesList(newCategories.map((c, i) => ({ ...c, sortOrder: i })));
 
@@ -997,8 +997,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                 </p>
                 <form onSubmit={handleBulkGenerate} className="space-y-6">
                   <div className="flex items-start gap-3 mb-4 bg-white/10 p-4 rounded-xl border border-white/20">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       id="autoBalance"
                       checked={autoBalance}
                       onChange={e => setAutoBalance(e.target.checked)}
@@ -1123,7 +1123,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         <div className="flex flex-col gap-1">
                           <button
                             type="button"
-                            onClick={() => handleMoveCategory(c.id, 'up')} 
+                            onClick={() => handleMoveCategory(c.id, 'up')}
                             disabled={index === 0}
                             className={`p-1.5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:enabled:bg-amber-100 transition-colors ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
                             title="上へ"
@@ -1132,7 +1132,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleMoveCategory(c.id, 'down')} 
+                            onClick={() => handleMoveCategory(c.id, 'down')}
                             disabled={index === categoriesList.length - 1}
                             className={`p-1.5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:enabled:bg-amber-100 transition-colors ${index === categoriesList.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
                             title="下へ"
@@ -1277,8 +1277,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <div className="flex justify-between items-center mb-4">
                       <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">この言語専用の画像 (任意)</p>
                       {currentTranslation.imageUrl && (
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], imageUrl: '' } } }))}
                           className="text-[10px] text-red-500 font-bold hover:underline"
                         >
@@ -1296,19 +1296,19 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         )}
                       </div>
                       <div className="flex-1 w-full space-y-3">
-                        <input 
-                          type="text" 
-                          placeholder="個別画像URL" 
-                          value={currentTranslation.imageUrl || ''} 
-                          onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], imageUrl: e.target.value } } }))} 
-                          className="w-full border p-2.5 rounded-xl text-[11px] font-bold bg-white dark:bg-zinc-900 shadow-sm" 
+                        <input
+                          type="text"
+                          placeholder="個別画像URL"
+                          value={currentTranslation.imageUrl || ''}
+                          onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], imageUrl: e.target.value } } }))}
+                          className="w-full border p-2.5 rounded-xl text-[11px] font-bold bg-white dark:bg-zinc-900 shadow-sm"
                         />
                         <div className="relative">
                           <input type="file" accept="image/*" onChange={(e) => handleUpload(e, activeTab)} className="hidden" id={`tab-image-upload-${activeTab}`} />
                           <label htmlFor={`tab-image-upload-${activeTab}`} className={`inline-block px-4 py-1.5 rounded-lg text-[9px] font-black cursor-pointer transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-700 text-white hover:bg-black'}`}>
                             {uploading[activeTab] ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
-                          
+
                           {activeTab !== 'ja' && (
                             <button
                               type="button"
@@ -1319,7 +1319,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                                   alert('日本語の画像が設定されていません。一度日本語版を保存するか、画像をアップロードしてください。');
                                   return;
                                 }
-                                
+
                                 setUploading(prev => ({ ...prev, [activeTab]: true }));
                                 try {
                                   const res = await fetch('/api/admin/quiz/regenerate-image', {
@@ -1540,7 +1540,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       <p className="text-xs font-bold text-zinc-500">${usageData.budget.currentUsage.toFixed(2)} / ${usageData.budget.limit.toFixed(2)}</p>
                     </div>
                     <div className="h-4 bg-white/5 rounded-full overflow-hidden border border-white/10 p-1">
-                      <div 
+                      <div
                         className={`h-full rounded-full transition-all duration-1000 ${usageData.budget.currentUsage > usageData.budget.limit ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
                         style={{ width: `${Math.min(100, (usageData.budget.currentUsage / usageData.budget.limit) * 100)}%` }}
                       ></div>
@@ -1561,9 +1561,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   <div className="flex gap-4">
                     <div className="flex-1 relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-black">$</span>
-                      <input 
-                        type="number" 
-                        value={newBudget} 
+                      <input
+                        type="number"
+                        value={newBudget}
                         onChange={e => setNewBudget(parseFloat(e.target.value))}
                         className="w-full bg-black border border-white/10 rounded-xl py-3 pl-8 pr-4 font-black outline-none focus:border-amber-500 transition-all"
                         placeholder="10.00"
@@ -1726,7 +1726,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     </p>
                     <button
                       type="button"
-                      onClick={handleExportBackup} 
+                      onClick={handleExportBackup}
                       disabled={loading}
                       className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-600/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
                     >
@@ -1743,15 +1743,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       ⚠️ 警告: ファイルをアップロードすると現在のすべてのデータが消去され、バックアップの内容で上書きされます。
                     </p>
                     <div className="relative cursor-pointer">
-                      <input 
-                        type="file" 
-                        accept=".json" 
-                        onChange={handleImportBackup} 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleImportBackup}
+                        className="hidden"
                         id="backup-upload"
                         disabled={loading}
                       />
-                      <label 
+                      <label
                         htmlFor="backup-upload"
                         className="w-full flex items-center justify-center bg-zinc-800 text-white py-3 rounded-xl font-black shadow-lg shadow-black/20 hover:bg-black cursor-pointer transition-all"
                       >
@@ -1772,14 +1772,14 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
               </div>
             </div>
           )}
- 
+
           {mainTab === 'system-tools' && (
             <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6 flex items-center gap-2">
                 <span className="bg-zinc-100 text-zinc-600 p-2 rounded-xl text-lg">🛠️</span>
                 システムツール
               </h2>
- 
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Cache Clear */}
                 <div className="space-y-4 p-6 border rounded-2xl bg-zinc-50 dark:bg-zinc-900 shadow-inner">
@@ -1804,7 +1804,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
               </div>
             </div>
           )}
- 
+
           {mainTab === 'comments' && (
             <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6 flex items-center gap-2">
@@ -1879,7 +1879,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
               {!eduData ? (
                 <div className="text-center py-12">
                   <p className="text-zinc-400 font-bold mb-4">設定データがまだありません。</p>
-                  <button 
+                  <button
                     onClick={() => {
                       const initial = {
                         "小学校": {

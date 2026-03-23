@@ -8,6 +8,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { PrismaClient } from '@prisma/client/edge';
+import { extractRoleFromMetadata, resolveUserRole } from '@/lib/authz';
 
 // APIコール時にClerkにユーザーが存在するがDBにいない場合の救済処理
 // （Webhookが遅延・失敗した時用）
@@ -20,13 +21,21 @@ async function ensureUser(clerkId: string, prisma: PrismaClient) {
       const clerkUser = await client.users.getUser(clerkId);
       const email = clerkUser.emailAddresses[0]?.emailAddress || '';
       const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || undefined;
+      const role = resolveUserRole({
+        email,
+        metadataRole: extractRoleFromMetadata(
+          (clerkUser.publicMetadata as Record<string, unknown> | undefined)?.role,
+          (clerkUser.privateMetadata as Record<string, unknown> | undefined)?.role,
+          (clerkUser.unsafeMetadata as Record<string, unknown> | undefined)?.role
+        ),
+      });
 
       user = await prisma.user.create({
         data: {
           clerkId,
           email,
           name,
-          role: 'CHILD',
+          role,
         },
       });
     } catch (error) {

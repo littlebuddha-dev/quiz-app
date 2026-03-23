@@ -9,6 +9,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import AdminClientWrapper from './AdminClientWrapper';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+import { canAccessAdmin } from '@/lib/authz';
 
 type CategoryRow = {
   id: string;
@@ -27,21 +28,25 @@ export const dynamic = 'force-dynamic';
 export default async function AdminPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
-  // const { userId: clerkId } = await auth();
-  // if (!clerkId) {
-  //   redirect('/');
-  // }
+  const { userId: clerkId } = await auth();
+  if (!clerkId) {
+    redirect('/');
+  }
 
-  // Check role and fetch user data
-  // const user = await prisma.user.findUnique({
-  //   where: { clerkId },
-  //   select: { role: true },
-  // });
+  const activeUser = await prisma.user.findUnique({
+    where: { clerkId },
+    select: { role: true, xp: true, level: true },
+  });
 
-  // if (!user || (user.role !== 'ADMIN' && user.role !== 'PARENT')) {
-  //   redirect('/');
-  // }
-  const userStatus = { xp: 0, level: 1, role: 'ADMIN' };
+  if (!activeUser || !canAccessAdmin(activeUser.role)) {
+    redirect('/');
+  }
+
+  const userStatus = {
+    xp: activeUser.xp || 0,
+    level: activeUser.level || 1,
+    role: activeUser.role,
+  };
   await ensureCategoryLocalizationColumns(prisma as any);
 
   // Fetch comments

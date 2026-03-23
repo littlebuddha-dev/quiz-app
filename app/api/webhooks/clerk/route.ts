@@ -8,6 +8,7 @@ import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
+import { extractRoleFromMetadata, resolveUserRole } from '@/lib/authz';
 
 export async function POST(req: NextRequest) {
   const { env } = getCloudflareContext();
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!SIGNING_SECRET) {
-    throw new Error('Error: Please add CLERK_WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local');
+    throw new Error('Error: Please add CLERK_WEBHOOK_SECRET from Clerk Dashboard to .env');
   }
 
   // Create new Svix instance with secret
@@ -58,23 +59,46 @@ export async function POST(req: NextRequest) {
   const eventType = evt.type;
 
   if (eventType === 'user.created' || eventType === 'user.updated') {
-    const { id: clerkId, email_addresses, first_name, last_name } = evt.data;
+    const {
+      id: clerkId,
+      email_addresses,
+      first_name,
+      last_name,
+      public_metadata,
+      private_metadata,
+      unsafe_metadata,
+    } = evt.data;
     const primaryEmail = email_addresses?.[0]?.email_address;
 
     if (primaryEmail && clerkId) {
       const name = [first_name, last_name].filter(Boolean).join(' ') || undefined;
+      const existingUser = await prisma.user.findUnique({
+        where: { clerkId },
+        select: { role: true },
+      });
+      const metadataRole = extractRoleFromMetadata(
+        (public_metadata as Record<string, unknown> | undefined)?.role,
+        (private_metadata as Record<string, unknown> | undefined)?.role,
+        (unsafe_metadata as Record<string, unknown> | undefined)?.role
+      );
+      const role = resolveUserRole({
+        email: primaryEmail,
+        existingRole: existingUser?.role,
+        metadataRole,
+      });
 
       await prisma.user.upsert({
         where: { clerkId },
         update: {
           email: primaryEmail,
           name,
+          role,
         },
         create: {
           clerkId,
           email: primaryEmail,
           name,
-          role: 'CHILD', // デフォルトは子供として扱う
+          role,
         },
       });
       console.log(`Synced user ${clerkId} to Prisma`);
