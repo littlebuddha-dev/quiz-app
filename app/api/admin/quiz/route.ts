@@ -39,14 +39,87 @@ function normalizeTranslations(translations: Record<string, any>) {
 // 権限チェックのヘルパー
 async function isAdminOrParent(prisma: PrismaClient) {
   const { userId } = await auth();
-  if (!userId) return false;
+  if (!userId) {
+    console.error('isAdminOrParent: No userId found in auth()');
+    return false;
+  }
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
     select: { role: true },
   });
 
-  return user && (user.role === 'ADMIN' || user.role === 'PARENT');
+  if (!user) {
+    console.error(`isAdminOrParent: User not found in DB for clerkId: ${userId}`);
+    return false;
+  }
+
+  const authorized = user.role === 'ADMIN' || user.role === 'PARENT';
+  if (!authorized) {
+    console.warn(`isAdminOrParent: User ${userId} has insufficient role: ${user.role}`);
+  }
+
+  return authorized;
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const { env } = getCloudflareContext();
+    const prisma = createPrisma(env);
+    const isAuthorized = await isAdminOrParent(prisma);
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const rawQuizzes = await prisma.quiz.findMany({
+      include: {
+        translations: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const quizzes = rawQuizzes.map((q: any) => {
+      const translationsMap: any = {};
+      const jaT = q.translations.find((t: any) => t.locale === 'ja') || {
+        title: 'No Title', question: '', hint: '', answer: '', explanation: null, type: 'TEXT', options: null, imageUrl: null
+      };
+
+      ['ja', 'en', 'zh'].forEach(loc => {
+        const t = q.translations.find((trans: any) => trans.locale === loc);
+        translationsMap[loc] = {
+          title: t?.title || jaT.title,
+          question: t?.question || jaT.question,
+          hint: t?.hint || jaT.hint,
+          answer: t?.answer || jaT.answer,
+          explanation: t?.explanation || jaT.explanation || null,
+          type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
+          options: t?.options ?? jaT.options,
+          imageUrl: t?.imageUrl || null,
+        };
+      });
+
+      return {
+        id: q.id,
+        title: jaT.title,
+        type: jaT.type,
+        question: jaT.question,
+        hint: jaT.hint,
+        answer: jaT.answer,
+        explanation: jaT.explanation || null,
+        options: jaT.options,
+        imageUrl: q.imageUrl,
+        category: q.categoryId,
+        targetAge: q.targetAge,
+        createdAt: q.createdAt.toISOString(),
+        translations: translationsMap,
+      };
+    });
+
+    return NextResponse.json(quizzes);
+  } catch (error) {
+    console.error('Admin Quiz GET Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {

@@ -23,15 +23,11 @@ export default function TermsContent() {
               <p className="mt-3">ユーザーは、法令違反、公序良俗違反、不正アクセス、サービス運営の妨害、第三者の権利侵害などの行為を行ってはなりません。</p>
             </section>
             <section>
-              <h2 className="text-lg font-black text-[var(--foreground)]">3. ダミー文言</h2>
-              <p className="mt-3">本ページには確認用のダミー文言として「マツシバデンキ」を記載しています。正式公開時には、実際の運営主体や契約条件に合わせて修正してください。</p>
-            </section>
-            <section>
-              <h2 className="text-lg font-black text-[var(--foreground)]">4. 免責</h2>
+              <h2 className="text-lg font-black text-[var(--foreground)]">3. 免責</h2>
               <p className="mt-3">当サービスは、内容の正確性、完全性、有用性等について保証するものではありません。運営者は、サービス利用によって生じたいかなる損害についても、法令上許される範囲で責任を負わないものとします。</p>
             </section>
             <section>
-              <h2 className="text-lg font-black text-[var(--foreground)]">5. 規約の変更</h2>
+              <h2 className="text-lg font-black text-[var(--foreground)]">4. 規約の変更</h2>
               <p className="mt-3">運営者は、必要に応じて本規約を変更できるものとし、変更後の内容はサービス上への掲載その他適切な方法で周知します。</p>
             </section>
           </div>

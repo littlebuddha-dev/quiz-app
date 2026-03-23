@@ -21,7 +21,7 @@ export type AdminClientProps = {
 export default function AdminClient({ initialQuizzes, categories, userStatus, initialComments = [] }: AdminClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
-  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools' | 'backup' | 'comments' | 'education'>('ai');
+  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'system-tools' | 'tools' | 'backup' | 'comments' | 'education'>('ai');
   const [categoriesList, setCategoriesList] = useState(categories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [catFormData, setCatFormData] = useState({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
@@ -186,14 +186,14 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const handleDelete = async (id: string) => {
     if (!confirm('本当に削除しますか？')) return;
     setLoading(true);
-    const res = await fetch('/api/admin/quiz', {
+    const res = await fetchWithRetry('/api/admin/quiz', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target: id })
     });
     if (res.ok) {
       setQuizzes(quizzes.filter((q: any) => q.id !== id));
-      reloadAdminPage();
+      fetchQuizzes();
     } else {
       alert('削除に失敗しました');
     }
@@ -204,7 +204,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     if (!confirm('このコメントを削除しますか？')) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/comments', {
+      const res = await fetchWithRetry('/api/admin/comments', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
@@ -391,7 +391,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       translations: normalizedTranslations
     };
     try {
-      const res = await fetch('/api/admin/quiz', {
+      const res = await fetchWithRetry('/api/admin/quiz', {
         method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)
@@ -399,7 +399,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         alert(editingId ? '更新しました' : '作成しました');
         if (!editingId) handleCancelEdit();
-        reloadAdminPage();
+        fetchQuizzes();
       } else {
         const err = (await res.json()) as any;
         alert(`失敗しました: ${err.error || '不明なエラー'}`);
@@ -416,7 +416,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     if (!aiTopic.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/quiz-generator', {
+      const res = await fetchWithRetry('/api/quiz-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -434,7 +434,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         alert('AIでクイズを生成しました！');
         setAiTopic('');
         setCorrectionPrompt('');
-        reloadAdminPage();
+        fetchQuizzes();
       } else {
         const errorData = (await res.json()) as any;
         alert(errorData.message || '生成に失敗しました');
@@ -446,17 +446,85 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     setLoading(false);
   };
 
+  const handleClearCache = async () => {
+    if (!confirm('Next.jsのキャッシュをクリアします。データベースや登録画像は保持されます。よろしいですか？')) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/cache/clear', { method: 'POST' });
+      if (res.ok) {
+        alert('キャッシュをクリアしました！');
+      } else {
+        const err = (await res.json()) as any;
+        alert('エラーが発生しました: ' + (err.error || '不明なエラー'));
+      }
+    } catch (error) {
+      console.error(error);
+      alert('通信エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
+  const handleAiTranslate = async () => {
+    const ja = formData.translations.ja;
+    if (!ja.title || !ja.question) {
+      alert('日本語のタイトルと問題文を入力してください');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/quiz/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ja: {
+            ...ja,
+            options: ja.type === 'CHOICE' ? ja.options : null
+          },
+          targetAge: formData.targetAge,
+          categoryId: formData.categoryId
+        })
+      });
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        setFormData(prev => ({
+          ...prev,
+          translations: {
+            ...prev.translations,
+            en: { 
+              ...prev.translations.en, 
+              ...data.en,
+              options: Array.isArray(data.en?.options) ? data.en.options.join(', ') : (data.en?.options || '')
+            },
+            zh: { 
+              ...prev.translations.zh, 
+              ...data.zh,
+              options: Array.isArray(data.zh?.options) ? data.zh.options.join(', ') : (data.zh?.options || '')
+            }
+          }
+        }));
+        alert('AI翻訳が完了し、英語と中国語のタブに反映しました！');
+      } else {
+        const err = (await res.json()) as any;
+        alert('翻訳に失敗しました: ' + (err.message || '不明なエラー'));
+      }
+    } catch (error) {
+      console.error(error);
+      alert('通信エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/categories', {
+      const res = await fetchWithRetry('/api/admin/categories', {
         method: editingCatId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingCatId, ...catFormData }),
       });
       if (res.ok) {
-        const updated = await res.json();
+        const updated = (await res.json()) as any;
         if (editingCatId) {
           setCategoriesList(categoriesList.map((c: any) => c.id === editingCatId ? updated : c));
           alert('ジャンルを更新しました');
@@ -466,7 +534,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         }
         setCatFormData({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
         setEditingCatId(null);
-        reloadAdminPage();
+        fetchCategories();
       } else {
         const err = (await res.json()) as any;
         alert(`失敗しました: ${err.message || 'エラーが発生しました'}`);
@@ -486,11 +554,12 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     if (!confirm('このジャンルを削除しますか？紐づいているクイズは「その他」ジャンルに自動的に移行されます。')) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/categories?id=${id}`, { method: 'DELETE' });
+      const res = await fetchWithRetry(`/api/admin/categories?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         setCategoriesList(categoriesList.filter((c: any) => c.id !== id));
         alert('ジャンルを削除しました（クイズは「その他」に移動されました）');
-        reloadAdminPage();
+        fetchCategories();
+        fetchQuizzes(); // クイズのカテゴリが変わるため
       } else {
         const err = (await res.json()) as any;
         alert(`削除に失敗しました: ${err.message || 'エラーが発生しました'}`);
@@ -521,15 +590,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     setCategoriesList(newCategories.map((c, i) => ({ ...c, sortOrder: i })));
 
     try {
-      const res = await fetch('/api/admin/categories/reorder', {
+      const res = await fetchWithRetry('/api/admin/categories/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates }),
       });
       if (!res.ok) {
         alert('並び替えの保存に失敗しました');
-        // 失敗した場合は元に戻すため、ページ全体を再読込して整合性を取り直す
-        reloadAdminPage();
+        // 失敗した場合は元に戻すため、再取得して整合性を取り直す
+        fetchCategories();
       }
     } catch (err) {
       console.error(err);
@@ -555,7 +624,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     e.preventDefault();
     setBulkLoading(true);
     try {
-      const res = await fetch('/api/admin/auto-generator', {
+      const res = await fetchWithRetry('/api/admin/auto-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -570,7 +639,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         const data = (await res.json()) as any;
         alert(`${data.count}個のクイズを自動生成しました！`);
-        reloadAdminPage();
+        fetchQuizzes();
       } else {
         const err = (await res.json()) as any;
         alert(err.message || '自動生成に失敗しました');
@@ -604,7 +673,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const handleSaveBudget = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetchWithRetry('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'API_MONTHLY_BUDGET', value: newBudget })
@@ -620,6 +689,53 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       alert('エラーが発生しました');
     }
     setLoading(false);
+  };
+
+  const fetchWithRetry = async (url: string, options: RequestInit, retries = 1): Promise<Response> => {
+    const res = await fetch(url, options);
+    if (res.status === 403 && retries > 0) {
+      console.warn(`403 encountered. Retrying ${url}...`);
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return fetchWithRetry(url, options, retries - 1);
+    }
+    return res;
+  };
+
+  const fetchQuizzes = async () => {
+    try {
+      const res = await fetch('/api/admin/quiz');
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        setQuizzes(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch quizzes:', err);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      if (res.ok) {
+        const data = await res.json();
+        setCategoriesList(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+    }
+  };
+
+  const fetchComments = async () => {
+    try {
+      const res = await fetch('/api/admin/comments');
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        setComments(data.comments || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch comments:', err);
+    }
   };
 
   const fetchEduData = async () => {
@@ -648,7 +764,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     if (!eduData) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetchWithRetry('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'educational_guidelines', value: JSON.stringify(eduData) })
@@ -733,6 +849,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             <button type="button" onClick={() => setMainTab('education')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'education' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📚 教育内容</button>
             <button type="button" onClick={() => setMainTab('comments')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'comments' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💬 コメント管理</button>
             <button type="button" onClick={() => setMainTab('usage')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'usage' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💳 資金管理</button>
+            <button type="button" onClick={() => setMainTab('system-tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'system-tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🛠️ ツール</button>
             <button type="button" onClick={() => setMainTab('tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🔗 外部ツール</button>
             <button type="button" onClick={() => setMainTab('backup')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'backup' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💾 バックアップ</button>
           </div>
@@ -1071,10 +1188,22 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <input type="number" value={formData.targetAge} placeholder="適正年齢" onChange={e => setFormData(prev => ({ ...prev, targetAge: Number(e.target.value) }))} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {SUPPORTED_LOCALES.map(loc => (
-                    <button key={loc} type="button" onClick={() => setActiveTab(loc)} className={`px-5 py-2.5 rounded-xl font-black text-xs transition-all ${activeTab === loc ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{loc.toUpperCase()}</button>
-                  ))}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <div className="flex gap-2">
+                    {SUPPORTED_LOCALES.map(loc => (
+                      <button key={loc} type="button" onClick={() => setActiveTab(loc)} className={`px-5 py-2.5 rounded-xl font-black text-xs transition-all ${activeTab === loc ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{loc.toUpperCase()}</button>
+                    ))}
+                  </div>
+                  {activeTab === 'ja' && (
+                    <button
+                      type="button"
+                      onClick={handleAiTranslate}
+                      disabled={loading || !formData.translations.ja.title || !formData.translations.ja.question}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white rounded-xl text-xs font-black hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95"
+                    >
+                      <span className="text-sm">✨</span> AIで他言語に翻訳・反映
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1643,7 +1772,39 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
               </div>
             </div>
           )}
-
+ 
+          {mainTab === 'system-tools' && (
+            <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
+              <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+                <span className="bg-zinc-100 text-zinc-600 p-2 rounded-xl text-lg">🛠️</span>
+                システムツール
+              </h2>
+ 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Cache Clear */}
+                <div className="space-y-4 p-6 border rounded-2xl bg-zinc-50 dark:bg-zinc-900 shadow-inner">
+                  <h3 className="font-bold flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                    <span>🧹</span> キャッシュをクリア
+                  </h3>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    Next.jsの表示キャッシュ（Data Cache / Router Cache）を削除します。変更がフロントエンドに反映されない場合に実行してください。
+                  </p>
+                  <p className="text-[10px] text-amber-600 font-bold">
+                    ※ データベース（クイズデータやユーザー履歴）やアップロード済みの画像は削除されません。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleClearCache}
+                    disabled={loading}
+                    className="w-full bg-zinc-800 text-white py-3 rounded-xl font-black shadow-lg shadow-black/20 hover:bg-black transition-all disabled:opacity-50"
+                  >
+                    {loading ? '処理中...' : 'キャッシュをクリアする'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+ 
           {mainTab === 'comments' && (
             <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
               <h2 className="text-xl font-black mb-6 flex items-center gap-2">

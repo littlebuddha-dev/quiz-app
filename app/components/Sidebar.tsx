@@ -141,6 +141,8 @@ export function SidebarContents({
         {studyModeButtons}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
           {gameModeLink}
+          {/* 区切り線 (モバイル) */}
+          <div className="w-px h-6 bg-[var(--border)] self-center flex-shrink-0" />
           {categoryButtons}
         </div>
       </div>
@@ -151,6 +153,8 @@ export function SidebarContents({
     <>
       {studyModeButtons}
       {gameModeLink}
+      {/* 区切り線 (デスクトップ) */}
+      <div className="h-px bg-[var(--border)] my-2 mx-1" />
       {categoryButtons}
     </>
   );

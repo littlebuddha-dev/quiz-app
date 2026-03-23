@@ -45,7 +45,7 @@ export default function PrivacyContent() {
           <p className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500">Privacy</p>
           <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">プライバシーポリシー</h1>
           <p className="mt-4 text-sm leading-7 text-zinc-500">
-            本ページは一般的な内容をベースとしたプライバシーポリシーのダミー文面です。実運用時には、実際の取得情報・利用目的・外部サービス利用状況に合わせて見直してください。
+            本ページはCueのプライバシーポリシーです。
           </p>
           <div className="mt-10 space-y-8">
             {sections.map((section) => (
