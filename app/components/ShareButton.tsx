@@ -99,6 +99,7 @@ export default function ShareButton({ quizTitle, quizId, isCorrect, locale }: Sh
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={handleShare}
         className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-emerald-500 hover:border-emerald-500"
       >
@@ -111,6 +112,7 @@ export default function ShareButton({ quizTitle, quizId, isCorrect, locale }: Sh
           <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
           <div className="absolute bottom-full mb-2 right-0 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-2 z-50 min-w-[180px] animate-in fade-in slide-in-from-bottom-2 duration-200">
             <button
+              type="button"
               onClick={shareToX}
               className="w-full text-left px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 font-bold text-sm"
             >
@@ -118,6 +120,7 @@ export default function ShareButton({ quizTitle, quizId, isCorrect, locale }: Sh
               X (Twitter)
             </button>
             <button
+              type="button"
               onClick={shareToLine}
               className="w-full text-left px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 font-bold text-sm"
             >
@@ -125,6 +128,7 @@ export default function ShareButton({ quizTitle, quizId, isCorrect, locale }: Sh
               LINE
             </button>
             <button
+              type="button"
               onClick={copyLink}
               className="w-full text-left px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-3 font-bold text-sm"
             >

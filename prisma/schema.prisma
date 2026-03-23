@@ -73,6 +73,8 @@ model QuizTranslation {
   type     String
   options  Json?
   imageUrl String?
+  visualMode String?
+  visualData String?
   quiz     Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@unique([quizId, locale])

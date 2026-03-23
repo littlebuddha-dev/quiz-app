@@ -8,6 +8,8 @@ import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
 import {
   buildAgePromptBlock,
   buildLanguageSubjectPromptBlock,
@@ -18,6 +20,7 @@ import {
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+import { editNanobananaImage, generateNanobananaImage } from '@/lib/nanobanana';
 
 type MultiLangQuiz = {
   ja: {
@@ -193,6 +196,48 @@ function replaceExerciseText(question: string, nextExerciseText: string) {
   }
 
   return question;
+}
+
+function buildLocaleSvgDataUri(base64Image: string, title: string, question: string) {
+  const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+
+  const safeTitle = escapeXml(title);
+
+  const qLines = [];
+  let currentLine = '';
+  // Japanese/Chinese appropriate line break (max 38 chars roughly)
+  for (const char of question) {
+    if (currentLine.length >= 38 && !/[、。，．\]）}]/.test(char)) {
+      qLines.push(currentLine);
+      currentLine = char;
+    } else {
+      currentLine += char;
+    }
+  }
+  if (currentLine) qLines.push(currentLine);
+
+  let tspans = '';
+  qLines.slice(0, 3).forEach((line, i) => {
+    tspans += `<text x="640" y="${600 + (i * 45)}" fill="white" font-family="sans-serif" font-size="32" font-weight="bold" text-anchor="middle" stroke="rgba(0,0,0,0.8)" stroke-width="6" stroke-linejoin="round" paint-order="stroke fill">${escapeXml(line)}</text>`;
+  });
+
+  const svg = `<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
+    <image href="data:image/jpeg;base64,${base64Image}" width="1280" height="720" preserveAspectRatio="xMidYMid slice"/>
+    <rect x="0" y="440" width="1280" height="280" fill="black" fill-opacity="0.5"/>
+    <text x="640" y="520" fill="#FFEAA7" font-family="sans-serif" font-size="46" font-weight="900" text-anchor="middle" stroke="black" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill">${safeTitle}</text>
+    ${tspans}
+  </svg>`;
+
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }
 
 function normalizeLanguageSubjectQuizFields(quiz: MultiLangQuiz) {
@@ -373,13 +418,13 @@ function buildQualityFeedback(params: {
       ? ja.options
       : typeof ja.options === 'string'
         ? (() => {
-            try {
-              const parsed = JSON.parse(ja.options);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch {
-              return [];
-            }
-          })()
+          try {
+            const parsed = JSON.parse(ja.options);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })()
         : [];
 
     if (options.length !== 4) {
@@ -505,16 +550,19 @@ async function generateQuizPayload(params: {
 export async function POST(req: NextRequest) {
   let selectedModel = DEFAULT_MODEL_ID;
   try {
+    const startTime = Date.now();
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureCategoryLocalizationColumns(prisma as any);
+    await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationVisualColumns(prisma as any);
 
     // Budget Check
     const budget = await checkApiBudget(prisma);
     if (budget.exceeded) {
-      return NextResponse.json({ 
-        error: 'BUDGET_EXCEEDED', 
-        message: `月間のAPI制約額 ($${budget.limit}) に達しました。管理者にお問い合わせください。` 
+      return NextResponse.json({
+        error: 'BUDGET_EXCEEDED',
+        message: `月間のAPI制約額 ($${budget.limit}) に達しました。管理者にお問い合わせください。`
       }, { status: 403 });
     }
 
@@ -533,7 +581,7 @@ export async function POST(req: NextRequest) {
     // If modelId is already a raw Gemini model name (passed from auto-generator), use it. 
     // Otherwise use the generatorId from the hybrid config.
     selectedModel = (modelId && !modelId.startsWith('hybrid-')) ? modelId : hybridModel.generatorId;
-    
+
     const parsedAge = parseInt(targetAge) || 8;
     const persona = getPersonaByAge(parsedAge);
 
@@ -619,10 +667,10 @@ ${finalSystemInstruction}
         console.log('Sanitization successful.');
       } catch (retryError: any) {
         console.error('Sanitization also failed:', retryError);
-        return NextResponse.json({ 
-          error: 'INVALID_JSON', 
+        return NextResponse.json({
+          error: 'INVALID_JSON',
           message: `AIの回答形式が正しくありませんでした。もう一度お試しください。(${retryError.message})`,
-          rawResponse: resultText 
+          rawResponse: resultText
         }, { status: 500 });
       }
     }
@@ -656,10 +704,10 @@ ${finalSystemInstruction}
     // 必須データの存在チェック
     if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
       console.error('Invalid structure in AI response:', multiLangData);
-      return NextResponse.json({ 
-        error: 'INVALID_STRUCTURE', 
+      return NextResponse.json({
+        error: 'INVALID_STRUCTURE',
         message: 'AIの回答データの構造が不完全でした。もう一度お試しください。',
-        rawResponse: multiLangData 
+        rawResponse: multiLangData
       }, { status: 500 });
     }
 
@@ -692,9 +740,23 @@ ${finalSystemInstruction}
         multiLangData = JSON.parse(sanitized);
       }
       multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
+      if (multiLangData && !multiLangData.ja) {
+        const root = findQuizRoot(multiLangData);
+        if (root) multiLangData = root;
+      }
+      multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
       multiLangData = normalizeJapaneseQuizFields(multiLangData as MultiLangQuiz);
       if (detectLanguageSubjectRule(categoryNames)) {
         multiLangData = normalizeLanguageSubjectQuizFields(multiLangData as MultiLangQuiz);
+      }
+
+      if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
+        console.error('Invalid structure in retry AI response:', multiLangData);
+        return NextResponse.json({
+          error: 'INVALID_STRUCTURE',
+          message: 'AIの再生成結果の構造が不完全でした。別モデルで再試行するか、少し時間をおいてお試しください。',
+          rawResponse: multiLangData
+        }, { status: 500 });
       }
     }
 
@@ -709,40 +771,85 @@ ${finalSystemInstruction}
       });
     }
 
+    type QuizLocale = 'ja' | 'en' | 'zh';
+    const QUIZ_OUTPUT_LOCALES: QuizLocale[] = ['ja', 'en', 'zh'];
+    let translationImageUrls: Record<QuizLocale, string> = {
+      ja: providedImageUrl || '',
+      en: providedImageUrl || '',
+      zh: providedImageUrl || '',
+    };
     let imageUrl = providedImageUrl || '/images/no-image.png';
-    const imageGenerationEnabled = process.env.ENABLE_GEMINI_IMAGE_GENERATION === 'true';
-    if (!providedImageUrl && imageGenerationEnabled) {
-      // 画像生成用のプロンプトを最適化
-      const imageCommand = `Educational illustration for kids/adults (Age ${parsedAge}). 
-Theme: ${topic}. 
-Description: ${multiLangData.ja.question}. 
-Style: ${persona.imageStyle} 
-Requirement: No text inside the image. Vibrant if for children, professional if for adults. High quality.`;
 
-      let generatedImage: string | undefined;
+    const imageGenerationFlag = process.env.ENABLE_GEMINI_IMAGE_GENERATION?.trim().toLowerCase();
+    const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
+    
+    if (!providedImageUrl && imageGenerationEnabled) {
+      console.log('Generating Japanese base image with nanobanana...');
+      const jaPrompt = `Create exactly one polished educational illustration in a wide 16:9 layout for learners around age ${parsedAge}.
+Theme: ${topic}
+Question context: ${multiLangData.ja.question}
+Visual direction: ${persona.imageStyle}
+
+Requirements:
+- Render a single complete Japanese version as one image.
+- Include only this Japanese title text in the artwork: "${multiLangData.ja.title}".
+- Integrate the text naturally into the scene itself, not as a UI overlay.
+- No extra text, no subtitles, no fake app chrome, no HUD.
+- Keep the scene vivid, clean, and suitable for quiz learning content.`;
+
+      let jaImage;
       try {
-        const imageResponse = await ai.models.generateImages({
-          model: 'imagen-4.0-generate-001',
-          prompt: imageCommand,
-          config: {
-            numberOfImages: 1,
-            aspectRatio: '16:9',
-            outputMimeType: 'image/jpeg',
-          },
-        });
-        generatedImage = imageResponse.generatedImages?.[0]?.image?.imageBytes;
-      } catch (imageError) {
-        console.warn("Image generation API call failed. Falling back to placeholder image.", imageError);
+        jaImage = await generateNanobananaImage(ai, jaPrompt);
+        if (jaImage?.data) {
+          translationImageUrls.ja = `data:${jaImage.mimeType};base64,${jaImage.data}`;
+          imageUrl = translationImageUrls.ja;
+        }
+      } catch (err) {
+        console.warn('Japanese image generation failed:', err);
       }
 
-      if (generatedImage) {
-        imageUrl = `data:image/jpeg;base64,${generatedImage}`;
+      if (jaImage?.data) {
+        const targetLocales: { code: 'en' | 'zh'; langName: string; text: string }[] = [
+          { code: 'en', langName: 'English', text: multiLangData.en.title },
+          { code: 'zh', langName: 'Chinese', text: multiLangData.zh.title },
+        ];
+
+        await Promise.all(targetLocales.map(async (loc) => {
+          try {
+            console.log(`Generating ${loc.langName} localized image from Japanese base...`);
+            const localizedImage = await editNanobananaImage(
+              ai,
+              jaImage,
+              `Use the attached Japanese quiz image as the exact visual source.
+
+Keep the composition, characters, objects, camera angle, background, colors, lighting, and overall style as consistent as possible.
+Remove all Japanese text in the image and replace it with only this ${loc.langName} title text: "${loc.text}".
+The new text must feel naturally embedded in the same place and design treatment as the original.
+Do not add any other text, translation notes, UI, borders, or extra elements.
+Return one finished ${loc.langName} version of the image.`
+            );
+
+            if (localizedImage?.data) {
+              translationImageUrls[loc.code] = `data:${localizedImage.mimeType};base64,${localizedImage.data}`;
+            } else {
+              translationImageUrls[loc.code] = translationImageUrls.ja;
+            }
+          } catch (err) {
+            console.warn(`${loc.langName} image generation failed:`, err);
+            translationImageUrls[loc.code] = translationImageUrls.ja;
+          }
+        }));
+
+        for (const code of ['en' as const, 'zh' as const]) {
+          if (!translationImageUrls[code]) {
+            translationImageUrls[code] = translationImageUrls.ja;
+          }
+        }
       }
     }
 
     // AIの回答からクイズ形式を決定 (AIが自動で変更した場合に対応)
     const actualQuizType = (multiLangData.ja.type || quizType || 'TEXT') as 'TEXT' | 'CHOICE';
-
     const jaOptions = actualQuizType === 'CHOICE' ? normalizeChoiceOptions(multiLangData.ja.options) : undefined;
     const enOptions = actualQuizType === 'CHOICE' ? normalizeChoiceOptions(multiLangData.en.options) : undefined;
     const zhOptions = actualQuizType === 'CHOICE' ? normalizeChoiceOptions(multiLangData.zh.options) : undefined;
@@ -764,6 +871,8 @@ Requirement: No text inside the image. Vibrant if for children, professional if 
               explanation: multiLangData.ja.explanation || '',
               type: actualQuizType,
               options: jaOptions,
+              imageUrl: translationImageUrls.ja || null,
+              visualMode: 'image_only',
             },
             {
               locale: 'en',
@@ -774,6 +883,8 @@ Requirement: No text inside the image. Vibrant if for children, professional if 
               explanation: multiLangData.en.explanation || '',
               type: actualQuizType,
               options: enOptions,
+              imageUrl: translationImageUrls.en || null,
+              visualMode: 'image_only',
             },
             {
               locale: 'zh',
@@ -784,6 +895,8 @@ Requirement: No text inside the image. Vibrant if for children, professional if 
               explanation: multiLangData.zh.explanation || '',
               type: actualQuizType,
               options: zhOptions,
+              imageUrl: translationImageUrls.zh || null,
+              visualMode: 'image_only',
             },
           ]
         }
@@ -792,11 +905,15 @@ Requirement: No text inside the image. Vibrant if for children, professional if 
         translations: true
       }
     });
+
+    const finishDuration = Date.now() - startTime;
+    console.log(`Generation finished in ${finishDuration}ms`);
+
     return NextResponse.json({ ...multiLangData.ja, options: jaOptions, id: savedQuiz.id, imageUrl });
 
   } catch (error: any) {
     console.error('API Error details:', error);
-    
+
     const status = error.status || error.response?.status || 500;
     const errorMessage = error.message || '';
 
@@ -828,9 +945,9 @@ Requirement: No text inside the image. Vibrant if for children, professional if 
       );
     }
 
-    return NextResponse.json({ 
-      error: 'Failed to generate quiz', 
-      message: `クイズの生成中にエラーが発生しました。詳細は管理者にお問い合わせください。(${status})` 
+    return NextResponse.json({
+      error: 'Failed to generate quiz',
+      message: `クイズの生成中にエラーが発生しました。詳細は管理者にお問い合わせください。(${status})`
     }, { status: 500 });
   }
 }

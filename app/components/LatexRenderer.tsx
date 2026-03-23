@@ -13,30 +13,41 @@ interface LatexRendererProps {
   className?: string;
 }
 
+function normalizeLatexText(value: string) {
+  return value
+    .trim()
+    .replace(/\\\\([a-zA-Z]+)/g, '\\$1')
+    .replace(/\\\(/g, '$')
+    .replace(/\\\)/g, '$')
+    .replace(/\\\[/g, '$$')
+    .replace(/\\\]/g, '$$');
+}
+
 export default function LatexRenderer({ text, className = "" }: LatexRendererProps) {
   const containerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.innerHTML = ''; // クリア
+      const normalizedText = normalizeLatexText(text);
 
       // 1. デリミタ ($$ または $) が含まれているかチェック
-      const hasDelimiters = /\$\$[\s\S]*?\$\$|\$[\s\S]*?\$/.test(text);
+      const hasDelimiters = /\$\$[\s\S]*?\$\$|\$[\s\S]*?\$/.test(normalizedText);
 
-      if (!hasDelimiters && text.includes('\\')) {
+      if (!hasDelimiters && normalizedText.includes('\\')) {
         // デリミタはないがバックスラッシュがある場合、全体を数式として扱う（フォールバック）
         const span = document.createElement('span');
         try {
-          katex.render(text, span, { displayMode: false, throwOnError: false });
+          katex.render(normalizedText, span, { displayMode: false, throwOnError: false });
         } catch {
-          span.textContent = text;
+          span.textContent = normalizedText;
         }
         containerRef.current.appendChild(span);
         return;
       }
 
       // 2. 従来のデリミタ分割ロジック
-      const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
+      const parts = normalizedText.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
       
       parts.forEach(part => {
         if (part.startsWith('$$') && part.endsWith('$$')) {

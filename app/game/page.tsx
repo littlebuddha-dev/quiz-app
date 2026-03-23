@@ -2,13 +2,56 @@
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import GameClientWrapper from './GameClientWrapper';
-import { Quiz } from '../types';
+import { Locale, Quiz, QuizVisualMode } from '../types';
+import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
 
 export const dynamic = 'force-dynamic';
+
+type RawQuizTranslation = {
+  quizId: string;
+  locale: string;
+  title: string;
+  question: string;
+  hint: string;
+  answer: string;
+  explanation: string | null;
+  type: string;
+  options: unknown;
+  imageUrl: string | null;
+  visualMode: string | null;
+  visualData: string | null;
+};
+
+type QuizTranslationView = Quiz['translations'][Locale];
+
+function normalizeOptions(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string');
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeVisualMode(value: string | null | undefined): QuizVisualMode {
+  if (value === 'image_only') return 'image_only';
+  return 'generated';
+}
 
 export default async function GamePage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
+  await ensureQuizTranslationVisualColumns(prisma);
 
   const selectedIds = (
     await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM Quiz ORDER BY RANDOM() LIMIT 10`
@@ -20,24 +63,36 @@ export default async function GamePage() {
 
   const rawQuizzes = await prisma.quiz.findMany({
     where: { id: { in: selectedIds } },
-    include: { translations: true }
   });
 
-  // Preserve random order
-  const orderedRawQuizzes = selectedIds.map(id => rawQuizzes.find(q => q.id === id)).filter(Boolean);
+  const rawTranslations = await prisma.$queryRawUnsafe<RawQuizTranslation[]>(
+    `SELECT "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData"
+     FROM "QuizTranslation"
+     WHERE "quizId" IN (${selectedIds.map(() => '?').join(',')})`,
+    ...selectedIds
+  );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const quizzes: Quiz[] = orderedRawQuizzes.map((q: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const translationsMap: any = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const jaT = q.translations.find((t: any) => t.locale === 'ja') || {
+  // Preserve random order
+  const orderedRawQuizzes = selectedIds
+    .map((id) => rawQuizzes.find((quiz) => quiz.id === id))
+    .filter((quiz): quiz is (typeof rawQuizzes)[number] => Boolean(quiz));
+
+  const locales: Locale[] = ['ja', 'en', 'zh'];
+
+  const quizzes: Quiz[] = orderedRawQuizzes.map((q) => {
+    const translationsMap = {} as Record<Locale, QuizTranslationView>;
+    const quizTranslations = rawTranslations.filter((t) => t.quizId === q.id);
+    const jaT: RawQuizTranslation = quizTranslations.find((t) => t.locale === 'ja') || {
+      quizId: q.id,
+      locale: 'ja',
       title: '無題', question: '問題文がありません', hint: '', answer: '', explanation: null, type: 'TEXT', options: null,
+      imageUrl: null,
+      visualMode: 'generated',
+      visualData: null,
     };
 
-    ['ja', 'en', 'zh'].forEach(loc => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const t = q.translations.find((trans: any) => trans.locale === loc);
+    locales.forEach((loc) => {
+      const t = quizTranslations.find((trans) => trans.locale === loc);
       translationsMap[loc] = {
         title: t?.title || jaT.title,
         question: t?.question || jaT.question,
@@ -45,8 +100,9 @@ export default async function GamePage() {
         answer: t?.answer || jaT.answer,
         explanation: t?.explanation || jaT.explanation || null,
         type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
-        options: t?.options ?? jaT.options,
+        options: normalizeOptions(t?.options ?? jaT.options),
         imageUrl: t?.imageUrl || null,
+        visualMode: normalizeVisualMode(t?.visualMode),
       };
     });
 

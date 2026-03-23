@@ -395,7 +395,7 @@ export default function CorrectEffect({
         <div className="correct-text">CORRECT!</div>
         <div className="sub-text">{message}</div>
         <div className="score-badge">{score}</div>
-        <button className="close-btn" onClick={handleClose}>{btnLabel}</button>
+        <button type="button" className="close-btn" onClick={handleClose}>{btnLabel}</button>
       </div>
     </div>
   );

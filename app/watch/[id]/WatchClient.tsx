@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import LatexRenderer from '../../components/LatexRenderer';
+import QuizVisual from '../../components/QuizVisual';
 
 // ... (other imports)
 import Header from '../../components/Header';
@@ -80,8 +81,6 @@ export default function WatchClient({
       ? quiz.imageUrl
       : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
 
-  const isDataUri = displayImageUrl.startsWith('data:');
-
   const normalizeAnswer = (value: string) =>
     value.trim().replace(/\s+/g, '').toLowerCase();
 
@@ -154,6 +153,16 @@ export default function WatchClient({
     setIsSubmitting(false);
   };
 
+  const isLatex = (text: string) => {
+    const normalized = text.trim()
+      .replace(/\\\\([a-zA-Z]+)/g, '\\$1')
+      .replace(/\\\(/g, '$')
+      .replace(/\\\)/g, '$')
+      .replace(/\\\[/g, '$$')
+      .replace(/\\\]/g, '$$');
+    return /\$\$[\s\S]*?\$\$|\$[\s\S]*?\$/.test(normalized) || normalized.includes('\\');
+  };
+
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors" suppressHydrationWarning>
       <CorrectEffect
@@ -187,20 +196,22 @@ export default function WatchClient({
                 </div>
               </div>
             )}
-            <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black relative mb-4">
+            <div className="w-full aspect-video rounded-3xl overflow-hidden bg-transparent relative mb-4 group/visual">
               {displayImageUrl ? (
-                <Image
-                  src={displayImageUrl}
+                <QuizVisual
+                  imageUrl={displayImageUrl}
                   alt={t.title}
-                  fill
-                  className="object-cover"
-                  unoptimized={isDataUri}
+                  priority={true}
+                  plain={true}
+                  containerClassName="h-full rounded-3xl"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
                   No Image
                 </div>
               )}
+
+
 
 
 
@@ -263,8 +274,8 @@ export default function WatchClient({
                 <div className="flex items-center gap-3 p-2">
                   <div className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-500 text-white shadow-sm" title="Official">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
-                      <path d="m9 12 2 2 4-4"/>
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                      <path d="m9 12 2 2 4-4" />
                     </svg>
                   </div>
                   <div className="font-bold text-sm leading-tight text-zinc-700 dark:text-zinc-300">
@@ -274,11 +285,11 @@ export default function WatchClient({
               )}
 
               <div className="ml-auto flex gap-2 sm:gap-3">
-                <button onClick={() => handleAction('like')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-pink-500 hover:border-pink-500'}`}>
+                <button type="button" onClick={() => handleAction('like')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-pink-500 hover:border-pink-500'}`}>
                   <Image src="/icons/heart.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${isLiked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
                   {locale === 'ja' ? 'いいね' : locale === 'en' ? 'Like' : '点赞'}
                 </button>
-                <button onClick={() => handleAction('bookmark')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isBookmarked ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-blue-500 hover:border-blue-500'}`}>
+                <button type="button" onClick={() => handleAction('bookmark')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isBookmarked ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-blue-500 hover:border-blue-500'}`}>
                   <Image src="/icons/star.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${isBookmarked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
                   {locale === 'ja' ? '保存' : locale === 'en' ? 'Save' : '收藏'}
                 </button>
@@ -295,7 +306,7 @@ export default function WatchClient({
               {!showAnswer && (
                 <div className="mb-6">
                   {!showHint ? (
-                    <button onClick={() => setShowHint(true)} className="text-sm text-blue-500 font-black hover:underline mb-6 flex items-center gap-1.5">
+                    <button type="button" onClick={() => setShowHint(true)} className="text-sm text-blue-500 font-black hover:underline mb-6 flex items-center gap-1.5">
                       <Image src="/icons/hint.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
                       {locale === 'ja' ? 'ヒントをみる' : locale === 'en' ? 'Show hint' : '看提示'}
                     </button>
@@ -311,11 +322,19 @@ export default function WatchClient({
 
                   {t.type === 'CHOICE' && t.options ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {t.options.map((opt: string, i: number) => (
-                        <button key={i} onClick={() => handleAnswerSubmit(opt === t.answer)} className="bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-black py-4 rounded-2xl transition-all active:scale-[0.98] text-center">
-                          {opt}
-                        </button>
-                      ))}
+                      {t.options.map((opt: string, i: number) => {
+                        const isOptLatex = isLatex(opt);
+                        return (
+                          <button
+                            type="button"
+                            key={i}
+                            onClick={() => handleAnswerSubmit(opt === t.answer)}
+                            className={`bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-black ${isOptLatex ? 'py-8 text-2xl' : 'py-4'} rounded-2xl transition-all active:scale-[0.98] text-center`}
+                          >
+                            <LatexRenderer text={opt} />
+                          </button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -333,6 +352,7 @@ export default function WatchClient({
                         }}
                       />
                       <button
+                        type="button"
                         onClick={() => handleAnswerSubmit(normalizeAnswer(textAnswer) === normalizeAnswer(t.answer))}
                         className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 rounded-xl transition-colors"
                       >
@@ -356,22 +376,20 @@ export default function WatchClient({
                       <button
                         type="button"
                         onClick={() => setExplanationMode('gentle')}
-                        className={`px-3 py-1.5 text-xs font-black transition-colors ${
-                          explanationMode === 'gentle'
+                        className={`px-3 py-1.5 text-xs font-black transition-colors ${explanationMode === 'gentle'
                             ? 'bg-blue-500 text-white'
                             : 'text-blue-700 dark:text-blue-200'
-                        }`}
+                          }`}
                       >
                         {locale === 'ja' ? 'やさしい版' : locale === 'en' ? 'Simple' : '简明版'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setExplanationMode('full')}
-                        className={`px-3 py-1.5 text-xs font-black transition-colors ${
-                          explanationMode === 'full'
+                        className={`px-3 py-1.5 text-xs font-black transition-colors ${explanationMode === 'full'
                             ? 'bg-blue-500 text-white'
                             : 'text-blue-700 dark:text-blue-200'
-                        }`}
+                          }`}
                       >
                         {locale === 'ja' ? 'しっかり版' : locale === 'en' ? 'Detailed' : '详细版'}
                       </button>
@@ -401,7 +419,7 @@ export default function WatchClient({
                   <div className="flex-1">
                     <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={locale === 'ja' ? '質問や感想を書いてみよう...' : locale === 'en' ? 'Write a comment...' : '写点什么吧...'} className="w-full border-b-2 border-[var(--border)] p-2 focus:outline-none focus:border-amber-500 bg-transparent transition-colors" />
                     <div className="flex justify-end mt-3">
-                      <button disabled={isSubmitting || !newComment.trim() || !isOnline} className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-black py-2.5 px-8 rounded-full text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+                      <button type="submit" disabled={isSubmitting || !newComment.trim() || !isOnline} className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-black py-2.5 px-8 rounded-full text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95">
                         {locale === 'ja' ? 'コメントする' : locale === 'en' ? 'Post' : '发布'}
                       </button>
                     </div>
@@ -448,23 +466,23 @@ export default function WatchClient({
 
                     return (
                       <>
-                  <div className="w-44 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)]">
-                    <Image 
-                      src={relImage}
-                      alt={relTitle} 
-                      fill 
-                      className="object-cover group-hover:scale-110 transition-transform duration-500" 
-                    />
-                    <div className="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-white text-[9px] font-black px-1.5 py-0.5 rounded-md border border-white/10">
-                      {rel.targetAge}{locale === 'ja' ? '歳' : locale === 'en' ? ' yrs' : '岁'}
-                    </div>
-                  </div>
-                  <div className="flex-1 py-0.5">
-                    <h4 className="font-black text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors">
-                      {relTitle}
-                    </h4>
-                    <p className="text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-widest">Cue Official</p>
-                  </div>
+                        <div className="w-44 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)]">
+                          <Image
+                            src={relImage}
+                            alt={relTitle}
+                            fill
+                            className="object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                          <div className="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-white text-[9px] font-black px-1.5 py-0.5 rounded-md border border-white/10">
+                            {rel.targetAge}{locale === 'ja' ? '歳' : locale === 'en' ? ' yrs' : '岁'}
+                          </div>
+                        </div>
+                        <div className="flex-1 py-0.5">
+                          <h4 className="font-black text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors">
+                            {relTitle}
+                          </h4>
+                          <p className="text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-widest">Cue Official</p>
+                        </div>
                       </>
                     );
                   })()}

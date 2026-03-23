@@ -6,10 +6,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function OnboardingClient({ initialData, categories }: any) {
-  const router = useRouter();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: initialData.name || '',
@@ -48,8 +46,7 @@ export default function OnboardingClient({ initialData, categories }: any) {
         body: JSON.stringify(formData),
       });
       if (res.ok) {
-        router.push('/');
-        router.refresh();
+        window.location.href = '/';
       } else {
         alert('保存に失敗しました');
       }

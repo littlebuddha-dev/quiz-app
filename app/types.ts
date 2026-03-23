@@ -3,6 +3,8 @@
 // Purpose: Interfaces for Quiz, User, and i18n support across the application.
 
 export type Locale = 'ja' | 'en' | 'zh';
+export type QuizVisualMode = 'generated' | 'image_only';
+
 
 export interface WeakCategoryInsight {
   categoryId: string;
@@ -35,6 +37,7 @@ export interface Quiz {
     type: 'CHOICE' | 'TEXT';
     options?: string[];
     imageUrl?: string | null;
+    visualMode?: QuizVisualMode | null;
   }>;
   channel?: {
     id: string;

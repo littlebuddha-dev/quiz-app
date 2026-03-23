@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { buildDefaultOverlayVisualData, ensureQuizTranslationVisualColumns, serializeQuizVisualData } from '@/lib/quiz-translation-visual';
 
 export const runtime = 'edge';
 const SUPPORTED_LOCALES = ['ja', 'en', 'zh'] as const;
@@ -14,6 +15,10 @@ function normalizeTranslations(translations: Record<string, any>) {
   for (const locale of SUPPORTED_LOCALES) {
     const data = translations?.[locale];
     if (!data) continue;
+    const visualMode = data.visualMode === 'overlay' ? 'overlay' : 'generated';
+    const visualData = visualMode === 'overlay'
+      ? (data.visualData || buildDefaultOverlayVisualData(data.title || '無題'))
+      : null;
 
     normalized[locale] = {
       title: data.title || '',
@@ -24,6 +29,8 @@ function normalizeTranslations(translations: Record<string, any>) {
       type: data.type || 'TEXT',
       options: data.type === 'CHOICE' ? data.options : null,
       imageUrl: data.imageUrl || null,
+      visualMode,
+      visualData,
     };
   }
   return normalized;
@@ -47,6 +54,7 @@ export async function POST(req: NextRequest) {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationVisualColumns(prisma as any);
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -71,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
       await prisma.$executeRawUnsafe(
-        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         crypto.randomUUID(),
         newQuiz.id,
         locale,
@@ -82,7 +90,9 @@ export async function POST(req: NextRequest) {
         data.explanation,
         data.type,
         data.options ? JSON.stringify(data.options) : null,
-        data.imageUrl
+        data.imageUrl,
+        data.visualMode,
+        serializeQuizVisualData(data.visualData)
       );
     }
 
@@ -98,6 +108,7 @@ export async function PATCH(req: NextRequest) {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationVisualColumns(prisma as any);
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -124,7 +135,7 @@ export async function PATCH(req: NextRequest) {
     // 各翻訳を順次upsert (SQLiteのロック問題を避けるため)
     for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
       await prisma.$executeRawUnsafe(
-        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT("quizId", "locale") DO UPDATE SET "title" = excluded."title", "question" = excluded."question", "hint" = excluded."hint", "answer" = excluded."answer", "explanation" = excluded."explanation", "type" = excluded."type", "options" = excluded."options", "imageUrl" = excluded."imageUrl"',
+        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT("quizId", "locale") DO UPDATE SET "title" = excluded."title", "question" = excluded."question", "hint" = excluded."hint", "answer" = excluded."answer", "explanation" = excluded."explanation", "type" = excluded."type", "options" = excluded."options", "imageUrl" = excluded."imageUrl", "visualMode" = excluded."visualMode", "visualData" = excluded."visualData"',
         crypto.randomUUID(),
         id,
         locale,
@@ -135,7 +146,9 @@ export async function PATCH(req: NextRequest) {
         data.explanation,
         data.type,
         data.options ? JSON.stringify(data.options) : null,
-        data.imageUrl
+        data.imageUrl,
+        data.visualMode,
+        serializeQuizVisualData(data.visualData)
       );
     }
 

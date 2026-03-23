@@ -4,7 +4,7 @@
 
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import RankingClientWrapper from './RankingClientWrapper';
 import { Metadata } from 'next';
 
@@ -19,6 +19,12 @@ export default async function RankingPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   const { userId: clerkId } = await auth();
+  const clerkUser = clerkId ? await currentUser() : null;
+  const clerkDisplayName =
+    clerkUser?.fullName ||
+    [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') ||
+    clerkUser?.username ||
+    undefined;
 
   // 1. 全ユーザーの情報を取得（必要最小限）
   // 注意: 本来は大規模データの場合、バックグラウンドでの集計やインデックスが必要ですが、
@@ -47,9 +53,13 @@ export default async function RankingPage() {
     const solvedQuizzes = new Set(
       user.histories.filter(h => h.isCorrect).map(h => h.quizId)
     );
+    const displayName =
+      user.name ||
+      (clerkDisplayName && clerkId && user.clerkId === clerkId ? clerkDisplayName : undefined) ||
+      'ゲストユーザー';
     return {
       id: user.id,
-      name: user.name || 'ゲストユーザー',
+      name: displayName,
       clerkId: user.clerkId,
       score: solvedQuizzes.size,
       level: user.level,
@@ -65,9 +75,13 @@ export default async function RankingPage() {
     const correctAnswers = user.histories.filter(h => h.isCorrect).length;
     const accuracy = totalAttempts > 0 ? (correctAnswers / totalAttempts) * 100 : 0;
     
+    const displayName =
+      user.name ||
+      (clerkDisplayName && clerkId && user.clerkId === clerkId ? clerkDisplayName : undefined) ||
+      'ゲストユーザー';
     return {
       id: user.id,
-      name: user.name || 'ゲストユーザー',
+      name: displayName,
       clerkId: user.clerkId,
       score: Math.round(accuracy * 10) / 10, // 小数点第1位まで
       totalAttempts,

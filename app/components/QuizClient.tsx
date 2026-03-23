@@ -100,6 +100,33 @@ const CATEGORY_MAP: Record<Locale, Record<string, string>> = {
 
 const OFFLINE_HOME_CACHE_KEY = 'cue-offline-home-cache-v1';
 
+function sanitizeImageForOfflineCache(imageUrl?: string | null) {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith('data:')) return null;
+  return imageUrl;
+}
+
+function buildOfflineQuizCache(quizzes: Quiz[]) {
+  return quizzes.slice(0, 40).map((quiz) => ({
+    ...quiz,
+    imageUrl: sanitizeImageForOfflineCache(quiz.imageUrl) || '',
+    translations: {
+      ja: {
+        ...quiz.translations.ja,
+        imageUrl: sanitizeImageForOfflineCache(quiz.translations.ja.imageUrl),
+      },
+      en: {
+        ...quiz.translations.en,
+        imageUrl: sanitizeImageForOfflineCache(quiz.translations.en.imageUrl),
+      },
+      zh: {
+        ...quiz.translations.zh,
+        imageUrl: sanitizeImageForOfflineCache(quiz.translations.zh.imageUrl),
+      },
+    },
+  }));
+}
+
 function readOfflineHomeCache() {
   if (typeof window === 'undefined') {
     return {
@@ -207,7 +234,7 @@ export default function QuizClient({
       window.localStorage.setItem(
         OFFLINE_HOME_CACHE_KEY,
         JSON.stringify({
-          quizzes: initialQuizzes.slice(0, 80),
+          quizzes: buildOfflineQuizCache(initialQuizzes),
           categories,
           studyRecommendations,
           cachedAt: new Date().toISOString(),
@@ -215,6 +242,11 @@ export default function QuizClient({
       );
     } catch (error) {
       console.error('Failed to save offline quiz cache:', error);
+      try {
+        window.localStorage.removeItem(OFFLINE_HOME_CACHE_KEY);
+      } catch {
+        // ignore cleanup failure
+      }
     }
   }, [initialQuizzes, categories, studyRecommendations]);
 

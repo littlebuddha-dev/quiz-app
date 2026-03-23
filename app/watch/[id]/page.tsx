@@ -9,6 +9,7 @@ import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
 import { getSiteUrl } from '@/lib/site-config';
 
 import { Metadata } from 'next';
@@ -38,6 +39,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   await ensureQuizTranslationExplanationColumn(prisma as any);
+  await ensureQuizTranslationVisualColumns(prisma as any);
   const { id } = await params;
   const quiz = await prisma.quiz.findUnique({
     where: { id },
@@ -66,6 +68,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   await ensureQuizTranslationExplanationColumn(prisma as any);
+  await ensureQuizTranslationVisualColumns(prisma as any);
   const { id } = await params;
   const { userId: clerkId } = await auth();
 
@@ -95,8 +98,10 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     type: string;
     options: unknown;
     imageUrl: string | null;
+    visualMode: string | null;
+    visualData: string | null;
   }>>(
-    'SELECT "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl" FROM "QuizTranslation" WHERE "quizId" = ?',
+    'SELECT "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData" FROM "QuizTranslation" WHERE "quizId" = ?',
     id
   );
 
@@ -141,6 +146,8 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
         type: t.type,
         options: normalizeOptions(t.options),
         imageUrl: t.imageUrl,
+        visualMode: t.visualMode || 'generated',
+        visualData: parseQuizVisualData(t.visualData),
       },
     ])
   );

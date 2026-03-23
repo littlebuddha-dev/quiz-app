@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
 
 export const runtime = 'edge';
 
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationVisualColumns(prisma as any);
     const { id } = await context.params;
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
@@ -49,12 +51,27 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       type: string;
       options: unknown;
       imageUrl: string | null;
+      visualMode: string | null;
+      visualData: string | null;
     }>>(
-      'SELECT "id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl" FROM "QuizTranslation" WHERE "quizId" = ?',
+      'SELECT "id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData" FROM "QuizTranslation" WHERE "quizId" = ?',
       id
     );
 
-    return NextResponse.json({ ...quiz, translations });
+    const translationsMap = Object.fromEntries(
+      translations.map((t) => [
+        t.locale,
+        {
+          ...t,
+          visualData: parseQuizVisualData(t.visualData),
+        },
+      ])
+    );
+
+    return NextResponse.json({
+      ...quiz,
+      translations: translationsMap,
+    });
   } catch (error) {
     console.error('Admin Quiz Fetch Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

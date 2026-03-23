@@ -2,11 +2,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Quiz } from '../types';
 import LatexRenderer from '../components/LatexRenderer';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
+import QuizVisual from '../components/QuizVisual';
 
 const TIME_LIMIT = 10000; // 10 seconds per question
 
@@ -160,7 +160,13 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
           <div className="flex-1 flex flex-col items-center justify-center w-full gap-5 overflow-y-auto">
             {displayImageUrl && (
               <div className="w-full max-w-xl aspect-video relative rounded-3xl overflow-hidden shadow-2xl border-4 border-zinc-800/50">
-                <Image src={displayImageUrl} alt="Quiz Image" fill className="object-cover" unoptimized={displayImageUrl.startsWith('data:')}/>
+                <QuizVisual
+                  imageUrl={displayImageUrl}
+                  alt="Quiz Image"
+                  visualMode={t?.visualMode}
+                  visualData={t?.visualData}
+                  imageClassName="object-cover"
+                />
               </div>
             )}
             
@@ -183,7 +189,7 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
                     disabled={feedback !== null}
                     className="bg-zinc-800/80 hover:bg-zinc-700/80 border-2 border-zinc-700 hover:border-amber-500 font-black py-4 px-4 rounded-2xl transition-all active:scale-[0.98] text-center text-lg md:text-xl shadow-lg disabled:opacity-50 cursor-pointer"
                   >
-                    {opt}
+                    <LatexRenderer text={opt} />
                   </button>
                 ))}
               </div>

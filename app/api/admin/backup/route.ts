@@ -7,6 +7,7 @@ import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { Prisma } from '@prisma/client';
+import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
 
 export const runtime = 'edge';
 
@@ -38,6 +39,7 @@ export async function GET() {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureQuizTranslationVisualColumns(prisma);
 
     // Auth Check
     const { userId } = await auth();
@@ -50,7 +52,9 @@ export async function GET() {
     const categories = await prisma.category.findMany();
     const channels = await prisma.channel.findMany();
     const quizzes = await prisma.quiz.findMany();
-    const translations = await prisma.quizTranslation.findMany();
+    const translations = await prisma.$queryRawUnsafe<unknown[]>(
+      'SELECT * FROM "QuizTranslation"'
+    );
     const comments = await prisma.comment.findMany();
     const bookmarks = await prisma.bookmark.findMany();
     const histories = await prisma.quizHistory.findMany();
@@ -60,7 +64,7 @@ export async function GET() {
     const apiUsage = await prisma.apiUsage.findMany();
 
     const backupData: BackupPayload = {
-      version: '1.0',
+      version: '1.1',
       timestamp: new Date().toISOString(),
       data: {
         users,
@@ -94,6 +98,7 @@ export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureQuizTranslationVisualColumns(prisma);
 
     // Auth Check
     const { userId } = await auth();
@@ -149,13 +154,29 @@ export async function POST(req: NextRequest) {
     if (data.quizzes.length > 0) {
       phaseTwoWrites.push(prisma.quiz.createMany({ data: data.quizzes as Prisma.QuizCreateManyInput[] }));
     }
-    if (data.translations.length > 0) {
-      phaseTwoWrites.push(
-        prisma.quizTranslation.createMany({ data: data.translations as Prisma.QuizTranslationCreateManyInput[] })
-      );
-    }
     if (phaseTwoWrites.length > 0) {
       await prisma.$transaction(phaseTwoWrites);
+    }
+
+    if (data.translations.length > 0) {
+      for (const row of data.translations as Array<Record<string, unknown>>) {
+        await prisma.$executeRawUnsafe(
+          'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          row.id,
+          row.quizId,
+          row.locale,
+          row.title,
+          row.question,
+          row.hint,
+          row.answer,
+          row.explanation ?? null,
+          row.type,
+          typeof row.options === 'string' ? row.options : row.options ? JSON.stringify(row.options) : null,
+          row.imageUrl ?? null,
+          row.visualMode ?? 'generated',
+          row.visualData ?? null
+        );
+      }
     }
 
     const phaseThreeWrites: Prisma.PrismaPromise<unknown>[] = [];

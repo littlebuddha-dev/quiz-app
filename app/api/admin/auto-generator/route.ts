@@ -165,7 +165,8 @@ export async function POST(req: NextRequest) {
                 targetAge: parsedAge,
                 quizType: quizType || 'TEXT',
                 excludeTitles: existingTitles,
-                modelId: hybridModel.generatorId
+                modelId: hybridModel.generatorId,
+                visualMode: 'image_only',
               })
             });
             if (genRes.ok) {

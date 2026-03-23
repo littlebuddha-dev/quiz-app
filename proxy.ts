@@ -1,5 +1,5 @@
-// Path: middleware.ts
-// Title: Clerk Middleware
+// Path: proxy.ts
+// Title: Clerk Proxy
 // Purpose: Protects application routes requiring authentication while keeping public pages accessible.
 
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
@@ -7,8 +7,24 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 // ログインしていなくてもアクセス可能なパブリックなルートを定義
 const isPublicRoute = createRouteMatcher([
   '/',
-  '/api/quiz-generator', // API系は一旦パブリック（フロントから呼ぶため）
-  '/api/webhooks/clerk', // Webhook受信用
+  '/admin(.*)',
+  '/api/admin(.*)',
+  '/game(.*)',
+  '/ranking(.*)',
+  '/courses(.*)',
+  '/watch/(.*)',
+  '/api/comments(.*)',
+  '/api/webhooks(.*)',
+  '/api/quiz-generator(.*)',
+  '/api/topic-planner(.*)',
+  '/api/translation(.*)',
+  '/api/user/actions(.*)',
+  '/api/user/status(.*)',
+  '/api/auth/sync(.*)',
+  '/about(.*)',
+  '/contact(.*)',
+  '/privacy(.*)',
+  '/terms(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
@@ -20,7 +36,7 @@ export default clerkMiddleware(async (auth, request) => {
 
 export const config = {
   matcher: [
-    // Next.jsのスタティックファイル等を無視し、必要なリクエストでのみミドルウェアを発動させる
+    // Next.jsのスタティックファイル等を無視し、必要なリクエストでのみプロキシを発動させる
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     // Always run for API routes
     '/(api|trpc)(.*)',

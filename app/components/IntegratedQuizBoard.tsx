@@ -7,6 +7,7 @@ import CorrectEffect from './CorrectEffect';
 import { Locale } from '../types';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import { buildGentleExplanation } from '@/lib/explanation-mode';
+import LatexRenderer from './LatexRenderer';
 
 interface Quiz {
   type: 'TEXT' | 'CHOICE';
@@ -152,21 +153,21 @@ export default function IntegratedQuizBoard() {
                 {quiz.options.map((opt, i) => (
                   <div key={i} className="bg-white border-2 border-zinc-200 p-4 rounded-xl font-bold text-zinc-700 flex items-center gap-3">
                     <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-sm">{i + 1}</span>
-                    {opt}
+                    <LatexRenderer text={opt} />
                   </div>
                 ))}
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
               <div className="bg-white p-6 rounded-2xl shadow-lg border border-amber-200">
-                <button onClick={() => setShowHint(!showHint)} className="w-full text-left flex justify-between items-center mb-3">
+                <button type="button" onClick={() => setShowHint(!showHint)} className="w-full text-left flex justify-between items-center mb-3">
                   <h3 className="text-xl font-extrabold text-amber-800">💡 ヒント</h3>
                   <span className="text-sm text-zinc-500">{showHint ? '隠す' : '表示'}</span>
                 </button>
                 {showHint && <p className="text-zinc-800 font-bold text-lg leading-relaxed">{quiz.hint}</p>}
               </div>
               <div className="bg-green-50 p-6 rounded-2xl shadow-lg border-2 border-green-500">
-                <button onClick={() => setShowAnswer(!showAnswer)} className="w-full text-left flex justify-between items-center mb-3">
+                <button type="button" onClick={() => setShowAnswer(!showAnswer)} className="w-full text-left flex justify-between items-center mb-3">
                   <h3 className="text-xl font-extrabold text-green-900">✅ こたえ</h3>
                   <span className="text-sm text-zinc-500">{showAnswer ? '隠す' : '表示'}</span>
                 </button>
@@ -202,13 +203,15 @@ export default function IntegratedQuizBoard() {
                       </div>
                     )}
                     <div className="flex gap-3">
-                      <button 
+                      <button
+                        type="button"
                         onClick={() => setShowCorrectEffect(true)}
                         className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
                       >
                         <span className="text-xl">⭕</span> できた！
                       </button>
-                      <button 
+                      <button
+                        type="button"
                         onClick={() => setShowAnswer(false)}
                         className="flex-1 bg-zinc-200 hover:bg-zinc-300 text-zinc-600 font-bold py-3 rounded-xl transition-transform active:scale-95 flex items-center justify-center gap-2"
                       >

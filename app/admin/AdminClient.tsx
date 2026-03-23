@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { Locale } from '../types';
@@ -20,7 +19,6 @@ export type AdminClientProps = {
 };
 
 export default function AdminClient({ initialQuizzes, categories, userStatus, initialComments = [] }: AdminClientProps) {
-  const router = useRouter();
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
   const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools' | 'backup' | 'comments'>('ai');
@@ -40,6 +38,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState(initialComments);
+
+  const reloadAdminPage = () => {
+    window.location.reload();
+  };
 
   // サーバーサイドからのデータ更新を反映
   useEffect(() => {
@@ -75,9 +77,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     targetAge: 6,
     imageUrl: '',
     translations: {
-      ja: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '' },
-      en: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '' },
-      zh: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '' },
+      ja: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
+      en: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
+      zh: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
     }
   };
 
@@ -115,7 +117,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         const fullQuiz = (await res.json()) as any;
         const newTranslations: any = { ...initialForm.translations };
-        fullQuiz.translations.forEach((t: any) => {
+        const translationKeys = Object.keys(fullQuiz.translations);
+        translationKeys.forEach((locale: string) => {
+          const t = fullQuiz.translations[locale];
           const parsedOptions = (() => {
             if (!t.options) return '';
             if (Array.isArray(t.options)) return t.options.join(', ');
@@ -139,7 +143,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             return '';
           })();
 
-          newTranslations[t.locale as Locale] = {
+          newTranslations[locale as Locale] = {
             title: t.title || '',
             question: t.question || '',
             hint: t.hint || '',
@@ -148,6 +152,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             type: t.type || 'TEXT',
             options: parsedOptions,
             imageUrl: t.imageUrl || '',
+            visualMode: t.visualMode || 'image_only',
           };
         });
 
@@ -185,7 +190,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     });
     if (res.ok) {
       setQuizzes(quizzes.filter((q: any) => q.id !== id));
-      router.refresh();
+      reloadAdminPage();
     } else {
       alert('削除に失敗しました');
     }
@@ -361,7 +366,6 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     for (const loc of SUPPORTED_LOCALES) {
       const data = formData.translations[loc];
       const optionsValue = typeof data.options === 'string' ? data.options : '';
-
       normalizedTranslations[loc] = {
         title: data.title || '',
         question: data.question || '',
@@ -370,6 +374,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         explanation: data.explanation || '',
         type: data.type || 'TEXT',
         imageUrl: data.imageUrl || '',
+        visualMode: 'image_only',
         options: (data.type as string) === 'CHOICE'
           ? optionsValue.split(',').map((opt: string) => opt.trim()).filter(Boolean)
           : null,
@@ -391,7 +396,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         alert(editingId ? '更新しました' : '作成しました');
         if (!editingId) handleCancelEdit();
-        router.refresh();
+        reloadAdminPage();
       } else {
         const err = (await res.json()) as any;
         alert(`失敗しました: ${err.error || '不明なエラー'}`);
@@ -419,14 +424,14 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           imageUrl: aiImageUrl,
           systemPrompt,
           correctionPrompt,
-          modelId: getModelById(selectedModel).generatorId
+          modelId: getModelById(selectedModel).generatorId,
         })
       });
       if (res.ok) {
         alert('AIでクイズを生成しました！');
         setAiTopic('');
         setCorrectionPrompt('');
-        router.refresh();
+        reloadAdminPage();
       } else {
         const errorData = (await res.json()) as any;
         alert(errorData.message || '生成に失敗しました');
@@ -458,7 +463,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         }
         setCatFormData({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
         setEditingCatId(null);
-        router.refresh();
+        reloadAdminPage();
       } else {
         const err = (await res.json()) as any;
         alert(`失敗しました: ${err.message || 'エラーが発生しました'}`);
@@ -482,7 +487,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         setCategoriesList(categoriesList.filter((c: any) => c.id !== id));
         alert('ジャンルを削除しました（クイズは「その他」に移動されました）');
-        router.refresh();
+        reloadAdminPage();
       } else {
         const err = (await res.json()) as any;
         alert(`削除に失敗しました: ${err.message || 'エラーが発生しました'}`);
@@ -520,8 +525,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       });
       if (!res.ok) {
         alert('並び替えの保存に失敗しました');
-        // 失敗した場合は元に戻すが、通常はrouter.refresh()で整合性を取る
-        router.refresh();
+        // 失敗した場合は元に戻すため、ページ全体を再読込して整合性を取り直す
+        reloadAdminPage();
       }
     } catch (err) {
       console.error(err);
@@ -556,13 +561,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           quantity: bulkQuantity,
           quizType: aiType,
           modelId: selectedModel,
-          autoBalance
+          autoBalance,
         })
       });
       if (res.ok) {
         const data = (await res.json()) as any;
         alert(`${data.count}個のクイズを自動生成しました！`);
-        router.refresh();
+        reloadAdminPage();
       } else {
         const err = (await res.json()) as any;
         alert(err.message || '自動生成に失敗しました');
@@ -636,9 +641,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             <div className="flex flex-col gap-3 mb-6">
               <input type="text" placeholder="検索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-4 py-2 text-xs font-bold" />
               <div className="flex flex-wrap gap-1.5">
-                <button onClick={() => setSelectedCategory('all')} className={`text-[9px] font-black px-2 py-1 rounded-full border ${selectedCategory === 'all' ? 'bg-blue-500 text-white' : 'text-zinc-400'}`}>すべて</button>
+                <button type="button" onClick={() => setSelectedCategory('all')} className={`text-[9px] font-black px-2 py-1 rounded-full border ${selectedCategory === 'all' ? 'bg-blue-500 text-white' : 'text-zinc-400'}`}>すべて</button>
                 {categoriesList.map((c: any) => (
-                  <button key={c.id} onClick={() => setSelectedCategory(c.id)} className={`text-[9px] font-black px-2 py-1 rounded-full border ${selectedCategory === c.id ? 'bg-blue-500 text-white' : 'text-zinc-400'}`}>{c.nameJa || c.name || '(名称未設定)'}</button>
+                  <button type="button" key={c.id} onClick={() => setSelectedCategory(c.id)} className={`text-[9px] font-black px-2 py-1 rounded-full border ${selectedCategory === c.id ? 'bg-blue-500 text-white' : 'text-zinc-400'}`}>{c.nameJa || c.name || '(名称未設定)'}</button>
                 ))}
               </div>
             </div>
@@ -646,12 +651,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             <div className="flex flex-col gap-3 overflow-y-auto pr-2">
               {filteredQuizzes.map((q: any) => (
                 <div key={q.id} className={`p-3 rounded-xl border transition-all ${editingId === q.id ? 'border-blue-500 bg-blue-500/5' : 'border-[var(--border)] hover:bg-zinc-50'}`}>
-                  <div className="font-bold text-[13px] truncate">
-                    <LatexRenderer text={q.title} />
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-5 rounded bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-[var(--border)] flex-shrink-0">
+                  <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-3 items-start">
+                    <div className="flex flex-col items-start gap-2">
+                      <div className="w-[72px] aspect-video rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-[var(--border)] flex-shrink-0">
                         {(q.translations?.[locale]?.imageUrl || q.translations?.ja?.imageUrl || q.imageUrl) ? (
                           <img src={q.translations?.[locale]?.imageUrl || q.translations?.ja?.imageUrl || q.imageUrl} alt="Thumbnail" className="w-full h-full object-cover" />
                         ) : (
@@ -659,10 +661,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         )}
                       </div>
                       <span className="text-[8px] font-black bg-zinc-100 px-1.5 py-0.5 rounded">{q.targetAge}歳</span>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => handleEdit(q)} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors"><img src="/icons/edit.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
+                        <button type="button" onClick={() => handleDelete(q.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"><img src="/icons/delete.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => handleEdit(q)} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors"><img src="/icons/edit.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
-                      <button onClick={() => handleDelete(q.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"><img src="/icons/delete.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
+                    <div className="min-w-0 pt-0.5">
+                      <div className="font-bold text-[13px] leading-snug break-words">
+                        <LatexRenderer text={q.title} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -674,13 +681,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         {/* メインエリア */}
         <main className="flex-1 min-w-0">
           <div className="flex gap-1 bg-[var(--card)] p-1 rounded-2xl border border-[var(--border)] self-start mb-8 overflow-x-auto no-scrollbar">
-            <button onClick={() => setMainTab('ai')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'ai' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🌟 AI生成</button>
-            <button onClick={() => setMainTab('manual')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'manual' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>✍️ 手動作成</button>
-            <button onClick={() => setMainTab('categories')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'categories' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📁 ジャンル管理</button>
-            <button onClick={() => setMainTab('comments')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'comments' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💬 コメント管理</button>
-            <button onClick={() => setMainTab('usage')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'usage' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💳 資金管理</button>
-            <button onClick={() => setMainTab('tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🔗 外部ツール</button>
-            <button onClick={() => setMainTab('backup')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'backup' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💾 バックアップ</button>
+            <button type="button" onClick={() => setMainTab('ai')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'ai' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🌟 AI生成</button>
+            <button type="button" onClick={() => setMainTab('manual')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'manual' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>✍️ 手動作成</button>
+            <button type="button" onClick={() => setMainTab('categories')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'categories' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📁 ジャンル管理</button>
+            <button type="button" onClick={() => setMainTab('comments')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'comments' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💬 コメント管理</button>
+            <button type="button" onClick={() => setMainTab('usage')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'usage' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💳 資金管理</button>
+            <button type="button" onClick={() => setMainTab('tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🔗 外部ツール</button>
+            <button type="button" onClick={() => setMainTab('backup')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'backup' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💾 バックアップ</button>
           </div>
 
           {mainTab === 'ai' && (
@@ -718,6 +725,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         <option value="CHOICE">選択式</option>
                       </select>
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">画像生成</label>
+                      <div className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)] text-sm text-zinc-600">
+                        日本語版を生成後、その画像から英語版・中国語版を派生生成
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 mb-4">
                     <div className="space-y-2">
                       <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">トピック・テーマ</label>
                       <input type="text" placeholder="例: 宇宙の不思議" value={aiTopic} onChange={e => setAiTopic(e.target.value)} className="w-full border p-4 rounded-2xl font-bold bg-[var(--background)]" />
@@ -767,7 +783,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
 ## 2. 画像生成の制約事項
 * **アスペクト比**: 8k解像度（横型 16:9）。
-* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生はNEWTON誌に掲載されているような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生は上質な科学教材や教育図解のような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **言語**: 画像内のテキストは、指定がない限り「日本語」で作成してください。
 * **文字の配置**: 画像内に問題文を配置すること。文字は可愛らしく、読みやすくレイアウトしてください。
 * **文字数制限**: 画像に重ねる文字は必ず「3行以内」または「60文字以内」に収めること。別途、問題文や解説、ヒントは長文でも良い。
 * **構成**: 1コマの中に、イラストと画像用の短い問題文が共存する形にします。
@@ -798,7 +815,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     </div>
                   </details>
 
-                  <button disabled={loading} className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
+                  <button type="submit" disabled={loading} className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all">
                     {loading ? '生成中...' : 'AIでクイズを生成する 🚀'}
                   </button>
                 </form>
@@ -827,12 +844,18 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       💡 <span className="text-amber-300">自動バランス生成</span>：0歳〜18歳の全対象年齢×全ジャンルを分析し、現在クイズが一番少ないところに自動で割り当てて生成します。
                     </label>
                   </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1 pr-1">ハイブリッド生成モード</label>
+                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1 pr-1">生成エンジン</label>
                       <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-[11px] outline-none focus:bg-white/20 transition-all">
                         {AI_MODELS.map((m: any) => <option key={m.id} value={m.id} className="text-zinc-800">{m.name}</option>)}
                       </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">画像生成</label>
+                      <div className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-[11px] text-indigo-50">
+                        JA生成後にEN/ZHを派生
+                      </div>
                     </div>
                     <div className={`space-y-1 transition-opacity ${autoBalance ? 'opacity-30' : ''}`}>
                       <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">ジャンル</label>
@@ -859,7 +882,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       </select>
                     </div>
                   </div>
-                  <button disabled={bulkLoading || loading} className="w-full bg-white text-indigo-600 py-4 rounded-2xl font-black shadow-xl hover:bg-orange-50 active:scale-95 transition-all text-sm mb-4">
+                  <button type="submit" disabled={bulkLoading || loading} className="w-full bg-white text-indigo-600 py-4 rounded-2xl font-black shadow-xl hover:bg-orange-50 active:scale-95 transition-all text-sm mb-4">
                     {bulkLoading ? '🤖 自動トピック考案 & 生成中...' : 'バルク生成を開始する ⚡️'}
                   </button>
 
@@ -934,7 +957,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <tr key={c.id} className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50/50 transition-colors">
                       <td className="py-4">
                         <div className="flex flex-col gap-1">
-                          <button 
+                          <button
+                            type="button"
                             onClick={() => handleMoveCategory(c.id, 'up')} 
                             disabled={index === 0}
                             className={`p-1.5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:enabled:bg-amber-100 transition-colors ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
@@ -942,7 +966,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           >
                             <img src="/icons/chevron-up.svg" alt="" className="w-3 h-3 opacity-70 grayscale" />
                           </button>
-                          <button 
+                          <button
+                            type="button"
                             onClick={() => handleMoveCategory(c.id, 'down')} 
                             disabled={index === categoriesList.length - 1}
                             className={`p-1.5 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:enabled:bg-amber-100 transition-colors ${index === categoriesList.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
@@ -973,8 +998,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         )}
                       </td>
                       <td className="text-right space-x-1">
-                        <button onClick={() => { setEditingCatId(c.id); setCatFormData({ nameJa: c.nameJa || c.name || '', nameEn: c.nameEn || '', nameZh: c.nameZh || '', minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '', icon: c.icon || '' }); }} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"><img src="/icons/edit.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
-                        <button onClick={() => handleDeleteCategory(c.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"><img src="/icons/delete.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
+                        <button type="button" onClick={() => { setEditingCatId(c.id); setCatFormData({ nameJa: c.nameJa || c.name || '', nameEn: c.nameEn || '', nameZh: c.nameZh || '', minAge: c.minAge, maxAge: c.maxAge || '', systemPrompt: c.systemPrompt || '', icon: c.icon || '' }); }} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"><img src="/icons/edit.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
+                        <button type="button" onClick={() => handleDeleteCategory(c.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"><img src="/icons/delete.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
                       </td>
                     </tr>
                   ))}
@@ -1050,7 +1075,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
 ## 2. 画像生成の制約事項
 * **アスペクト比**: 8k解像度（横型 16:9）。
-* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生はNEWTON誌に掲載されているような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生は上質な科学教材や教育図解のような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **言語**: 画像内のテキストは、必ず「\${activeTab === 'ja' ? '日本語' : activeTab === 'en' ? '英語' : '中国語'}」で作成してください。
 * **文字の配置**: 画像内に問題文を配置すること。文字は可愛らしく、読みやすくレイアウトしてください。
 * **文字数制限**: 画像に重ねる文字は必ず「3行以内」または「60文字以内」に収めること。別途、問題文や解説、ヒントは長文でも良い。
 * **構成**: 1コマの中に、イラストと画像用の短い問題文が共存する形にします。
@@ -1084,6 +1110,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         </button>
                       )}
                     </div>
+
                     <div className="flex flex-col sm:flex-row gap-4 items-start">
                       <div className="relative w-28 aspect-video bg-white dark:bg-black rounded-lg overflow-hidden border border-[var(--border)] flex-shrink-0">
                         {currentTranslation.imageUrl || formData.imageUrl ? (
@@ -1105,6 +1132,55 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           <label htmlFor={`tab-image-upload-${activeTab}`} className={`inline-block px-4 py-1.5 rounded-lg text-[9px] font-black cursor-pointer transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-700 text-white hover:bg-black'}`}>
                             {uploading[activeTab] ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
+                          
+                          {activeTab !== 'ja' && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (uploading[activeTab]) return;
+                                const baseImageUrl = formData.translations.ja?.imageUrl || formData.imageUrl;
+                                if (!baseImageUrl) {
+                                  alert('日本語の画像が設定されていません。一度日本語版を保存するか、画像をアップロードしてください。');
+                                  return;
+                                }
+                                
+                                setUploading(prev => ({ ...prev, [activeTab]: true }));
+                                try {
+                                  const res = await fetch('/api/admin/quiz/regenerate-image', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      quizId: (formData as any).id,
+                                      locale: activeTab,
+                                      title: currentTranslation.title || 'Untitled',
+                                      baseImageUrl
+                                    })
+                                  });
+                                  const data = (await res.json()) as any;
+                                  if (data.imageUrl) {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      translations: {
+                                        ...prev.translations,
+                                        [activeTab]: { ...prev.translations[activeTab], imageUrl: data.imageUrl }
+                                      }
+                                    }));
+                                  } else {
+                                    alert('生成に失敗しました: ' + (data.error || '不明なエラー'));
+                                  }
+                                } catch (err) {
+                                  console.error(err);
+                                  alert('通信エラーが発生しました');
+                                } finally {
+                                  setUploading(prev => ({ ...prev, [activeTab]: false }));
+                                }
+                              }}
+                              className={`ml-2 inline-block px-4 py-1.5 rounded-lg text-[9px] font-black transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+                              disabled={uploading[activeTab]}
+                            >
+                              {uploading[activeTab] ? 'AI生成中...' : 'AIでこの言語の画像を再生成'}
+                            </button>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -1132,7 +1208,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
 ## 2. 画像生成の制約事項
 * **アスペクト比**: 8k解像度（横型 16:9）。
-* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生はNEWTON誌に掲載されているような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **デザイン**: 低年齢向けは子供がワクワクする「絵本や児童書の挿絵風」イラスト。高学年から高校生は上質な科学教材や教育図解のような詳細なイラストまたはフォトリアルな写真。ディティールは詳細に描くこと。 nanobanana2スタイル、高品位、極めて詳細なディティール、傑作、色鮮やかで学習意欲を高める魅力的な構図。
+* **言語**: 画像内のテキストは、必ず「\${activeTab === 'ja' ? '日本語' : activeTab === 'en' ? '英語' : '中国語'}」で作成してください。
 * **文字の配置**: 画像内に問題文を配置すること。文字は可愛らしく、読みやすくレイアウトしてください。
 * **文字数制限**: 画像に重ねる文字は必ず「3行以内」または「60文字以内」に収めること。別途、問題文や解説、ヒントは長文でも良い。
 * **構成**: 1コマの中に、イラストと画像用の短い問題文が共存する形にします。
@@ -1210,7 +1287,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
               <div className="mt-10 p-6 bg-zinc-50 dark:bg-zinc-900/50 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-700">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-black text-zinc-400 uppercase tracking-widest">Live Preview (LaTeX)</h3>
-                  <button onClick={() => setShowPreview(!showPreview)} className="text-xs font-bold text-blue-500">
+                  <button type="button" onClick={() => setShowPreview(!showPreview)} className="text-xs font-bold text-blue-500">
                     {showPreview ? '非表示' : '表示'}
                   </button>
                 </div>
@@ -1316,7 +1393,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         placeholder="10.00"
                       />
                     </div>
-                    <button 
+                    <button
+                      type="button"
                       onClick={handleSaveBudget}
                       disabled={loading}
                       className="px-8 bg-amber-500 text-black font-black rounded-xl hover:bg-amber-400 active:scale-95 transition-all text-sm"
@@ -1470,7 +1548,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <p className="text-xs text-zinc-500 leading-relaxed">
                       現在のすべてのクイズ、ジャンル、設定、統計データをJSONファイルとしてダウンロードします。定期的なバックアップを推奨します。
                     </p>
-                    <button 
+                    <button
+                      type="button"
                       onClick={handleExportBackup} 
                       disabled={loading}
                       className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-600/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
@@ -1554,6 +1633,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           確認 ↗
                         </a>
                         <button
+                          type="button"
                           onClick={() => handleDeleteComment(comment.id)}
                           className="text-[11px] font-black text-red-500 hover:text-white border border-red-200 hover:bg-red-500 hover:border-red-500 bg-red-50/50 px-3 py-1.5 rounded-xl transition-colors"
                           disabled={loading}
