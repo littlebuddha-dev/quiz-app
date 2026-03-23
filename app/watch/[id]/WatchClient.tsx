@@ -246,8 +246,8 @@ export default function WatchClient({
               )}
             </div>
 
-            <h1 className="text-2xl font-black mb-2 leading-tight">
-              <LatexRenderer text={t.title} />
+            <h1 className="text-2xl font-black mb-2 leading-tight truncate" title={t.title}>
+              <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="!whitespace-nowrap" />
             </h1>
 
             <div className="flex flex-wrap items-center gap-4 mb-6 pb-6 border-b border-[var(--border)]">
