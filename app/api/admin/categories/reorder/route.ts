@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
-
-export const runtime = 'edge';
 
 // 管理者権限チェック
 async function checkAdmin(prisma: PrismaClient) {
@@ -34,14 +32,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'BAD_REQUEST', message: '更新データが不正です。' }, { status: 400 });
     }
 
-    // トランザクション的に更新 (executeRawUnsafeをループで回す)
+    // トランザクション的に更新 (Prismaのupdateをループで回す)
     for (const update of updates) {
-      await prisma.$executeRawUnsafe(
-        'UPDATE "Category" SET "sortOrder" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
-        update.sortOrder,
-        update.id
-      );
+      await prisma.category.update({
+        where: { id: update.id },
+        data: {
+          sortOrder: update.sortOrder,
+          updatedAt: new Date(),
+        },
+      });
     }
+
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

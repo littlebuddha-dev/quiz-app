@@ -6,15 +6,13 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import {
   buildAgePromptBlock,
   buildEducationalContextPrompt,
   BASE_SYSTEM_INSTRUCTION,
 } from '@/lib/ai-prompts';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
-
-export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
   try {

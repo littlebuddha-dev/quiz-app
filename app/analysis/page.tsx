@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import AnalysisClient from './AnalysisClient';
 import { buildAbilityDomainScores, countActiveDays } from '@/lib/learning';

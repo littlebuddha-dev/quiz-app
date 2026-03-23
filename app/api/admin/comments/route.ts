@@ -2,11 +2,9 @@
 // Title: Admin Comments API
 // Purpose: Fetch and delete comments for admin dashboard
 
-export const runtime = 'edge';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 
 export async function GET() {

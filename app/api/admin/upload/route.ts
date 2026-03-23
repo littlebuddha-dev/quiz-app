@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 
-export const runtime = 'edge';
 // import { writeFile } from 'fs/promises';
 // import { join } from 'path';
 // import { randomUUID } from 'crypto';

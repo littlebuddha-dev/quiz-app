@@ -4,7 +4,7 @@
 // Purpose: Fetches quiz data from the database and passes it to the client component.
 
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz, StudyRecommendations, WeakCategoryInsight } from './types';
@@ -90,9 +90,24 @@ export default async function Home({
   }
 
   // カテゴリーを取得
-  const allCategories = await prisma.$queryRawUnsafe<CategoryRow[]>(
-    'SELECT "id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "icon" FROM "Category" ORDER BY "sortOrder" ASC, "minAge" ASC, "createdAt" ASC'
-  );
+  const allCategories = await prisma.category.findMany({
+    select: {
+      id: true,
+      name: true,
+      nameJa: true,
+      nameEn: true,
+      nameZh: true,
+      minAge: true,
+      maxAge: true,
+      icon: true,
+    },
+    orderBy: [
+      { sortOrder: 'asc' },
+      { minAge: 'asc' },
+      { createdAt: 'asc' },
+    ],
+  });
+
 
   // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）
   // ただし、名前が空のものは除外する

@@ -5,7 +5,7 @@
 
 import { createPrisma } from '@/lib/prisma';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { redirect } from 'next/navigation';
 import OnboardingClient from './OnboardingClient';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';

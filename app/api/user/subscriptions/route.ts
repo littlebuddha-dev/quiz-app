@@ -5,9 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
-
-export const runtime = 'edge';
+import { getCloudflareContext } from '@/lib/cloudflare';
 
 export async function POST(req: NextRequest) {
   try {

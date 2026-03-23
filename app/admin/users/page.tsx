@@ -3,7 +3,7 @@
 // Purpose: Server component for user management authentication and initial state.
 
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import UserManagementClient from './UserManagementClient';

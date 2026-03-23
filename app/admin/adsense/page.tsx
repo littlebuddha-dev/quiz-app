@@ -1,5 +1,5 @@
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import AdSenseAdminClient from './AdSenseAdminClient';

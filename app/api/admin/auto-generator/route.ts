@@ -7,13 +7,11 @@ import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { buildTopicPlannerPrompt } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
-
-export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,11 +55,12 @@ export async function POST(req: NextRequest) {
     let categoriesToProcess: Array<{ id: string; name: string; nameJa: string | null }> = [];
     
     if (autoBalance) {
-      const allCategoriesRaw = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
-        'SELECT "id", "name", "nameJa" FROM "Category" ORDER BY "sortOrder" ASC'
-      );
+      const allCategoriesRaw = await prisma.category.findMany({
+        select: { id: true, name: true, nameJa: true },
+        orderBy: { sortOrder: 'asc' }
+      });
       
-      const counts = await prisma.quiz.groupBy({
+      const counts = await (prisma.quiz as any).groupBy({
         by: ['categoryId', 'targetAge'],
         _count: { id: true }
       });
@@ -86,20 +85,22 @@ export async function POST(req: NextRequest) {
 
       parsedAge = bestCombo.age;
       const selectedCat = allCategoriesRaw.find(c => c.id === bestCombo.categoryId);
-      if (selectedCat) categoriesToProcess.push(selectedCat);
+      if (selectedCat) categoriesToProcess.push(selectedCat as any);
     } else {
       if (categoryId === 'all') {
-        categoriesToProcess = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
-          'SELECT "id", "name", "nameJa" FROM "Category" ORDER BY "sortOrder" ASC'
-        );
+        categoriesToProcess = (await prisma.category.findMany({
+          select: { id: true, name: true, nameJa: true },
+          orderBy: { sortOrder: 'asc' }
+        })) as any;
       } else {
-        const [cat] = await prisma.$queryRawUnsafe<Array<{ id: string; name: string; nameJa: string | null }>>(
-          'SELECT "id", "name", "nameJa" FROM "Category" WHERE "id" = ? LIMIT 1',
-          categoryId
-        );
-        if (cat) categoriesToProcess.push(cat);
+        const cat = await prisma.category.findUnique({
+          where: { id: categoryId },
+          select: { id: true, name: true, nameJa: true }
+        });
+        if (cat) categoriesToProcess.push(cat as any);
       }
     }
+
 
     if (categoriesToProcess.length === 0) {
       return NextResponse.json({ error: 'CATEGORY_NOT_FOUND' }, { status: 404 });

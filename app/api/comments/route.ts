@@ -1,12 +1,11 @@
 // Path: app/api/comments/route.ts
-export const runtime = 'edge';
 // Title: Comments API
 // Purpose: Handles posting new comments to a quiz.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 
 export async function GET(request: NextRequest) {
   try {

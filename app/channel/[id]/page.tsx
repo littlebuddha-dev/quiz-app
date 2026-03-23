@@ -9,7 +9,7 @@ import QuizClientWrapper from '../../components/QuizClientWrapper';
 import SubscribeButton from '../../components/SubscribeButton';
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import type { Metadata } from 'next';
 import { getSiteUrl } from '@/lib/site-config';
 

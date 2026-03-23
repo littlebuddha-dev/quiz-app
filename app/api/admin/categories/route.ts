@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
-
-export const runtime = 'edge';
 
 type CategoryRow = {
   id: string;

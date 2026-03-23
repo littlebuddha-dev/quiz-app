@@ -1,5 +1,4 @@
 // Path: app/api/webhooks/clerk/route.ts
-export const runtime = 'edge';
 // Title: Clerk Webhook Handler
 // Purpose: Syncs Clerk user data with Prisma database upon creation, update, or deletion.
 
@@ -8,7 +7,7 @@ import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 
 export async function POST(req: NextRequest) {
   const { env } = getCloudflareContext();

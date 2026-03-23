@@ -1,6 +1,6 @@
 // Path: app/game/page.tsx
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import GameClientWrapper from './GameClientWrapper';
 import { Locale, Quiz, QuizVisualMode } from '../types';
 import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';

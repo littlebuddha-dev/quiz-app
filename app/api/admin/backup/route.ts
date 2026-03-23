@@ -5,11 +5,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { Prisma } from '@prisma/client';
 import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
-
-export const runtime = 'edge';
 
 type BackupPayload = {
   version: string;
@@ -159,25 +157,29 @@ export async function POST(req: NextRequest) {
     }
 
     if (data.translations.length > 0) {
-      for (const row of data.translations as Array<Record<string, unknown>>) {
-        await prisma.$executeRawUnsafe(
-          'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          row.id,
-          row.quizId,
-          row.locale,
-          row.title,
-          row.question,
-          row.hint,
-          row.answer,
-          row.explanation ?? null,
-          row.type,
-          typeof row.options === 'string' ? row.options : row.options ? JSON.stringify(row.options) : null,
-          row.imageUrl ?? null,
-          row.visualMode ?? 'generated',
-          row.visualData ?? null
-        );
-      }
+      // 標準の createMany を使用し、データベースプロバイダーに依存しないようにします。
+      // SQLite でも Prisma 5.21+ / 6.x なら createMany が動作します。
+      const translationData = (data.translations as any[]).map(row => ({
+        id: row.id,
+        quizId: row.quizId,
+        locale: row.locale,
+        title: row.title,
+        question: row.question,
+        hint: row.hint,
+        answer: row.answer,
+        explanation: row.explanation ?? null,
+        type: row.type,
+        options: typeof row.options === 'string' ? JSON.parse(row.options) : row.options,
+        imageUrl: row.imageUrl ?? null,
+        visualMode: row.visualMode ?? 'generated',
+        visualData: row.visualData ?? null
+      }));
+
+      // 一度に全件挿入するとエラーになる可能性があるため、ある程度のチャンクに分けても良いですが、
+      // ここではまずは一括で試みます。
+      await prisma.quizTranslation.createMany({ data: translationData });
     }
+
 
     const phaseThreeWrites: Prisma.PrismaPromise<unknown>[] = [];
     if (Array.isArray(data.comments) && data.comments.length > 0) {

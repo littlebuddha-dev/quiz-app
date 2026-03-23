@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/user/actions/route.ts
-export const runtime = 'edge';
 // Title: User Actions API
 // Purpose: Handles bookmarking, liking, and history saving for logged-in users.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { PrismaClient } from '@prisma/client/edge';
 
 // APIコール時にClerkにユーザーが存在するがDBにいない場合の救済処理

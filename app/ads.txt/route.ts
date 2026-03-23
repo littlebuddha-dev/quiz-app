@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import {
   buildAdsTxtLine,
   normalizeAdSenseSettings,
 } from '@/lib/adsense';
-
-export const runtime = 'edge';
 
 const SETTING_KEY = 'adsense_settings';
 

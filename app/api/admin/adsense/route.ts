@@ -5,14 +5,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import {
   DEFAULT_ADSENSE_SETTINGS,
   normalizeAdSenseSettings,
   toPublicAdSenseSettings,
 } from '@/lib/adsense';
-
-export const runtime = 'edge';
 
 const SETTING_KEY = 'adsense_settings';
 

@@ -6,10 +6,8 @@
 import { NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { checkApiBudget } from '@/lib/ai-usage';
-
-export const runtime = 'edge';
 
 export async function GET() {
   try {

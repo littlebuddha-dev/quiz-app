@@ -3,7 +3,7 @@
 // Purpose: Aggregates user performance data and displays leaderboard.
 
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import RankingClientWrapper from './RankingClientWrapper';
 import { Metadata } from 'next';

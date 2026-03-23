@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/quiz-generator/route.ts
-export const runtime = 'edge';
 // Title: Quiz Generator API Route
 // Purpose: Generates quiz text and illustration using Google Gen AI based on topic, category, age, and type.
 
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
 import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
 import {

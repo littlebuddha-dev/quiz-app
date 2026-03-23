@@ -2,11 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { GoogleGenAI } from '@google/genai';
 import { editNanobananaImage, resolveInlineImageData } from '@/lib/nanobanana';
-
-export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
   try {

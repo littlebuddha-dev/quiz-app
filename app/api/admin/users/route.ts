@@ -5,10 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { PrismaClient } from '@prisma/client';
-
-export const runtime = 'edge';
 
 // 権限チェック関数
 async function isAdmin(prisma: PrismaClient, clerkId: string) {

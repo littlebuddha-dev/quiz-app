@@ -7,7 +7,7 @@ import { createPrisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
 import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
 import { getSiteUrl } from '@/lib/site-config';
@@ -88,22 +88,23 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     notFound();
   }
 
-  const rawTranslations = await prisma.$queryRawUnsafe<Array<{
-    locale: string;
-    title: string;
-    question: string;
-    hint: string;
-    answer: string;
-    explanation: string | null;
-    type: string;
-    options: unknown;
-    imageUrl: string | null;
-    visualMode: string | null;
-    visualData: string | null;
-  }>>(
-    'SELECT "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData" FROM "QuizTranslation" WHERE "quizId" = ?',
-    id
-  );
+  const rawTranslations = await prisma.quizTranslation.findMany({
+    where: { quizId: id },
+    select: {
+      locale: true,
+      title: true,
+      question: true,
+      hint: true,
+      answer: true,
+      explanation: true,
+      type: true,
+      options: true,
+      imageUrl: true,
+      visualMode: true,
+      visualData: true,
+    },
+  });
+
 
   if (rawTranslations.length === 0) {
     notFound();

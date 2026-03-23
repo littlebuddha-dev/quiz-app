@@ -48,27 +48,38 @@ export async function ensureQuizTranslationVisualColumns(prisma: QuizTranslation
   }
 
   ensurePromise = (async () => {
-    const columns = await prisma.$queryRawUnsafe<TableInfoRow[]>(
-      'PRAGMA table_info("QuizTranslation")'
-    );
+    // データベースプロバイダーの特定
+    const provider = (prisma as any)._activeProvider || 'sqlite';
 
-    if (!columns.some((column) => column.name === 'visualMode')) {
-      try {
-        await prisma.$executeRawUnsafe('ALTER TABLE "QuizTranslation" ADD COLUMN "visualMode" TEXT DEFAULT \'generated\'');
-      } catch (error) {
-        if (!isDuplicateColumnError(error)) throw error;
-      }
+    let columnNames = new Set<string>();
+
+    if (provider === 'sqlite') {
+      const columns = await prisma.$queryRawUnsafe<TableInfoRow[]>(
+        'PRAGMA table_info("QuizTranslation")'
+      );
+      columnNames = new Set(columns.map((column) => column.name));
+    } else if (provider === 'postgresql') {
+      const columns = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'QuizTranslation'"
+      );
+      columnNames = new Set(columns.map((column) => column.column_name));
     }
 
-    if (!columns.some((column) => column.name === 'visualData')) {
-      try {
-        await prisma.$executeRawUnsafe('ALTER TABLE "QuizTranslation" ADD COLUMN "visualData" TEXT');
-      } catch (error) {
-        if (!isDuplicateColumnError(error)) throw error;
+    // カラム追加の実行
+    const addColumn = async (name: string, type: string) => {
+      if (!columnNames.has(name)) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "QuizTranslation" ADD COLUMN "${name}" ${type}`);
       }
-    }
+    };
 
-    ensured = true;
+    try {
+      await addColumn('visualMode', "TEXT DEFAULT 'generated'");
+      await addColumn('visualData', 'TEXT');
+      ensured = true;
+    } catch (error) {
+      if (!isDuplicateColumnError(error)) throw error;
+      ensured = true; // すでにある場合はOK
+    }
   })();
 
   try {
@@ -77,6 +88,7 @@ export async function ensureQuizTranslationVisualColumns(prisma: QuizTranslation
     ensurePromise = null;
   }
 }
+
 
 export function parseQuizVisualData(value: unknown): QuizVisualData | null {
   if (!value) return null;
