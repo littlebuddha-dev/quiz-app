@@ -21,7 +21,7 @@ export type AdminClientProps = {
 export default function AdminClient({ initialQuizzes, categories, userStatus, initialComments = [] }: AdminClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
-  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools' | 'backup' | 'comments'>('ai');
+  const [mainTab, setMainTab] = useState<'ai' | 'manual' | 'categories' | 'usage' | 'tools' | 'backup' | 'comments' | 'education'>('ai');
   const [categoriesList, setCategoriesList] = useState(categories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [catFormData, setCatFormData] = useState({ nameJa: '', nameEn: '', nameZh: '', minAge: 0, maxAge: '', systemPrompt: '', icon: '' });
@@ -38,6 +38,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState(initialComments);
+
+  const [eduData, setEduData] = useState<any>(null);
+  const [eduGroup, setEduGroup] = useState<'小学校' | '中学校' | '高等学校'>('小学校');
 
   const reloadAdminPage = () => {
     window.location.reload();
@@ -619,6 +622,49 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     setLoading(false);
   };
 
+  const fetchEduData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings?key=educational_guidelines');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data as any).value) {
+          setEduData(JSON.parse((data as any).value));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (mainTab === 'education' && !eduData) {
+      fetchEduData();
+    }
+  }, [mainTab, eduData]);
+
+  const handleSaveEduData = async () => {
+    if (!eduData) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'educational_guidelines', value: JSON.stringify(eduData) })
+      });
+      if (res.ok) {
+        alert('教育内容設定を更新しました');
+      } else {
+        alert('更新に失敗しました');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
   const currentTranslation = formData.translations[activeTab];
 
   return (
@@ -684,6 +730,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             <button type="button" onClick={() => setMainTab('ai')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'ai' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🌟 AI生成</button>
             <button type="button" onClick={() => setMainTab('manual')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'manual' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>✍️ 手動作成</button>
             <button type="button" onClick={() => setMainTab('categories')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'categories' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📁 ジャンル管理</button>
+            <button type="button" onClick={() => setMainTab('education')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'education' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>📚 教育内容</button>
             <button type="button" onClick={() => setMainTab('comments')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'comments' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💬 コメント管理</button>
             <button type="button" onClick={() => setMainTab('usage')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'usage' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>💳 資金管理</button>
             <button type="button" onClick={() => setMainTab('tools')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all whitespace-nowrap ${mainTab === 'tools' ? 'bg-amber-500 text-white' : 'text-zinc-500'}`}>🔗 外部ツール</button>
@@ -1652,6 +1699,135 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             </div>
           )}
 
+          {mainTab === 'education' && (
+            <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl font-black flex items-center gap-2">
+                  <span className="bg-blue-100 text-blue-600 p-2 rounded-xl text-lg">📚</span>
+                  教育課程データ（学習要項）管理
+                </h2>
+                <button
+                  onClick={handleSaveEduData}
+                  disabled={loading || !eduData}
+                  className="bg-blue-500 text-white px-8 py-3 rounded-2xl font-black shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  {loading ? '保存中...' : '設定を保存する'}
+                </button>
+              </div>
+
+              {!eduData ? (
+                <div className="text-center py-12">
+                  <p className="text-zinc-400 font-bold mb-4">設定データがまだありません。</p>
+                  <button 
+                    onClick={() => {
+                      const initial = {
+                        "小学校": {
+                          "ageRange": "6歳〜12歳",
+                          "content": {
+                            "国語": "漢字の読み書き、古典の世界に親しむこと、ローマ字、読書を通した情報の扱い方、話の構成を考える能力を学びます。",
+                            "社会": "身近な地域や市区町村の様子、47都道府県の名称と位置、我が国の歴史上の主な事象、グローバル化する世界と日本の役割、憲法の基本原則などを学びます。",
+                            "算数": "分数の計算（加法や減法）、小数の計算、図形の面積や体積の求め方、データの活用（グラフの読解）、プログラミング的思考の基礎を学びます。",
+                            "理科": "空気と水の性質、燃焼の仕組み、物の溶け方、振り子の運動、電流の働き、月や星、気象現象、生物の観察（プログラミング活用を含む）を学びます。",
+                            "生活": "身近な動植物への親しみ、四季の変化、遊びの工夫、公共施設の利用、自分自身の成長への気づきを学びます。"
+                          }
+                        },
+                        "中学校": {
+                          "ageRange": "12歳〜15歳",
+                          "content": {
+                            "国語": "話すこと・聞くこと、書くこと、読むことに加え、古典（文語のきまり、漢文の訓読など）、情報の信頼性の吟味を学びます。",
+                            "社会": "地理的分野（世界の地域構成）、歴史的分野（古代文明から近現代まで）、公民的分野（日本国憲法、民主政治、市場経済、持続可能な社会）を学びます。",
+                            "数学": "正の数・負の数、方程式、一次関数、関数y=ax^2、図形の相似、三平方の定理、確率、標本の特性とデータの傾向を学びます。",
+                            "理科": "光と音、力の働き、化学変化と物質の質量、水溶液とイオン、生物の細胞と遺伝、気象、自然災害と科学技術を学びます。"
+                          }
+                        },
+                        "高等学校": {
+                          "ageRange": "15歳〜18歳",
+                          "content": {
+                            "国語": "「現代の国語」「言語文化」を共通必履修とし、論理思考を養います。",
+                            "地理歴史": "「地理総合」「歴史総合」が必履修。グローバルな視点を学びます。",
+                            "公民": "「公共」を必履修とし、自立した主体として社会に参画する力を養います。",
+                            "数学": "二次関数、微分・積分、ベクトル、データの分析を学びます。",
+                            "理科": "物理、化学、生物、地学を深く理解し、科学的な探究方法を学びます。"
+                          }
+                        }
+                      };
+                      setEduData(initial);
+                    }}
+                    className="text-blue-500 font-black hover:underline"
+                  >
+                    初期設定データを読み込む
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* 学年層の切り替え */}
+                  <div className="flex gap-2 bg-[var(--background)] p-1.5 rounded-2xl border border-[var(--border)] overflow-x-auto no-scrollbar">
+                    {(['小学校', '中学校', '高等学校'] as const).map((group) => (
+                      <button
+                        key={group}
+                        onClick={() => setEduGroup(group)}
+                        className={`flex-1 px-6 py-3 rounded-xl font-black text-sm transition-all whitespace-nowrap ${eduGroup === group ? 'bg-white shadow-sm text-blue-600' : 'text-zinc-400 hober:text-zinc-600'}`}
+                      >
+                        {group} ({eduData[group]?.ageRange})
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-6">
+                      {Object.entries(eduData[eduGroup]?.content || {}).map(([subject, content]: [string, any]) => (
+                        <div key={subject} className="space-y-2">
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">{subject}</label>
+                          <textarea
+                            value={content as string}
+                            onChange={(e) => {
+                              const newData = { ...eduData };
+                              newData[eduGroup].content[subject] = e.target.value;
+                              setEduData(newData);
+                            }}
+                            className="w-full border p-4 rounded-2xl font-bold min-h-[80px] text-sm bg-[var(--background)] focus:bg-white transition-colors"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                      <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">💡 科目の追加・削除</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            const name = prompt('新しい科目名を入力してください（例: 情報、技術）');
+                            if (name) {
+                              const newData = { ...eduData };
+                              newData[eduGroup].content[name] = "";
+                              setEduData(newData);
+                            }
+                          }}
+                          className="px-4 py-2 bg-white dark:bg-zinc-800 border border-blue-200 dark:border-blue-900/50 rounded-lg text-xs font-black text-blue-600 hover:bg-blue-50 transition-all"
+                        >
+                          + 新しい科目を追加
+                        </button>
+                        <button
+                          onClick={() => {
+                            const subjects = Object.keys(eduData[eduGroup].content);
+                            const name = prompt(`削除する科目名を入力してください:\n${subjects.join(', ')}`);
+                            if (name && eduData[eduGroup].content[name] !== undefined) {
+                              const newData = { ...eduData };
+                              delete newData[eduGroup].content[name];
+                              setEduData(newData);
+                            }
+                          }}
+                          className="px-4 py-2 bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-900/50 rounded-lg text-xs font-black text-red-600 hover:bg-red-50 transition-all"
+                        >
+                          - 科目を削除
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </main>
 
       </div>

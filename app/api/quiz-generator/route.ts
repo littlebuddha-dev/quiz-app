@@ -12,6 +12,7 @@ import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-e
 import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
 import {
   buildAgePromptBlock,
+  buildEducationalContextPrompt,
   buildLanguageSubjectPromptBlock,
   detectLanguageSubjectRule,
   getPersonaByAge,
@@ -602,9 +603,15 @@ export async function POST(req: NextRequest) {
     }
 
     const agePersonaInstruction = buildAgePromptBlock(parsedAge);
+
+    // DBから教育課程ガイドラインを取得（存在すれば）
+    const eduSetting = await prisma.setting.findUnique({ where: { key: 'educational_guidelines' } });
+    const guidelines = eduSetting?.value ? JSON.parse(eduSetting.value) : null;
+    const educationalContextInstruction = buildEducationalContextPrompt(parsedAge, categoryNames, guidelines);
+
     const languageSubjectInstruction = buildLanguageSubjectPromptBlock(categoryNames);
 
-    const finalSystemInstruction = BASE_SYSTEM_INSTRUCTION + agePersonaInstruction + languageSubjectInstruction + categorySystemPrompt + (systemPrompt ? `\n\n## ユーザー定義の追加システム要件:\n${systemPrompt}` : '');
+    const finalSystemInstruction = BASE_SYSTEM_INSTRUCTION + agePersonaInstruction + educationalContextInstruction + languageSubjectInstruction + categorySystemPrompt + (systemPrompt ? `\n\n## ユーザー定義の追加システム要件:\n${systemPrompt}` : '');
 
     let textPrompt = `
 テーマ: ${topic}
