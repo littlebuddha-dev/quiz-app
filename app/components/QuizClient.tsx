@@ -355,8 +355,8 @@ export default function QuizClient({
         {!isOnline && (
           <section className="mb-5 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 p-4">
             <div className="flex flex-col gap-1">
-              <div className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Offline</div>
-              <h2 className="text-base sm:text-lg font-black text-emerald-900">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-emerald-600 safari-no-faux-bold">Offline</div>
+              <h2 className="text-base sm:text-lg font-semibold text-emerald-900 safari-no-faux-bold">
                 {locale === 'ja' ? 'オフライン軽量モード' : locale === 'en' ? 'Offline light mode' : '离线轻量模式'}
               </h2>
               <p className="text-xs sm:text-sm font-semibold text-emerald-800/80">
@@ -380,15 +380,15 @@ export default function QuizClient({
                 aria-expanded={isStudyDashboardOpen}
               >
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500 mb-1">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-500 mb-1 safari-no-faux-bold">
                     {activeStudyRecommendations.todayLabel}
                   </div>
-                  <h2 className="text-lg sm:text-2xl font-black">{studyText.panelTitle}</h2>
+                  <h2 className="text-lg sm:text-2xl font-semibold safari-no-faux-bold">{studyText.panelTitle}</h2>
                   {!isStudyDashboardOpen && (
                     <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-500 line-clamp-1">{studyText.panelBody}</p>
                   )}
                 </div>
-                <span className="flex-shrink-0 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-black text-zinc-500">
+                <span className="flex-shrink-0 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-zinc-500 safari-no-faux-bold">
                   {isStudyDashboardOpen ? '閉じる' : '開く'}
                 </span>
               </button>

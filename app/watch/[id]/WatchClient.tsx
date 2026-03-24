@@ -246,7 +246,7 @@ export default function WatchClient({
               )}
             </div>
 
-            <h1 className="text-2xl font-extrabold mb-2 leading-tight truncate safari-no-faux-bold" title={t.title}>
+            <h1 className="text-2xl font-medium mb-2 leading-tight truncate safari-no-faux-bold" title={t.title}>
               <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="!whitespace-nowrap" />
             </h1>
 
@@ -285,11 +285,11 @@ export default function WatchClient({
               )}
 
               <div className="ml-auto flex gap-2 sm:gap-3">
-                <button type="button" onClick={() => handleAction('like')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-pink-500 hover:border-pink-500'}`}>
+                <button type="button" onClick={() => handleAction('like')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-pink-500 hover:border-pink-500'}`}>
                   <Image src="/icons/heart.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${isLiked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
                   {locale === 'ja' ? 'いいね' : locale === 'en' ? 'Like' : '点赞'}
                 </button>
-                <button type="button" onClick={() => handleAction('bookmark')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isBookmarked ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-blue-500 hover:border-blue-500'}`}>
+                <button type="button" onClick={() => handleAction('bookmark')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isBookmarked ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-blue-500 hover:border-blue-500'}`}>
                   <Image src="/icons/star.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${isBookmarked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
                   {locale === 'ja' ? '保存' : locale === 'en' ? 'Save' : '收藏'}
                 </button>
@@ -299,14 +299,14 @@ export default function WatchClient({
             {/* 問題文と回答フォーム */}
             <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] mb-8">
               {isOnline && <AdSense slot="watch" />}
-              <h3 className="font-black text-lg sm:text-xl mb-6 leading-relaxed">
+              <h3 className="font-medium text-lg sm:text-xl mb-6 leading-relaxed safari-no-faux-bold">
                 <LatexRenderer text={t.question} />
               </h3>
 
               {!showAnswer && (
                 <div className="mb-6">
                   {!showHint ? (
-                    <button type="button" onClick={() => setShowHint(true)} className="text-sm text-blue-500 font-black hover:underline mb-6 flex items-center gap-1.5">
+                    <button type="button" onClick={() => setShowHint(true)} className="text-sm text-blue-500 font-semibold hover:underline mb-6 flex items-center gap-1.5 safari-no-faux-bold">
                       <Image src="/icons/hint.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
                       {locale === 'ja' ? 'ヒントをみる' : locale === 'en' ? 'Show hint' : '看提示'}
                     </button>
@@ -314,7 +314,7 @@ export default function WatchClient({
                     <div className="text-sm bg-blue-500/10 text-blue-500 p-5 rounded-2xl mb-6 font-bold border border-blue-500/20">
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <Image src="/icons/hint.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
-                        <span className="uppercase text-[10px] tracking-widest font-black">Hint</span>
+                        <span className="uppercase text-[10px] tracking-widest font-semibold">Hint</span>
                       </div>
                       <LatexRenderer text={t.hint} />
                     </div>
@@ -329,7 +329,7 @@ export default function WatchClient({
                             type="button"
                             key={i}
                             onClick={() => handleAnswerSubmit(opt === t.answer)}
-                            className={`bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-black ${isOptLatex ? 'py-8 text-2xl' : 'py-4'} rounded-2xl transition-all active:scale-[0.98] text-center`}
+                            className={`bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-semibold ${isOptLatex ? 'py-8 text-2xl' : 'py-4'} rounded-2xl transition-all active:scale-[0.98] text-center safari-no-faux-bold`}
                           >
                             <LatexRenderer text={opt} />
                           </button>
@@ -368,7 +368,7 @@ export default function WatchClient({
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <div className="flex items-center gap-2">
                       <Image src="/icons/explanation.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-70 grayscale brightness-0 invert-0 dark:invert" style={{ filter: locale === 'ja' ? 'none' : 'none' }} />
-                      <h4 className="font-black text-sm uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                      <h4 className="font-semibold text-sm uppercase tracking-wider text-blue-700 dark:text-blue-300 safari-no-faux-bold">
                         {locale === 'ja' ? '解説' : locale === 'en' ? 'Explanation' : '解析'}
                       </h4>
                     </div>
@@ -376,7 +376,7 @@ export default function WatchClient({
                       <button
                         type="button"
                         onClick={() => setExplanationMode('gentle')}
-                        className={`px-3 py-1.5 text-xs font-black transition-colors ${explanationMode === 'gentle'
+                        className={`px-3 py-1.5 text-xs font-semibold transition-colors ${explanationMode === 'gentle'
                             ? 'bg-blue-500 text-white'
                             : 'text-blue-700 dark:text-blue-200'
                           }`}
@@ -386,7 +386,7 @@ export default function WatchClient({
                       <button
                         type="button"
                         onClick={() => setExplanationMode('full')}
-                        className={`px-3 py-1.5 text-xs font-black transition-colors ${explanationMode === 'full'
+                        className={`px-3 py-1.5 text-xs font-semibold transition-colors ${explanationMode === 'full'
                             ? 'bg-blue-500 text-white'
                             : 'text-blue-700 dark:text-blue-200'
                           }`}
@@ -411,7 +411,7 @@ export default function WatchClient({
 
             {/* コメント欄 */}
             <div>
-              <h2 className="text-xl font-black mb-6">{comments.length} {locale === 'ja' ? '件のコメント' : locale === 'en' ? 'Comments' : '条评论'}</h2>
+              <h2 className="text-xl font-semibold mb-6 safari-no-faux-bold">{comments.length} {locale === 'ja' ? '件のコメント' : locale === 'en' ? 'Comments' : '条评论'}</h2>
 
               {isLoggedIn ? (
                 <form onSubmit={submitComment} className="flex gap-4 mb-10">
@@ -419,14 +419,14 @@ export default function WatchClient({
                   <div className="flex-1">
                     <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={locale === 'ja' ? '質問や感想を書いてみよう...' : locale === 'en' ? 'Write a comment...' : '写点什么吧...'} className="w-full border-b-2 border-[var(--border)] p-2 focus:outline-none focus:border-amber-500 bg-transparent transition-colors" />
                     <div className="flex justify-end mt-3">
-                      <button type="submit" disabled={isSubmitting || !newComment.trim() || !isOnline} className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-black py-2.5 px-8 rounded-full text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+                      <button type="submit" disabled={isSubmitting || !newComment.trim() || !isOnline} className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-semibold py-2.5 px-8 rounded-full text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95 safari-no-faux-bold">
                         {locale === 'ja' ? 'コメントする' : locale === 'en' ? 'Post' : '发布'}
                       </button>
                     </div>
                   </div>
                 </form>
               ) : (
-                <div className="bg-[var(--card)] p-6 rounded-2xl text-center text-sm font-black text-zinc-500 mb-10 border border-[var(--border)]">
+                <div className="bg-[var(--card)] p-6 rounded-2xl text-center text-sm font-semibold text-zinc-500 mb-10 border border-[var(--border)] safari-no-faux-bold">
                   {locale === 'ja' ? 'コメントするにはログインしてください' : locale === 'en' ? 'Log in to comment' : '登录后评论'}
                 </div>
               )}
@@ -452,7 +452,7 @@ export default function WatchClient({
 
           {/* 右側: 関連動画エリア（レコメンド） */}
           <div className="lg:w-96 flex-shrink-0 self-start">
-            <h3 className="font-black mb-6 flex items-center gap-2">
+            <h3 className="font-semibold mb-6 flex items-center gap-2 safari-no-faux-bold">
               <span className="w-1.5 h-6 bg-amber-500 rounded-full inline-block" />
               {locale === 'ja' ? '次のおすすめ' : locale === 'en' ? 'Up Next' : '接下来播放'}
             </h3>
@@ -478,7 +478,7 @@ export default function WatchClient({
                           </div>
                         </div>
                         <div className="flex-1 py-0.5">
-                          <h4 className="font-black text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors">
+                          <h4 className="font-semibold text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors safari-no-faux-bold">
                             {relTitle}
                           </h4>
                           <p className="text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-widest">Cue Official</p>

@@ -75,7 +75,7 @@ export function SidebarContents({
           <button
             key={mode}
             onClick={() => onSelectStudyMode(mode)}
-            className={`rounded-xl font-black transition-all flex items-center justify-center gap-1.5 ${
+            className={`rounded-xl font-semibold transition-all flex items-center justify-center gap-1.5 safari-no-faux-bold ${
               isMobile
                 ? `px-4 py-2 text-xs whitespace-nowrap flex-shrink-0 ${isActive ? 'bg-zinc-900 text-white shadow-md' : 'border border-[var(--border)] bg-[var(--card)] text-zinc-500'}`
                 : `px-1 py-2 text-[11px] ${isActive ? 'bg-zinc-900 text-white shadow-md' : 'border border-[var(--border)] text-zinc-500 hover:text-zinc-900'}`

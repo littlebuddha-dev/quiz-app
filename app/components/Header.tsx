@@ -74,7 +74,7 @@ export default function Header({
           <div className="hidden lg:flex flex-col items-end gap-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Level</span>
-              <span className="text-sm font-black text-amber-500">{userStatus.level}</span>
+              <span className="text-sm font-semibold text-amber-500 safari-no-faux-bold">{userStatus.level}</span>
             </div>
             <div className="w-24 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
               <div
@@ -87,17 +87,17 @@ export default function Header({
 
         <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
           <img src="/icons/ranking.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
-          <span className="hidden md:block">{t.ranking}</span>
+          <span className="hidden md:block font-medium safari-no-faux-bold">{t.ranking}</span>
         </Link>
 
         <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
           <img src="/icons/course.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
-          <span className="hidden md:block">{t.courses}</span>
+          <span className="hidden md:block font-medium safari-no-faux-bold">{t.courses}</span>
         </Link>
 
         <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
           <img src="/icons/analysis.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
-          <span className="hidden md:block">{t.analysis}</span>
+          <span className="hidden md:block font-medium safari-no-faux-bold">{t.analysis}</span>
         </Link>
 
         <div className="flex items-center">
@@ -121,7 +121,7 @@ export default function Header({
           <>
             <SignedOut>
               <SignInButton mode="modal">
-                <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 sm:py-2 px-3 sm:px-6 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap">
+                <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 sm:py-2 px-3 sm:px-6 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
                   {t.login}
                 </button>
               </SignInButton>

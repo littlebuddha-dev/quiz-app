@@ -28,13 +28,49 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    var(--font-geist-sans),
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic",
+    "YuGothic",
+    "Noto Sans JP",
+    sans-serif;
+  font-synthesis: none;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .safari-no-faux-bold {
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
+}
+
+@supports (font: -apple-system-body) {
+  body {
+    font-family:
+      "Hiragino Sans",
+      "Hiragino Kaku Gothic ProN",
+      "Yu Gothic",
+      "YuGothic",
+      "Noto Sans JP",
+      sans-serif;
+    font-weight: 300;
+  }
+
+  b,
+  strong,
+  .font-medium,
+  .font-semibold,
+  .font-bold,
+  .font-extrabold,
+  .font-black {
+    font-weight: 600 !important;
+  }
+
+  .font-light,
+  .font-normal {
+    font-weight: 300 !important;
+  }
 }
 
 .no-scrollbar {
