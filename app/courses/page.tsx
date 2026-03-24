@@ -77,5 +77,7 @@ export default async function CoursesPage() {
     })
   );
 
-  return <CoursesClient currentCourse={currentCourseProgress} roadmap={roadmap} />;
+  const userStatus = { xp: user.xp || 0, level: user.level || 1, role: user.role };
+
+  return <CoursesClient currentCourse={currentCourseProgress} roadmap={roadmap} userStatus={userStatus} />;
 }

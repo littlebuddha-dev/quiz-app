@@ -10,6 +10,7 @@ import { CURRICULUM_SOURCE_LINKS, getCourseLabel, getCurriculumSourceLabel, getS
 type CoursesClientProps = {
   currentCourse: CourseProgress;
   roadmap: CourseProgress[];
+  userStatus?: { xp: number; level: number; role: string };
 };
 
 const COPY = {
@@ -54,13 +55,13 @@ const COPY = {
   },
 } as const;
 
-export default function CoursesClient({ currentCourse, roadmap }: CoursesClientProps) {
+export default function CoursesClient({ currentCourse, roadmap, userStatus }: CoursesClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const t = COPY[locale];
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Header locale={locale} setLocale={setLocale} hideSearch />
+      <Header locale={locale} setLocale={setLocale} userStatus={userStatus} hideSearch />
 
       <main className="pt-24 max-w-6xl mx-auto px-4 pb-12">
         <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">

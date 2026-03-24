@@ -5,22 +5,6 @@ import { getSiteUrl } from '@/lib/site-config';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = getSiteUrl();
-  const { env } = await getCloudflareContext({ async: true });
-  const prisma = createPrisma(env);
-
-  const [quizzes, channels] = await Promise.all([
-    prisma.quiz.findMany({
-      select: { id: true, updatedAt: true, createdAt: true },
-      orderBy: { updatedAt: 'desc' },
-      take: 5000,
-    }),
-    prisma.channel.findMany({
-      select: { id: true, updatedAt: true, createdAt: true },
-      orderBy: { updatedAt: 'desc' },
-      take: 1000,
-    }),
-  ]);
-
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: `${siteUrl}/`,
@@ -54,19 +38,40 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const quizRoutes: MetadataRoute.Sitemap = quizzes.map((quiz) => ({
-    url: `${siteUrl}/watch/${quiz.id}`,
-    lastModified: quiz.updatedAt || quiz.createdAt,
-    changeFrequency: 'weekly',
-    priority: 0.8,
-  }));
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const prisma = createPrisma(env);
 
-  const channelRoutes: MetadataRoute.Sitemap = channels.map((channel) => ({
-    url: `${siteUrl}/channel/${channel.id}`,
-    lastModified: channel.updatedAt || channel.createdAt,
-    changeFrequency: 'weekly',
-    priority: 0.6,
-  }));
+    const [quizzes, channels] = await Promise.all([
+      prisma.quiz.findMany({
+        select: { id: true, updatedAt: true, createdAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 5000,
+      }),
+      prisma.channel.findMany({
+        select: { id: true, updatedAt: true, createdAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 1000,
+      }),
+    ]);
 
-  return [...staticRoutes, ...quizRoutes, ...channelRoutes];
+    const quizRoutes: MetadataRoute.Sitemap = quizzes.map((quiz) => ({
+      url: `${siteUrl}/watch/${quiz.id}`,
+      lastModified: quiz.updatedAt || quiz.createdAt,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    }));
+
+    const channelRoutes: MetadataRoute.Sitemap = channels.map((channel) => ({
+      url: `${siteUrl}/channel/${channel.id}`,
+      lastModified: channel.updatedAt || channel.createdAt,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    }));
+
+    return [...staticRoutes, ...quizRoutes, ...channelRoutes];
+  } catch (error) {
+    console.error('Failed to build dynamic sitemap entries:', error);
+    return staticRoutes;
+  }
 }

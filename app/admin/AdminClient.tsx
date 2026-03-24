@@ -38,6 +38,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState(initialComments);
+  const [exportIncludeUsers, setExportIncludeUsers] = useState(false);
+  const [importIncludeUsers, setImportIncludeUsers] = useState(false);
 
   const [eduData, setEduData] = useState<any>(null);
   const [eduGroup, setEduGroup] = useState<'小学校' | '中学校' | '高等学校'>('小学校');
@@ -225,7 +227,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const handleExportBackup = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/backup');
+      const res = await fetch(`/api/admin/backup?includeUsers=${exportIncludeUsers}`);
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -256,11 +258,29 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
     setLoading(true);
     try {
-      const content = JSON.parse(await file.text());
+      const rawText = await file.text();
+      const normalizedText = rawText.replace(/^\uFEFF/, '').trim();
+
+      if (!normalizedText) {
+        throw new Error('EMPTY_BACKUP_FILE');
+      }
+
+      if (normalizedText.startsWith('<!DOCTYPE') || normalizedText.startsWith('<html')) {
+        throw new Error('HTML_BACKUP_FILE');
+      }
+
+      const content = JSON.parse(normalizedText);
+      const contentWithOptions = {
+        ...content,
+        options: {
+          ...(content?.options || {}),
+          includeUsers: importIncludeUsers,
+        },
+      };
       const res = await fetch('/api/admin/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(content),
+        body: JSON.stringify(contentWithOptions),
       });
 
       if (res.ok) {
@@ -273,7 +293,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       alert(`復元に失敗しました: ${err.message || '不明なエラー'}`);
     } catch (error: any) {
       console.error(error);
-      alert(error instanceof SyntaxError ? 'ファイル形式が正しくありません。' : 'エラーが発生しました');
+      if (error?.message === 'EMPTY_BACKUP_FILE') {
+        alert('バックアップファイルが空です。');
+      } else if (error?.message === 'HTML_BACKUP_FILE') {
+        alert('JSONではなくHTMLファイルが選択されています。バックアップのダウンロードに失敗した可能性があります。');
+      } else if (error instanceof SyntaxError) {
+        alert('バックアップJSONの形式が壊れています。');
+      } else {
+        alert('エラーが発生しました');
+      }
     } finally {
       e.target.value = '';
       setLoading(false);
@@ -1722,8 +1750,17 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       <span>📤</span> エクスポート
                     </h3>
                     <p className="text-xs text-zinc-500 leading-relaxed">
-                      現在のすべてのクイズ、ジャンル、設定、統計データをJSONファイルとしてダウンロードします。定期的なバックアップを推奨します。
+                      現在のクイズ、ジャンル、設定、統計データをJSONファイルとしてダウンロードします。ユーザー情報を含めるかどうかを選べます。
                     </p>
+                    <label className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-xs font-bold text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={exportIncludeUsers}
+                        onChange={(e) => setExportIncludeUsers(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>ユーザー情報・進捗・コメントもバックアップに含める</span>
+                    </label>
                     <button
                       type="button"
                       onClick={handleExportBackup}
@@ -1740,8 +1777,17 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       <span>📥</span> 復元（インポート）
                     </h3>
                     <p className="text-xs text-red-600/70 dark:text-red-400/70 leading-relaxed font-medium">
-                      ⚠️ 警告: ファイルをアップロードすると現在のすべてのデータが消去され、バックアップの内容で上書きされます。
+                      ⚠️ 警告: ファイルをアップロードすると現在のデータが上書きされます。ユーザー情報を含めると `clerkId` もバックアップ側に置き換わります。
                     </p>
+                    <label className="flex items-start gap-3 rounded-xl border border-red-200/70 bg-white/70 px-4 py-3 text-xs font-bold text-red-700 dark:border-red-900/40 dark:bg-zinc-950/30 dark:text-red-300">
+                      <input
+                        type="checkbox"
+                        checked={importIncludeUsers}
+                        onChange={(e) => setImportIncludeUsers(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span>ユーザー情報も復元する（未チェック時は users / channels / comments / 進捗系を除外）</span>
+                    </label>
                     <div className="relative cursor-pointer">
                       <input
                         type="file"
