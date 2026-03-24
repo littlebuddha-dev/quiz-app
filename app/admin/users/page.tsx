@@ -45,6 +45,7 @@ export default async function UserManagementPage() {
     <UserManagementClient 
       initialUsers={users} 
       userStatus={userStatus}
+      currentClerkId={clerkId}
     />
   );
 }

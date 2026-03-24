@@ -36,6 +36,13 @@ function parseIncludeUsers(value: string | null) {
   return value === 'true';
 }
 
+function getConfiguredAdminEmails() {
+  return (process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error';
 }
@@ -127,6 +134,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const configuredAdminEmails = getConfiguredAdminEmails();
+    const protectedUsers = includeUsers
+      ? await prisma.user.findMany({
+          where: {
+            OR: [
+              { clerkId: userId },
+              { role: 'ADMIN' },
+              ...(configuredAdminEmails.length > 0 ? [{ email: { in: configuredAdminEmails } }] : []),
+            ],
+          },
+        })
+      : [];
+    const protectedUserIdSet = new Set(protectedUsers.map((entry) => entry.id));
+    const protectedUserEmailSet = new Set(
+      protectedUsers.map((entry) => entry.email.toLowerCase()).concat(configuredAdminEmails)
+    );
+    const protectedUserClerkIdSet = new Set(protectedUsers.map((entry) => entry.clerkId));
+
+    const backupUsers = Array.isArray(data.users) ? (data.users as Prisma.UserCreateManyInput[]) : [];
+    const skippedBackupUserIds = new Set(
+      backupUsers
+        .filter((entry) => {
+          const email = entry.email?.toLowerCase?.() || '';
+          return protectedUserEmailSet.has(email) || protectedUserClerkIdSet.has(entry.clerkId);
+        })
+        .map((entry) => entry.id)
+        .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+    );
+    const importableUsers = backupUsers.filter((entry) => !skippedBackupUserIds.has(entry.id as string));
+
+    const backupChannels = Array.isArray(data.channels)
+      ? (data.channels as Prisma.ChannelCreateManyInput[])
+      : [];
+    const skippedBackupChannelIds = new Set(
+      backupChannels
+        .filter((entry) => skippedBackupUserIds.has(entry.userId))
+        .map((entry) => entry.id)
+        .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+    );
+    const importableChannels = backupChannels.filter((entry) => !skippedBackupUserIds.has(entry.userId));
+
     // Cloudflare D1 does not support interactive transactions (`$transaction(async tx => ...)`).
     // Run each dependency layer as a batch transaction instead.
     await prisma.$transaction([
@@ -147,20 +195,30 @@ export async function POST(req: NextRequest) {
     ];
 
     if (includeUsers) {
-      secondPhaseDeletes.splice(2, 0, prisma.user.deleteMany({}));
+      secondPhaseDeletes.splice(
+        2,
+        0,
+        protectedUserIdSet.size > 0
+          ? prisma.user.deleteMany({
+              where: {
+                id: { notIn: Array.from(protectedUserIdSet) },
+              },
+            })
+          : prisma.user.deleteMany({})
+      );
     }
 
     await prisma.$transaction(secondPhaseDeletes);
 
     const phaseOneWrites: Prisma.PrismaPromise<unknown>[] = [];
-    if (includeUsers && Array.isArray(data.users) && data.users.length > 0) {
-      phaseOneWrites.push(prisma.user.createMany({ data: data.users as Prisma.UserCreateManyInput[] }));
+    if (includeUsers && importableUsers.length > 0) {
+      phaseOneWrites.push(prisma.user.createMany({ data: importableUsers }));
     }
     if (data.categories.length > 0) {
       phaseOneWrites.push(prisma.category.createMany({ data: data.categories as Prisma.CategoryCreateManyInput[] }));
     }
-    if (includeUsers && Array.isArray(data.channels) && data.channels.length > 0) {
-      phaseOneWrites.push(prisma.channel.createMany({ data: data.channels as Prisma.ChannelCreateManyInput[] }));
+    if (includeUsers && importableChannels.length > 0) {
+      phaseOneWrites.push(prisma.channel.createMany({ data: importableChannels }));
     }
     if (phaseOneWrites.length > 0) {
       await prisma.$transaction(phaseOneWrites);
@@ -169,7 +227,10 @@ export async function POST(req: NextRequest) {
     const phaseTwoWrites: Prisma.PrismaPromise<unknown>[] = [];
     if (data.quizzes.length > 0) {
       const quizData = includeUsers
-        ? (data.quizzes as Prisma.QuizCreateManyInput[])
+        ? (data.quizzes as Prisma.QuizCreateManyInput[]).map((quiz) => ({
+            ...quiz,
+            channelId: quiz.channelId && skippedBackupChannelIds.has(quiz.channelId) ? null : quiz.channelId,
+          }))
         : (data.quizzes as Prisma.QuizCreateManyInput[]).map((quiz) => ({
             ...quiz,
             channelId: null,
@@ -207,23 +268,44 @@ export async function POST(req: NextRequest) {
 
     const phaseThreeWrites: Prisma.PrismaPromise<unknown>[] = [];
     if (includeUsers && Array.isArray(data.comments) && data.comments.length > 0) {
-      phaseThreeWrites.push(prisma.comment.createMany({ data: data.comments as Prisma.CommentCreateManyInput[] }));
+      const comments = (data.comments as Prisma.CommentCreateManyInput[]).filter(
+        (entry) => !skippedBackupUserIds.has(entry.userId)
+      );
+      if (comments.length > 0) {
+        phaseThreeWrites.push(prisma.comment.createMany({ data: comments }));
+      }
     }
     if (includeUsers && Array.isArray(data.bookmarks) && data.bookmarks.length > 0) {
-      phaseThreeWrites.push(prisma.bookmark.createMany({ data: data.bookmarks as Prisma.BookmarkCreateManyInput[] }));
+      const bookmarks = (data.bookmarks as Prisma.BookmarkCreateManyInput[]).filter(
+        (entry) => !skippedBackupUserIds.has(entry.userId)
+      );
+      if (bookmarks.length > 0) {
+        phaseThreeWrites.push(prisma.bookmark.createMany({ data: bookmarks }));
+      }
     }
     if (includeUsers && Array.isArray(data.histories) && data.histories.length > 0) {
-      phaseThreeWrites.push(
-        prisma.quizHistory.createMany({ data: data.histories as Prisma.QuizHistoryCreateManyInput[] })
+      const histories = (data.histories as Prisma.QuizHistoryCreateManyInput[]).filter(
+        (entry) => !skippedBackupUserIds.has(entry.userId)
       );
+      if (histories.length > 0) {
+        phaseThreeWrites.push(prisma.quizHistory.createMany({ data: histories }));
+      }
     }
     if (includeUsers && Array.isArray(data.likes) && data.likes.length > 0) {
-      phaseThreeWrites.push(prisma.quizLike.createMany({ data: data.likes as Prisma.QuizLikeCreateManyInput[] }));
+      const likes = (data.likes as Prisma.QuizLikeCreateManyInput[]).filter(
+        (entry) => !skippedBackupUserIds.has(entry.userId)
+      );
+      if (likes.length > 0) {
+        phaseThreeWrites.push(prisma.quizLike.createMany({ data: likes }));
+      }
     }
     if (includeUsers && Array.isArray(data.subscriptions) && data.subscriptions.length > 0) {
-      phaseThreeWrites.push(
-        prisma.subscription.createMany({ data: data.subscriptions as Prisma.SubscriptionCreateManyInput[] })
+      const subscriptions = (data.subscriptions as Prisma.SubscriptionCreateManyInput[]).filter(
+        (entry) => !skippedBackupUserIds.has(entry.userId) && !skippedBackupChannelIds.has(entry.channelId)
       );
+      if (subscriptions.length > 0) {
+        phaseThreeWrites.push(prisma.subscription.createMany({ data: subscriptions }));
+      }
     }
     if (data.settings && data.settings.length > 0) {
       phaseThreeWrites.push(prisma.setting.createMany({ data: data.settings as Prisma.SettingCreateManyInput[] }));
@@ -238,7 +320,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: includeUsers
-        ? 'Restore completed successfully'
+        ? `Restore completed successfully (${protectedUsers.length} protected admin users kept)`
         : 'Restore completed successfully (users were excluded)',
     });
   } catch (error: unknown) {

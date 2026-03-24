@@ -1650,21 +1650,21 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           {mainTab === 'tools' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <a href="http://localhost:5555" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
+                <a href="https://www.prisma.io/studio" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-emerald-100 text-emerald-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">💎</span>
                     <div>
                       <h3 className="text-lg font-black">Prisma Studio</h3>
-                      <p className="text-xs font-bold text-zinc-500">Database Management GUI</p>
+                      <p className="text-xs font-bold text-zinc-500">Database GUI & Docs</p>
                     </div>
                   </div>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
-                    データベース（SQLite）の中身を直接ブラウザで確認・編集できます。
+                    SQLite の中身を確認・編集するときの公式ガイドです。実際に使うときはサーバー上で Prisma Studio を起動するか、SSHトンネル経由で開く運用を想定しています。
                     <br />
-                    <span className="text-[10px] text-zinc-400 italic">※ ローカルで `npx prisma studio` が実行中である必要があります</span>
+                    <span className="text-[10px] text-zinc-400 italic">※ 本番サーバーでは `localhost:5555` の直接リンクは使いにくいため、公式ガイドへの導線に変更しています</span>
                   </p>
                   <div className="flex items-center text-xs font-black text-emerald-600 gap-1">
-                    リンクを開く <span className="text-lg">→</span>
+                    公式ページへ <span className="text-lg">→</span>
                   </div>
                 </a>
 
@@ -1673,11 +1673,11 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <span className="bg-indigo-100 text-indigo-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">🔑</span>
                     <div>
                       <h3 className="text-lg font-black">Clerk Dashboard</h3>
-                      <p className="text-xs font-bold text-zinc-500">User Authentication & Roles</p>
+                      <p className="text-xs font-bold text-zinc-500">User Auth / OAuth / Domains</p>
                     </div>
                   </div>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
-                    ユーザーの管理、認証設定、権限（ADMIN/CHILD）の変更などを行います。
+                    ユーザーの管理、Googleログイン設定、許可ドメイン、Webhook など Clerk 本番運用の設定を行います。
                   </p>
                   <div className="flex items-center text-xs font-black text-indigo-600 gap-1">
                     ダッシュボードへ <span className="text-lg">→</span>
@@ -1717,19 +1717,25 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-orange-100 text-orange-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">☁️</span>
                     <div>
-                      <h3 className="text-lg font-black">Cloudflare Dash</h3>
-                      <p className="text-xs font-bold text-zinc-500">Deploy & Database</p>
+                      <h3 className="text-lg font-black">Xserver / Ubuntu Ops</h3>
+                      <p className="text-xs font-bold text-zinc-500">Server & Deployment</p>
                     </div>
                   </div>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
-                    本番環境のデプロイステータス、D1データベース（SQLite）、環境曲変数などの管理が行えます。
+                    現在の本番構成に合わせて、Xserver VPS・Nginx・PM2・SQLite の運用導線へ更新しています。
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-                    <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-orange-50 dark:bg-orange-900/10 text-[11px] font-black text-orange-700 dark:text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all">
-                      D1 データベース <span>🗄️</span>
+                    <a href="https://www.xserver.ne.jp/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-orange-50 dark:bg-orange-900/10 text-[11px] font-black text-orange-700 dark:text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all">
+                      Xserver 公式サイト <span>🖥️</span>
                     </a>
-                    <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
-                      Pages デプロイ <span>🚀</span>
+                    <a href="https://nginx.org/en/docs/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      Nginx ドキュメント <span>🌐</span>
+                    </a>
+                    <a href="https://pm2.keymetrics.io/docs/usage/quick-start/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      PM2 クイックスタート <span>⚙️</span>
+                    </a>
+                    <a href="https://www.sqlite.org/docs.html" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      SQLite ドキュメント <span>🗄️</span>
                     </a>
                   </div>
                 </div>

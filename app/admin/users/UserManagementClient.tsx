@@ -10,7 +10,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { usePreferredLocale } from '../../hooks/usePreferredLocale';
 
-export default function UserManagementClient({ initialUsers, userStatus }: any) {
+export default function UserManagementClient({ initialUsers, userStatus, currentClerkId }: any) {
   const { locale, setLocale } = usePreferredLocale();
   const [users, setUsers] = useState(initialUsers);
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,6 +51,10 @@ export default function UserManagementClient({ initialUsers, userStatus }: any) 
         <div className="mb-10">
           <h1 className="text-3xl font-black mb-2">ユーザー管理</h1>
           <p className="text-zinc-500 font-bold">アプリを利用しているユーザーの権限やステータスを管理します。</p>
+          <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-xs font-bold text-zinc-500">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-amber-500">Current Clerk ID</span>
+            <code className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-zinc-700">{currentClerkId}</code>
+          </div>
         </div>
 
         <div className="bg-[var(--card)] rounded-3xl border border-[var(--border)] overflow-hidden">
@@ -86,6 +90,7 @@ export default function UserManagementClient({ initialUsers, userStatus }: any) 
                       <div className="flex flex-col">
                         <span className="font-black text-sm">{user.name || 'ゲスト'}</span>
                         <span className="text-[10px] font-bold text-zinc-400">{user.email || user.clerkId}</span>
+                        <span className="mt-1 break-all font-mono text-[9px] text-zinc-500">Clerk ID: {user.clerkId || '未同期'}</span>
                         <span className="text-[8px] text-zinc-300 mt-1 uppercase tracking-tighter">ID: {user.id}</span>
                       </div>
                     </td>
