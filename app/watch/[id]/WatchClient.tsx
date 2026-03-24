@@ -180,10 +180,10 @@ export default function WatchClient({
       />
 
       <div className="pt-20 flex justify-center">
-        <div className="max-w-7xl w-full flex flex-col lg:flex-row gap-8 p-4 sm:p-6">
+        <div className="max-w-7xl w-full flex flex-col lg:flex-row items-start gap-8 p-4 sm:p-6">
 
           {/* 左側: メインプレイヤーエリア */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {!isOnline && (
               <div className="mb-4 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 px-4 py-3">
                 <div className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Offline</div>
@@ -246,7 +246,7 @@ export default function WatchClient({
               )}
             </div>
 
-            <h1 className="text-2xl font-black mb-2 leading-tight truncate" title={t.title}>
+            <h1 className="text-2xl font-extrabold mb-2 leading-tight truncate safari-no-faux-bold" title={t.title}>
               <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="!whitespace-nowrap" />
             </h1>
 
@@ -451,14 +451,14 @@ export default function WatchClient({
           </div>
 
           {/* 右側: 関連動画エリア（レコメンド） */}
-          <div className="lg:w-96 flex-shrink-0">
+          <div className="lg:w-96 flex-shrink-0 self-start">
             <h3 className="font-black mb-6 flex items-center gap-2">
               <span className="w-1.5 h-6 bg-amber-500 rounded-full inline-block" />
               {locale === 'ja' ? '次のおすすめ' : locale === 'en' ? 'Up Next' : '接下来播放'}
             </h3>
             <div className="flex flex-col gap-5">
               {relatedQuizzes?.map((rel) => (
-                <Link href={`/watch/${rel.id}`} key={rel.id} className="flex gap-4 group cursor-pointer">
+                <Link href={`/watch/${rel.id}`} key={rel.id} className="flex items-start gap-4 group cursor-pointer">
                   {(() => {
                     const relTranslation = rel.translations?.[locale] || rel.translations?.ja || null;
                     const relTitle = relTranslation?.title || rel.title;
@@ -466,7 +466,7 @@ export default function WatchClient({
 
                     return (
                       <>
-                        <div className="w-44 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)]">
+                        <div className="w-44 shrink-0 aspect-video bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-hidden relative border border-[var(--border)]">
                           <Image
                             src={relImage}
                             alt={relTitle}

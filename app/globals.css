@@ -32,6 +32,11 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+.safari-no-faux-bold {
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
