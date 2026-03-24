@@ -1,5 +1,4 @@
 import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
@@ -12,10 +11,10 @@ export default async function AnalysisPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   await ensureCategoryLocalizationColumns(prisma as Parameters<typeof ensureCategoryLocalizationColumns>[0]);
-  const { userId: clerkId } = await auth();
+  const { userId: clerkId, redirectToSignIn } = await auth();
 
   if (!clerkId) {
-    redirect('/');
+    return redirectToSignIn({ returnBackUrl: '/analysis' });
   }
 
   const user = await prisma.user.findUnique({
@@ -28,7 +27,7 @@ export default async function AnalysisPage() {
   });
 
   if (!user) {
-    redirect('/');
+    return redirectToSignIn({ returnBackUrl: '/analysis' });
   }
 
   const categories = await prisma.$queryRawUnsafe<Array<{
