@@ -532,9 +532,9 @@ export default function QuizClient({
                       );
                     })()}
                   </div>
-                  <div>
-                    <h3 className="font-bold line-clamp-2 leading-snug group-hover:text-amber-500 transition-colors">
-                      <LatexRenderer text={qt.title} />
+                  <div className="min-w-0">
+                    <h3 className="min-w-0 overflow-hidden font-bold leading-snug group-hover:text-amber-500 transition-colors">
+                      <LatexRenderer text={qt.title} className="line-clamp-2 block max-w-full" />
                     </h3>
                     <div className="text-xs font-bold text-zinc-400 mt-1 uppercase tracking-wider">{translatedCategory}</div>
                   </div>

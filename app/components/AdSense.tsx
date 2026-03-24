@@ -4,7 +4,6 @@
 
 'use client';
 
-import Script from 'next/script';
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { AdPlacement, PublicAdSenseSettings } from '@/lib/adsense';
 
@@ -58,13 +57,6 @@ export default function AdSense({ slot }: AdSenseProps) {
 
   return (
     <div className="adsense-container my-8 flex justify-center w-full" data-slot={slot}>
-      <Script
-        id="adsense-script"
-        async
-        strategy="afterInteractive"
-        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${settings.clientId}`}
-        crossOrigin="anonymous"
-      />
       <ins
         key={adUnitId}
         className="adsbygoogle"

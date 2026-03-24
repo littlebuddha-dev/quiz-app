@@ -84,7 +84,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
   return (
     <span 
       ref={containerRef} 
-      className={`latex-container whitespace-pre-wrap ${className}`}
+      className={`latex-container inline-block max-w-full min-w-0 align-top whitespace-pre-line break-words [overflow-wrap:anywhere] ${className}`}
     />
   );
 }

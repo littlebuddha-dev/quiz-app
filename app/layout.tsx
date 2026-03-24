@@ -1,9 +1,11 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { getSiteUrl } from "@/lib/site-config";
+import { getStoredPublicAdSenseSettings } from "@/lib/adsense-server";
 import ServiceWorkerRegistrar from "./components/ServiceWorkerRegistrar";
 
 const geistSans = Geist({
@@ -60,12 +62,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const adSenseSettings = await getStoredPublicAdSenseSettings();
+  const adSenseScript = adSenseSettings.enabled && adSenseSettings.clientId ? (
+    <Script
+      id="adsense-script"
+      async
+      strategy="afterInteractive"
+      src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseSettings.clientId}`}
+      crossOrigin="anonymous"
+    />
+  ) : null;
 
   if (!clerkPubKey) {
     if (process.env.NODE_ENV === "production" && !process.env.NEXT_PHASE) {
@@ -76,6 +88,7 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
         </body>
@@ -89,6 +102,7 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
         </body>
