@@ -179,7 +179,7 @@ export default function WatchClient({
         hideSearch={true}
       />
 
-      <div className="pt-20 flex justify-center">
+      <div className="pt-[calc(var(--header-height)+1rem)] flex justify-center">
         <div className="max-w-7xl w-full flex flex-col lg:flex-row items-start gap-8 p-4 sm:p-6">
 
           {/* 左側: メインプレイヤーエリア */}

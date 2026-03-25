@@ -95,7 +95,7 @@ export default function RankingClient({
         hideSearch={true} 
       />
 
-      <main className="pt-24 max-w-4xl mx-auto px-4">
+      <main className="pt-[calc(var(--header-height)+2rem)] max-w-4xl mx-auto px-4">
         {/* ヒーローセクション */}
         <section className="text-center mb-12">
           <div className="inline-block p-5 bg-amber-500/10 rounded-3xl mb-4">

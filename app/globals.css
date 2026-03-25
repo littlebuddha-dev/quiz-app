@@ -9,6 +9,13 @@
   --card-foreground: #0f172a;
   --border: #e2e8f0;
   /* Slate 200 */
+  --header-height: 9.5rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --header-height: 4rem;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

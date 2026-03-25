@@ -335,10 +335,10 @@ export default function QuizClient({
       />
 
       {/* メインコンテンツ */}
-      <main className="pt-20 md:pl-72 px-4 sm:px-6 pb-10">
+      <main className="pt-[calc(var(--header-height)+1rem)] md:pl-72 px-4 sm:px-6 pb-10">
         <h1 className="sr-only">Cue - すべての人に学ぶことの楽しさを伝えるクイズプラットフォーム</h1>
         {/* モバイル向けカテゴリー表示（横スクロール） */}
-        <div className="md:hidden flex overflow-x-auto pb-4 gap-2 no-scrollbar -mx-4 px-4 mb-4">
+        <div className="md:hidden pb-4 -mx-4 px-4 mb-4">
           <SidebarContents
             locale={locale}
             categories={sourceCategories}

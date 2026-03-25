@@ -85,7 +85,7 @@ export default function IntegratedQuizBoard() {
         hideSearch={true}
       />
       
-      <div className="pt-24 pb-8 px-8 w-full flex flex-col items-center">
+      <div className="pt-[calc(var(--header-height)+2rem)] pb-8 px-8 w-full flex flex-col items-center">
         <div className="mb-10 flex flex-wrap gap-4 bg-white p-6 rounded-2xl shadow-lg border border-zinc-200 w-full max-w-6xl">
           <select
             value={locale}

@@ -169,7 +169,7 @@ export default function Sidebar({
   onSelectStudyMode
 }: SidebarProps) {
   return (
-    <aside className="w-64 h-screen bg-[var(--card)] border-r border-[var(--border)] fixed left-0 top-16 overflow-y-auto hidden md:block transition-colors">
+    <aside className="w-64 h-screen bg-[var(--card)] border-r border-[var(--border)] fixed left-0 top-[var(--header-height)] overflow-y-auto hidden md:block transition-colors">
       <div className="p-4 flex flex-col gap-1">
         <SidebarContents
           locale={locale}

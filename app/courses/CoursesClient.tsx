@@ -63,7 +63,7 @@ export default function CoursesClient({ currentCourse, roadmap, userStatus }: Co
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Header locale={locale} setLocale={setLocale} userStatus={userStatus} hideSearch />
 
-      <main className="pt-24 max-w-6xl mx-auto px-4 pb-12">
+      <main className="pt-[calc(var(--header-height)+2rem)] max-w-6xl mx-auto px-4 pb-12">
         <section className="mb-8 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
           <div className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500 mb-2">
             {locale === 'ja' ? '学習コース' : locale === 'en' ? 'Course Path' : '学习路径'}
