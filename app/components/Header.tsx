@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { Locale } from '../types';
 
@@ -43,6 +43,10 @@ export default function Header({
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
+  const authSkeleton = (
+    <div className="h-8 w-20 sm:w-24 rounded-full bg-zinc-100/80 border border-[var(--border)]" aria-hidden="true" />
+  );
+
   return (
     <header
       className="fixed top-0 left-0 right-0 bg-[var(--card)]/80 backdrop-blur-md px-4 py-3 sm:h-16 sm:px-6 sm:py-0 border-b border-[var(--border)] z-50 transition-colors"
@@ -79,46 +83,49 @@ export default function Header({
 
             {mounted ? (
               <>
-                <SignedOut>
-                  <SignInButton mode="modal">
-                    <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-full text-xs transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
-                      {t.login}
-                    </button>
-                  </SignInButton>
-                </SignedOut>
-                <SignedIn>
-                  <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 border-2 border-amber-400 shadow-sm" } }}>
-                    <UserButton.MenuItems>
-                      <UserButton.Link
-                        label="別のアカウントでログイン"
-                        labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                        href="/sign-out"
-                      />
-                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
-                        <>
-                          <UserButton.Link
-                            label="管理者ダッシュボード"
-                            labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                            href="/admin"
-                          />
-                          <UserButton.Link
-                            label="ユーザー管理"
-                            labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                            href="/admin/users"
-                          />
-                          <UserButton.Link
-                            label="Google AdSense"
-                            labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                            href="/admin/adsense"
-                          />
-                        </>
-                      )}
-                    </UserButton.MenuItems>
-                  </UserButton>
-                </SignedIn>
+                <ClerkLoading>{authSkeleton}</ClerkLoading>
+                <ClerkLoaded>
+                  <SignedOut>
+                    <SignInButton mode="modal">
+                      <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-full text-xs transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
+                        {t.login}
+                      </button>
+                    </SignInButton>
+                  </SignedOut>
+                  <SignedIn>
+                    <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 border-2 border-amber-400 shadow-sm" } }}>
+                      <UserButton.MenuItems>
+                        <UserButton.Link
+                          label="別のアカウントでログイン"
+                          labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/sign-out"
+                        />
+                        {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                          <>
+                            <UserButton.Link
+                              label="管理者ダッシュボード"
+                              labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                              href="/admin"
+                            />
+                            <UserButton.Link
+                              label="ユーザー管理"
+                              labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                              href="/admin/users"
+                            />
+                            <UserButton.Link
+                              label="Google AdSense"
+                              labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                              href="/admin/adsense"
+                            />
+                          </>
+                        )}
+                      </UserButton.MenuItems>
+                    </UserButton>
+                  </SignedIn>
+                </ClerkLoaded>
               </>
             ) : (
-              <div className="h-8 w-20 rounded-full bg-zinc-100/80 border border-[var(--border)]" aria-hidden="true" />
+              authSkeleton
             )}
           </div>
         </div>
@@ -235,46 +242,49 @@ export default function Header({
 
           {mounted ? (
             <>
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 sm:py-2 px-3 sm:px-6 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
-                    {t.login}
-                  </button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}>
-                  <UserButton.MenuItems>
-                    <UserButton.Link
-                      label="別のアカウントでログイン"
-                      labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                      href="/sign-out"
-                    />
-                    {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
-                      <>
-                        <UserButton.Link
-                          label="管理者ダッシュボード"
-                          labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href="/admin"
-                        />
-                        <UserButton.Link
-                          label="ユーザー管理"
-                          labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href="/admin/users"
-                        />
-                        <UserButton.Link
-                          label="Google AdSense"
-                          labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href="/admin/adsense"
-                        />
-                      </>
-                    )}
-                  </UserButton.MenuItems>
-                </UserButton>
-              </SignedIn>
+              <ClerkLoading>{authSkeleton}</ClerkLoading>
+              <ClerkLoaded>
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 sm:py-2 px-3 sm:px-6 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
+                      {t.login}
+                    </button>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}>
+                    <UserButton.MenuItems>
+                      <UserButton.Link
+                        label="別のアカウントでログイン"
+                        labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                        href="/sign-out"
+                      />
+                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                        <>
+                          <UserButton.Link
+                            label="管理者ダッシュボード"
+                            labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin"
+                          />
+                          <UserButton.Link
+                            label="ユーザー管理"
+                            labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin/users"
+                          />
+                          <UserButton.Link
+                            label="Google AdSense"
+                            labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin/adsense"
+                          />
+                        </>
+                      )}
+                    </UserButton.MenuItems>
+                  </UserButton>
+                </SignedIn>
+              </ClerkLoaded>
             </>
           ) : (
-            <div className="h-8 w-20 sm:w-24 rounded-full bg-zinc-100/80 border border-[var(--border)]" aria-hidden="true" />
+            authSkeleton
           )}
         </div>
       </div>
