@@ -47,6 +47,7 @@ export default async function Home({
   let userTargetAge: number | null = null;
   let userStatus: { xp: number; level: number; role: string } | undefined = undefined;
   let userHistoryEntries: Array<{ quizId: string; isCorrect: boolean; createdAt: Date }> = [];
+  let effectiveAge: number | null = null;
 
   if (clerkId) {
     const user = await prisma.user.findUnique({
@@ -68,24 +69,19 @@ export default async function Home({
         createdAt: h.createdAt,
       }));
       userTargetAge = user.targetAge;
-      const u = user as any;
-      userStatus = { xp: u.xp, level: u.level, role: u.role }; // Assign userStatus here
-    }
-  }
+      userStatus = { xp: user.xp, level: user.level, role: user.role };
 
-  // ユーザーの年齢を特定
-  let effectiveAge: number | null = userTargetAge;
-  if (clerkId) {
-    const user = await prisma.user.findUnique({ where: { clerkId } });
-    if (user?.birthDate) {
-      const today = new Date();
-      const birth = new Date(user.birthDate);
-      effectiveAge = today.getFullYear() - birth.getFullYear();
-      if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
-        effectiveAge--;
+      // 年齢の計算
+      if (user.birthDate) {
+        const today = new Date();
+        const birth = new Date(user.birthDate);
+        effectiveAge = today.getFullYear() - birth.getFullYear();
+        if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+          effectiveAge--;
+        }
+      } else if (user.targetAge) {
+        effectiveAge = user.targetAge;
       }
-    } else if (user?.targetAge) {
-      effectiveAge = user.targetAge;
     }
   }
 
