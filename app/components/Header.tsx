@@ -101,23 +101,25 @@ export default function Header({
                           href="/sign-out"
                         />
                         {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
-                          <>
-                            <UserButton.Link
-                              label="管理者ダッシュボード"
-                              labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                              href="/admin"
-                            />
-                            <UserButton.Link
-                              label="ユーザー管理"
-                              labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                              href="/admin/users"
-                            />
-                            <UserButton.Link
-                              label="Google AdSense"
-                              labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                              href="/admin/adsense"
-                            />
-                          </>
+                          <UserButton.Link
+                            label="管理者ダッシュボード"
+                            labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin"
+                          />
+                        )}
+                        {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                          <UserButton.Link
+                            label="ユーザー管理"
+                            labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin/users"
+                          />
+                        )}
+                        {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                          <UserButton.Link
+                            label="Google AdSense"
+                            labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin/adsense"
+                          />
                         )}
                       </UserButton.MenuItems>
                     </UserButton>
@@ -260,23 +262,25 @@ export default function Header({
                         href="/sign-out"
                       />
                       {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
-                        <>
-                          <UserButton.Link
-                            label="管理者ダッシュボード"
-                            labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                            href="/admin"
-                          />
-                          <UserButton.Link
-                            label="ユーザー管理"
-                            labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                            href="/admin/users"
-                          />
-                          <UserButton.Link
-                            label="Google AdSense"
-                            labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                            href="/admin/adsense"
-                          />
-                        </>
+                        <UserButton.Link
+                          label="管理者ダッシュボード"
+                          labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/admin"
+                        />
+                      )}
+                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                        <UserButton.Link
+                          label="ユーザー管理"
+                          labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/admin/users"
+                        />
+                      )}
+                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                        <UserButton.Link
+                          label="Google AdSense"
+                          labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/admin/adsense"
+                        />
                       )}
                     </UserButton.MenuItems>
                   </UserButton>
