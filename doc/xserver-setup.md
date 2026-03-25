@@ -179,3 +179,26 @@ curl -I http://127.0.0.1:3000
 - ログイン後に `User` テーブルへ対象ユーザーが作成される
 - `ADMIN_EMAILS` に含まれるユーザーが `ADMIN` になる
 - `/admin` にアクセスでき、管理APIが 403 にならない
+
+## 13. 運用自動化
+
+サーバーで毎回同じ手順を再現できるよう、以下のスクリプトを用意しています。
+
+```bash
+cd /var/www/quiz-app
+
+# デプロイ
+npm run ops:deploy
+
+# バックアップ作成
+npm run ops:backup
+
+# バックアップから復元
+npm run ops:restore -- ./backups/quiz-app-backup-YYYYMMDD-HHMMSS.tar.gz
+```
+
+補足:
+
+- `ops:deploy` は、サーバーに未コミット変更があれば自動で `git stash` してから `main` を取得し、必要なら `npm install`、その後 `build` と `pm2 restart quiz-app --update-env` を実行します。
+- `ops:backup` は、SQLite DB、`.env`、`ecosystem.config.js`、`package.json`、Gitリビジョン情報を `backups/` にまとめて保存します。
+- `ops:restore` は、復元前に現在の状態を自動バックアップしてから DB と `.env` を戻し、再ビルドして PM2 を再起動します。

@@ -137,8 +137,11 @@ export default async function RootLayout({
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
       signInFallbackRedirectUrl="/"
       signUpFallbackRedirectUrl="/onboarding"
+      afterSignOutUrl="/"
     >
       <html lang="ja" suppressHydrationWarning>
         <body

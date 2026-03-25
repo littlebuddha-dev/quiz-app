@@ -7,6 +7,8 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 // ログインしていなくてもアクセス可能なパブリックなルートを定義
 const isPublicRoute = createRouteMatcher([
   '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
   '/admin(.*)',
   '/api/admin(.*)',
   '/game(.*)',
