@@ -88,25 +88,32 @@ export default function Header({
                 </SignedOut>
                 <SignedIn>
                   <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 border-2 border-amber-400 shadow-sm" } }}>
-                    {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
-                      <UserButton.MenuItems>
-                        <UserButton.Link
-                          label="管理者ダッシュボード"
-                          labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href="/admin"
-                        />
-                        <UserButton.Link
-                          label="ユーザー管理"
-                          labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href="/admin/users"
-                        />
-                        <UserButton.Link
-                          label="Google AdSense"
-                          labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href="/admin/adsense"
-                        />
-                      </UserButton.MenuItems>
-                    )}
+                    <UserButton.MenuItems>
+                      <UserButton.Link
+                        label="別のアカウントでログイン"
+                        labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                        href="/sign-out"
+                      />
+                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                        <>
+                          <UserButton.Link
+                            label="管理者ダッシュボード"
+                            labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin"
+                          />
+                          <UserButton.Link
+                            label="ユーザー管理"
+                            labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin/users"
+                          />
+                          <UserButton.Link
+                            label="Google AdSense"
+                            labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href="/admin/adsense"
+                          />
+                        </>
+                      )}
+                    </UserButton.MenuItems>
                   </UserButton>
                 </SignedIn>
               </>
@@ -237,25 +244,32 @@ export default function Header({
               </SignedOut>
               <SignedIn>
                 <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}>
-                  {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
-                    <UserButton.MenuItems>
-                      <UserButton.Link
-                        label="管理者ダッシュボード"
-                        labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                        href="/admin"
-                      />
-                      <UserButton.Link
-                        label="ユーザー管理"
-                        labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                        href="/admin/users"
-                      />
-                      <UserButton.Link
-                        label="Google AdSense"
-                        labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                        href="/admin/adsense"
-                      />
-                    </UserButton.MenuItems>
-                  )}
+                  <UserButton.MenuItems>
+                    <UserButton.Link
+                      label="別のアカウントでログイン"
+                      labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                      href="/sign-out"
+                    />
+                    {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                      <>
+                        <UserButton.Link
+                          label="管理者ダッシュボード"
+                          labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/admin"
+                        />
+                        <UserButton.Link
+                          label="ユーザー管理"
+                          labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/admin/users"
+                        />
+                        <UserButton.Link
+                          label="Google AdSense"
+                          labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/admin/adsense"
+                        />
+                      </>
+                    )}
+                  </UserButton.MenuItems>
                 </UserButton>
               </SignedIn>
             </>
