@@ -67,7 +67,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const gaMeasurementId = "G-EQKMQ4QJ7G";
+  const gtmContainerId = "GTM-PM7XG62T";
   const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const adSenseSettings = await getStoredPublicAdSenseSettings();
   const adSenseScript = adSenseSettings.enabled && adSenseSettings.clientId ? (
@@ -79,29 +79,32 @@ export default async function RootLayout({
       crossOrigin="anonymous"
     />
   ) : null;
-  const analyticsScripts = (
+  const tagManagerScripts = (
     <>
       <Script
-        id="google-analytics-script"
-        async
-        strategy="afterInteractive"
-        src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
-      />
-      <Script id="google-analytics-init" strategy="afterInteractive">
+        id="google-tag-manager"
+        strategy="beforeInteractive"
+      >
         {`
           window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          window.gtag = gtag;
-          gtag('js', new Date());
-          gtag('consent', 'default', {
+          window.dataLayer.push({
+            'gtm.start': new Date().getTime(),
+            event: 'gtm.js'
+          });
+          window.gtag = function(){window.dataLayer.push(arguments);};
+          window.gtag('consent', 'default', {
             ad_storage: 'granted',
             analytics_storage: 'granted',
             ad_user_data: 'granted',
             ad_personalization: 'granted'
           });
-          gtag('config', '${gaMeasurementId}');
         `}
       </Script>
+      <Script
+        id="google-tag-manager-src"
+        strategy="beforeInteractive"
+        src={`https://www.googletagmanager.com/gtm.js?id=${gtmContainerId}`}
+      />
     </>
   );
 
@@ -114,7 +117,15 @@ export default async function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          {analyticsScripts}
+          {tagManagerScripts}
+          <noscript>
+            <iframe
+              src={`https://www.googletagmanager.com/ns.html?id=${gtmContainerId}`}
+              height="0"
+              width="0"
+              style={{ display: "none", visibility: "hidden" }}
+            />
+          </noscript>
           {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
@@ -129,7 +140,15 @@ export default async function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          {analyticsScripts}
+          {tagManagerScripts}
+          <noscript>
+            <iframe
+              src={`https://www.googletagmanager.com/ns.html?id=${gtmContainerId}`}
+              height="0"
+              width="0"
+              style={{ display: "none", visibility: "hidden" }}
+            />
+          </noscript>
           {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
