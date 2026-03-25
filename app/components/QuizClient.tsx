@@ -486,7 +486,7 @@ export default function QuizClient({
                 <Link 
                   href={`/watch/${quiz.id}`}
                   key={quiz.id} 
-                  className="group cursor-pointer flex flex-col gap-3"
+                  className="group min-w-0 cursor-pointer flex flex-col gap-3"
                 >
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                     {cardImage ? (
@@ -533,8 +533,8 @@ export default function QuizClient({
                     })()}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="min-w-0 overflow-hidden font-bold leading-snug group-hover:text-amber-500 transition-colors">
-                      <LatexRenderer text={qt.title} className="line-clamp-2 block max-w-full" />
+                    <h3 className="min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere] font-bold leading-snug group-hover:text-amber-500 transition-colors">
+                      <LatexRenderer text={qt.title} className="block w-full max-w-full break-words [overflow-wrap:anywhere] sm:line-clamp-2" />
                     </h3>
                     <div className="text-xs font-bold text-zinc-400 mt-1 uppercase tracking-wider">{translatedCategory}</div>
                   </div>
