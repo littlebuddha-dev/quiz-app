@@ -6,6 +6,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
+import {
+  ensureLocalUser,
+  getPrimaryEmailFromClerkUser,
+} from '@/lib/clerk-sync';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,23 +33,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Birth date is required' }, { status: 400 });
     }
 
-    const email = user.emailAddresses[0]?.emailAddress || '';
+    const localUser = await ensureLocalUser(clerkId, prisma);
+    const email = getPrimaryEmailFromClerkUser(user);
 
     // ユーザー情報を保存（upsertを使用して新規・既存両方に対応）
     const updatedUser = await prisma.user.upsert({
       where: { clerkId },
       update: {
+        email: email || localUser.email,
         name,
         birthDate: new Date(birthDate),
         preferredCategories,
       },
       create: {
         clerkId,
-        email,
+        email: email || localUser.email,
         name,
         birthDate: new Date(birthDate),
         preferredCategories,
-        role: 'CHILD', // デフォルト
+        role: localUser.role,
       },
     });
 

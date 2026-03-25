@@ -6,6 +6,7 @@
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz, StudyRecommendations, WeakCategoryInsight } from './types';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
@@ -83,6 +84,8 @@ export default async function Home({
         effectiveAge = user.targetAge;
       }
     }
+    // Note: Removed aggressive redirect to /onboarding to prevent potential loops.
+    // Users not in DB will see the guest view or can click onboarding manually if needed.
   }
 
   // カテゴリーを取得

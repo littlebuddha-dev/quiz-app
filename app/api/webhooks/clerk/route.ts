@@ -9,6 +9,7 @@ import { WebhookEvent } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { extractRoleFromMetadata, resolveUserRole } from '@/lib/authz';
+import { getPrimaryEmailFromWebhookUser } from '@/lib/clerk-sync';
 
 export async function POST(req: NextRequest) {
   const { env } = getCloudflareContext();
@@ -68,13 +69,20 @@ export async function POST(req: NextRequest) {
       private_metadata,
       unsafe_metadata,
     } = evt.data;
-    const primaryEmail = email_addresses?.[0]?.email_address;
+    const primaryEmail = getPrimaryEmailFromWebhookUser({
+      primary_email_address_id: evt.data.primary_email_address_id,
+      email_addresses,
+    });
 
     if (primaryEmail && clerkId) {
       const name = [first_name, last_name].filter(Boolean).join(' ') || undefined;
-      const existingUser = await prisma.user.findUnique({
+      const existingByClerkId = await prisma.user.findUnique({
         where: { clerkId },
         select: { role: true },
+      });
+      const existingByEmail = await prisma.user.findUnique({
+        where: { email: primaryEmail },
+        select: { id: true, clerkId: true, role: true },
       });
       const metadataRole = extractRoleFromMetadata(
         (public_metadata as Record<string, unknown> | undefined)?.role,
@@ -83,24 +91,36 @@ export async function POST(req: NextRequest) {
       );
       const role = resolveUserRole({
         email: primaryEmail,
-        existingRole: existingUser?.role,
+        existingRole: existingByClerkId?.role || existingByEmail?.role,
         metadataRole,
       });
 
-      await prisma.user.upsert({
-        where: { clerkId },
-        update: {
-          email: primaryEmail,
-          name,
-          role,
-        },
-        create: {
-          clerkId,
-          email: primaryEmail,
-          name,
-          role,
-        },
-      });
+      if (existingByEmail && existingByEmail.clerkId !== clerkId) {
+        await prisma.user.update({
+          where: { id: existingByEmail.id },
+          data: {
+            clerkId,
+            email: primaryEmail,
+            name,
+            role,
+          },
+        });
+      } else {
+        await prisma.user.upsert({
+          where: { clerkId },
+          update: {
+            email: primaryEmail,
+            name,
+            role,
+          },
+          create: {
+            clerkId,
+            email: primaryEmail,
+            name,
+            role,
+          },
+        });
+      }
       console.log(`Synced user ${clerkId} to Prisma`);
     }
   } else if (eventType === 'user.deleted') {

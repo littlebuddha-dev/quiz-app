@@ -1,6 +1,25 @@
 import { SignIn } from '@clerk/nextjs';
 
-export default function SignInPage() {
+function resolveRedirectUrl(raw?: string) {
+  if (!raw || !raw.startsWith('/')) {
+    return '/';
+  }
+
+  if (raw.startsWith('//')) {
+    return '/';
+  }
+
+  return raw;
+}
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect_url?: string }>;
+}) {
+  const { redirect_url: redirectUrlParam } = await searchParams;
+  const redirectUrl = resolveRedirectUrl(redirectUrlParam);
+
   return (
     <main className="min-h-screen bg-[var(--background)] px-4 py-10 sm:px-6">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl items-center justify-center">
@@ -32,7 +51,7 @@ export default function SignInPage() {
               routing="path"
               path="/sign-in"
               signUpUrl="/sign-up"
-              fallbackRedirectUrl="/"
+              fallbackRedirectUrl={redirectUrl}
               forceRedirectUrl={undefined}
             />
           </section>

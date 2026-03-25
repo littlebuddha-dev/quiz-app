@@ -4,6 +4,7 @@ import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import AnalysisClient from './AnalysisClient';
 import { buildAbilityDomainScores, countActiveDays } from '@/lib/learning';
+import { ensureLocalUser } from '@/lib/clerk-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,9 @@ export default async function AnalysisPage() {
     return redirectToSignIn({ returnBackUrl: '/analysis' });
   }
 
+  const localUser = await ensureLocalUser(clerkId, prisma);
   const user = await prisma.user.findUnique({
-    where: { clerkId },
+    where: { id: localUser.id },
     include: {
       histories: {
         orderBy: { createdAt: 'desc' },
@@ -27,7 +29,7 @@ export default async function AnalysisPage() {
   });
 
   if (!user) {
-    return redirectToSignIn({ returnBackUrl: '/analysis' });
+    throw new Error(`Local user ${localUser.id} disappeared during analysis load`);
   }
 
   const categories = await prisma.$queryRawUnsafe<Array<{

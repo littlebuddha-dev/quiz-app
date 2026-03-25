@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Locale } from '../types';
 
 const DICTIONARY: Record<Locale, { search: string; ranking: string; courses: string; analysis: string; login: string; }> = {
@@ -34,6 +35,10 @@ export default function Header({
 }: HeaderProps) {
   const t = DICTIONARY[locale];
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const multiSessionEnabled =
+    process.env.NEXT_PUBLIC_CLERK_MULTI_SESSION_ENABLED === 'true';
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -46,6 +51,14 @@ export default function Header({
   const authSkeleton = (
     <div className="h-8 w-20 sm:w-24 rounded-full bg-zinc-100/80 border border-[var(--border)]" aria-hidden="true" />
   );
+  const currentLocation = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
+  const addAccountHref = `/sign-in?redirect_url=${encodeURIComponent(currentLocation)}`;
+  const userButtonProps = multiSessionEnabled
+    ? {
+        signInUrl: addAccountHref,
+        afterSwitchSessionUrl: currentLocation,
+      }
+    : {};
 
   return (
     <header
@@ -93,13 +106,24 @@ export default function Header({
                     </SignInButton>
                   </SignedOut>
                   <SignedIn>
-                    <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 border-2 border-amber-400 shadow-sm" } }}>
+                    <UserButton
+                      {...userButtonProps}
+                      appearance={{ elements: { avatarBox: "w-8 h-8 border-2 border-amber-400 shadow-sm" } }}
+                    >
                       <UserButton.MenuItems>
+                        {multiSessionEnabled && (
+                          <UserButton.Link
+                            label="他のアカウントを追加"
+                            labelIcon={<img src="/icons/plus.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                            href={addAccountHref}
+                          />
+                        )}
                         <UserButton.Link
-                          label="別のアカウントでログイン"
-                          labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href="/sign-out"
+                          label="プロフィール設定"
+                          labelIcon={<img src="/icons/course.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href="/onboarding"
                         />
+                        {/* 管理者用メニューを別枠（後続）に配置 */}
                         {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
                           <UserButton.Link
                             label="管理者ダッシュボード"
@@ -254,13 +278,24 @@ export default function Header({
                   </SignInButton>
                 </SignedOut>
                 <SignedIn>
-                  <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}>
+                  <UserButton
+                    {...userButtonProps}
+                    appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}
+                  >
                     <UserButton.MenuItems>
+                      {multiSessionEnabled && (
+                        <UserButton.Link
+                          label="他のGoogleアカウントを追加"
+                          labelIcon={<img src="/icons/plus.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          href={addAccountHref}
+                        />
+                      )}
                       <UserButton.Link
-                        label="別のアカウントでログイン"
-                        labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                        href="/sign-out"
+                        label="プロフィール設定"
+                        labelIcon={<img src="/icons/course.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                        href="/onboarding"
                       />
+                      {/* 管理者専用メニューを後半に集約 */}
                       {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
                         <UserButton.Link
                           label="管理者ダッシュボード"

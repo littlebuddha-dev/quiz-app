@@ -1,4 +1,5 @@
 import { ClerkProvider } from "@clerk/nextjs";
+import { jaJP } from "@clerk/localizations";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
@@ -7,6 +8,7 @@ import "katex/dist/katex.min.css";
 import { getSiteUrl } from "@/lib/site-config";
 import { getStoredPublicAdSenseSettings } from "@/lib/adsense-server";
 import ServiceWorkerRegistrar from "./components/ServiceWorkerRegistrar";
+import MultisessionAppSupport from "./components/MultisessionAppSupport";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,6 +71,8 @@ export default async function RootLayout({
 }>) {
   const gtmContainerId = "GTM-PM7XG62T";
   const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const multiSessionEnabled =
+    process.env.NEXT_PUBLIC_CLERK_MULTI_SESSION_ENABLED === "true";
   const adSenseSettings = await getStoredPublicAdSenseSettings();
   const adSenseScript = adSenseSettings.enabled && adSenseSettings.clientId ? (
     <Script
@@ -137,6 +141,7 @@ export default async function RootLayout({
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
+      localization={jaJP}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
       signInFallbackRedirectUrl="/"
@@ -158,7 +163,11 @@ export default async function RootLayout({
           </noscript>
           {adSenseScript}
           <ServiceWorkerRegistrar />
-          {children}
+          {multiSessionEnabled ? (
+            <MultisessionAppSupport>{children}</MultisessionAppSupport>
+          ) : (
+            children
+          )}
         </body>
       </html>
     </ClerkProvider>

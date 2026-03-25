@@ -9,6 +9,7 @@ import { getCloudflareContext } from '@/lib/cloudflare';
 import { redirect } from 'next/navigation';
 import OnboardingClient from './OnboardingClient';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+import { getPrimaryEmailFromClerkUser } from '@/lib/clerk-sync';
 
 type CategoryRow = {
   id: string;
@@ -52,7 +53,7 @@ export default async function OnboardingPage() {
 
   const initialData = {
     name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '',
-    email: user.emailAddresses[0]?.emailAddress || '',
+    email: getPrimaryEmailFromClerkUser(user),
   };
 
   return (

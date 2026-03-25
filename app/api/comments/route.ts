@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
+import { ensureLocalUser } from '@/lib/clerk-sync';
 
 export async function GET(request: NextRequest) {
   try {
@@ -61,14 +62,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Clerk IDからDBの内部ユーザーIDを取得
-    const user = await prisma.user.findUnique({
-      where: { clerkId },
-      select: { id: true, name: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found in local DB' }, { status: 404 });
-    }
+    const user = await ensureLocalUser(clerkId, prisma);
 
     // コメントを作成
     const newComment = await prisma.comment.create({

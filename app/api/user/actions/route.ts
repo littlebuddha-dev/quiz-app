@@ -4,48 +4,10 @@
 // Purpose: Handles bookmarking, liking, and history saving for logged-in users.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
-import { PrismaClient } from '@prisma/client/edge';
-import { extractRoleFromMetadata, resolveUserRole } from '@/lib/authz';
-
-// APIコール時にClerkにユーザーが存在するがDBにいない場合の救済処理
-// （Webhookが遅延・失敗した時用）
-async function ensureUser(clerkId: string, prisma: PrismaClient) {
-  let user = await prisma.user.findUnique({ where: { clerkId } });
-  
-  if (!user) {
-    try {
-      const client = await clerkClient();
-      const clerkUser = await client.users.getUser(clerkId);
-      const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-      const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || undefined;
-      const role = resolveUserRole({
-        email,
-        metadataRole: extractRoleFromMetadata(
-          (clerkUser.publicMetadata as Record<string, unknown> | undefined)?.role,
-          (clerkUser.privateMetadata as Record<string, unknown> | undefined)?.role,
-          (clerkUser.unsafeMetadata as Record<string, unknown> | undefined)?.role
-        ),
-      });
-
-      user = await prisma.user.create({
-        data: {
-          clerkId,
-          email,
-          name,
-          role,
-        },
-      });
-    } catch (error) {
-      console.error('Error fetching user from Clerk:', error);
-      throw new Error('Could not create user in local DB');
-    }
-  }
-  
-  return user;
-}
+import { ensureLocalUser } from '@/lib/clerk-sync';
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // DBに同期されているか確認しつつUserを取得
-    const user = await ensureUser(clerkId, prisma);
+    const user = await ensureLocalUser(clerkId, prisma);
 
     switch (action) {
       case 'history':

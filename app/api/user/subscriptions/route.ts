@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
+import { ensureLocalUser } from '@/lib/clerk-sync';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,14 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'channelId is required' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId },
-      select: { id: true }
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    const user = await ensureLocalUser(clerkId, prisma);
 
     const existingSub = await prisma.subscription.findUnique({
       where: {
