@@ -67,6 +67,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const gaMeasurementId = "G-EQKMQ4QJ7G";
   const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const adSenseSettings = await getStoredPublicAdSenseSettings();
   const adSenseScript = adSenseSettings.enabled && adSenseSettings.clientId ? (
@@ -88,6 +89,21 @@ export default async function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          <Script
+            id="google-analytics-script"
+            async
+            strategy="afterInteractive"
+            src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+          />
+          <Script id="google-analytics-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              window.gtag = gtag;
+              gtag('js', new Date());
+              gtag('config', '${gaMeasurementId}');
+            `}
+          </Script>
           {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
@@ -102,6 +118,21 @@ export default async function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
+          <Script
+            id="google-analytics-script"
+            async
+            strategy="afterInteractive"
+            src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+          />
+          <Script id="google-analytics-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              window.gtag = gtag;
+              gtag('js', new Date());
+              gtag('config', '${gaMeasurementId}');
+            `}
+          </Script>
           {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
