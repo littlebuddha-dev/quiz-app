@@ -79,6 +79,31 @@ export default async function RootLayout({
       crossOrigin="anonymous"
     />
   ) : null;
+  const analyticsScripts = (
+    <>
+      <Script
+        id="google-analytics-script"
+        async
+        strategy="afterInteractive"
+        src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+      />
+      <Script id="google-analytics-init" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          window.gtag = gtag;
+          gtag('js', new Date());
+          gtag('consent', 'default', {
+            ad_storage: 'granted',
+            analytics_storage: 'granted',
+            ad_user_data: 'granted',
+            ad_personalization: 'granted'
+          });
+          gtag('config', '${gaMeasurementId}');
+        `}
+      </Script>
+    </>
+  );
 
   if (!clerkPubKey) {
     if (process.env.NODE_ENV === "production" && !process.env.NEXT_PHASE) {
@@ -89,21 +114,7 @@ export default async function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          <Script
-            id="google-analytics-script"
-            async
-            strategy="afterInteractive"
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
-          />
-          <Script id="google-analytics-init" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              window.gtag = gtag;
-              gtag('js', new Date());
-              gtag('config', '${gaMeasurementId}');
-            `}
-          </Script>
+          {analyticsScripts}
           {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
@@ -118,21 +129,7 @@ export default async function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          <Script
-            id="google-analytics-script"
-            async
-            strategy="afterInteractive"
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
-          />
-          <Script id="google-analytics-init" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              window.gtag = gtag;
-              gtag('js', new Date());
-              gtag('config', '${gaMeasurementId}');
-            `}
-          </Script>
+          {analyticsScripts}
           {adSenseScript}
           <ServiceWorkerRegistrar />
           {children}
