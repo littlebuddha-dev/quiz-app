@@ -112,30 +112,36 @@ export default async function RootLayout({
     </>
   );
 
+  const innerContent = (
+    <html lang="ja" suppressHydrationWarning>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {tagManagerScripts}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${gtmContainerId}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
+        {adSenseScript}
+        <ServiceWorkerRegistrar />
+        {clerkPubKey && multiSessionEnabled ? (
+          <MultisessionAppSupport>{children}</MultisessionAppSupport>
+        ) : (
+          children
+        )}
+      </body>
+    </html>
+  );
+
   if (!clerkPubKey) {
     if (process.env.NODE_ENV === "production" && !process.env.NEXT_PHASE) {
       console.warn("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set.");
     }
-    return (
-      <html lang="ja" suppressHydrationWarning>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
-          {tagManagerScripts}
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${gtmContainerId}`}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-            />
-          </noscript>
-          {adSenseScript}
-          <ServiceWorkerRegistrar />
-          {children}
-        </body>
-      </html>
-    );
+    return innerContent;
   }
 
   return (
@@ -147,29 +153,9 @@ export default async function RootLayout({
       signInFallbackRedirectUrl="/"
       signUpFallbackRedirectUrl="/onboarding"
       afterSignOutUrl="/"
+      dynamic={true}
     >
-      <html lang="ja" suppressHydrationWarning>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
-          {tagManagerScripts}
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${gtmContainerId}`}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-            />
-          </noscript>
-          {adSenseScript}
-          <ServiceWorkerRegistrar />
-          {multiSessionEnabled ? (
-            <MultisessionAppSupport>{children}</MultisessionAppSupport>
-          ) : (
-            children
-          )}
-        </body>
-      </html>
+      {innerContent}
     </ClerkProvider>
   );
 }
