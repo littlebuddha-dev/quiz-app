@@ -5,9 +5,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut, SignInButton, UserButton, useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Locale } from '../types';
 
 const DICTIONARY: Record<Locale, { search: string; ranking: string; courses: string; analysis: string; login: string; }> = {
@@ -40,13 +40,20 @@ export default function Header({
   const multiSessionEnabled =
     process.env.NEXT_PUBLIC_CLERK_MULTI_SESSION_ENABLED === 'true';
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setMounted(true);
-    });
+  const { userId } = useAuth();
+  const router = useRouter();
 
-    return () => window.cancelAnimationFrame(frame);
+  useEffect(() => {
+    setMounted(true);
   }, []);
+
+  // ログイン・ログアウト時にサーバーコンポーネントのデータを再取得して
+  // userStatus などのプロップを最新にする
+  useEffect(() => {
+    if (mounted) {
+      router.refresh();
+    }
+  }, [userId, mounted, router]);
 
   const authSkeleton = (
     <div className="h-8 w-20 sm:w-24 rounded-full bg-zinc-100/80 border border-[var(--border)]" aria-hidden="true" />

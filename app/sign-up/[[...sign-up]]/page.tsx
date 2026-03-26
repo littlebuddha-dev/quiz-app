@@ -42,6 +42,20 @@ export default async function SignUpPage() {
               fallbackRedirectUrl="/onboarding"
               forceRedirectUrl={undefined}
             />
+            
+            {/* パスワード設定のヒント */}
+            <div className="mt-6 p-4 rounded-3xl bg-amber-50/50 border border-amber-100/50 text-amber-900/80">
+              <div className="flex items-center gap-2 mb-2 text-sm font-black text-amber-600">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
+                </svg>
+                パスワード設定のヒント
+              </div>
+              <p className="text-xs font-bold leading-relaxed opacity-80">
+                一般的な単語や単純な英数字のみの組み合わせは、セキュリティ保護（情報漏洩対策）のため拒否される場合があります。
+                <span className="text-amber-600"> 記号（! @ # $ % など）を混ぜる</span>と、より安全で承認されやすくなります。
+              </p>
+            </div>
           </section>
         </div>
       </div>
