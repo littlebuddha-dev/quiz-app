@@ -385,7 +385,7 @@ export default function QuizClient({
                   </div>
                   <h2 className="text-lg sm:text-2xl font-semibold safari-no-faux-bold">{studyText.panelTitle}</h2>
                   {!isStudyDashboardOpen && (
-                    <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-500 line-clamp-1">{studyText.panelBody}</p>
+                    <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-500 line-clamp-1 break-words [overflow-wrap:anywhere]">{studyText.panelBody}</p>
                   )}
                 </div>
                 <span className="flex-shrink-0 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-zinc-500 safari-no-faux-bold">
@@ -395,7 +395,7 @@ export default function QuizClient({
 
               {isStudyDashboardOpen && (
                 <>
-                  <p className="text-xs sm:text-sm font-semibold text-zinc-500">{studyText.panelBody}</p>
+                  <p className="text-xs sm:text-sm font-semibold text-zinc-500 break-words [overflow-wrap:anywhere]">{studyText.panelBody}</p>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div className="rounded-3xl border border-blue-200/60 bg-blue-50/60 p-4">
                     <div className="text-xs sm:text-sm font-black text-blue-600 mb-2">{studyText.dailyTitle}</div>
@@ -486,7 +486,7 @@ export default function QuizClient({
                 <Link 
                   href={`/watch/${quiz.id}`}
                   key={quiz.id} 
-                  className="group min-w-0 cursor-pointer flex flex-col gap-3 overflow-hidden"
+                  className="group min-w-0 cursor-pointer flex flex-col gap-3 overflow-hidden break-words [overflow-wrap:anywhere]"
                 >
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                     {cardImage ? (

@@ -166,17 +166,17 @@ export default function Header({
 
           <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100 whitespace-nowrap flex-shrink-0">
             <img src="/icons/ranking.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
-            <span className="text-xs font-medium safari-no-faux-bold">{t.ranking}</span>
+            <span className="text-xs font-medium safari-no-faux-bold break-words [overflow-wrap:anywhere]">{t.ranking}</span>
           </Link>
 
           <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100 whitespace-nowrap flex-shrink-0">
             <img src="/icons/course.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
-            <span className="text-xs font-medium safari-no-faux-bold">{t.courses}</span>
+            <span className="text-xs font-medium safari-no-faux-bold break-words [overflow-wrap:anywhere]">{t.courses}</span>
           </Link>
 
           <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100 whitespace-nowrap flex-shrink-0">
             <img src="/icons/analysis.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
-            <span className="text-xs font-medium safari-no-faux-bold">{t.analysis}</span>
+            <span className="text-xs font-medium safari-no-faux-bold break-words [overflow-wrap:anywhere]">{t.analysis}</span>
           </Link>
         </div>
 

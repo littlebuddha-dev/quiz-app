@@ -41,7 +41,7 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-col items-center gap-4">
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium max-w-md text-center leading-relaxed">
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium max-w-md text-center leading-relaxed break-words [overflow-wrap:anywhere]">
             {t.catchphrase}
             <br />
             {t.description}

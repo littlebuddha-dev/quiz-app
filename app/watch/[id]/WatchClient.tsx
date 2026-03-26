@@ -409,7 +409,7 @@ export default function WatchClient({
                       </button>
                     </div>
                   </div>
-                  <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)]">
+                  <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)] break-words [overflow-wrap:anywhere]">
                     <LatexRenderer text={displayedExplanation || explanation} />
                   </div>
                 </div>
@@ -456,7 +456,7 @@ export default function WatchClient({
                         <span className="font-black text-sm">{c.userName}</span>
                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{c.createdAt.split('T')[0]}</span>
                       </div>
-                      <p className="text-sm leading-relaxed text-[var(--foreground)]/80">{c.content}</p>
+                      <p className="text-sm leading-relaxed text-[var(--foreground)]/80 break-words [overflow-wrap:anywhere]">{c.content}</p>
                     </div>
                   </div>
                 ))}
@@ -492,7 +492,7 @@ export default function WatchClient({
                           </div>
                         </div>
                         <div className="flex-1 py-0.5">
-                          <h4 className="font-semibold text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors safari-no-faux-bold">
+                          <h4 className="font-semibold text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors safari-no-faux-bold break-words [overflow-wrap:anywhere]">
                             {relTitle}
                           </h4>
                           <p className="text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-widest">Cue Official</p>
