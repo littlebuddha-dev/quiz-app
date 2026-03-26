@@ -1,8 +1,5 @@
-// Path: proxy.ts
-// Title: Clerk Proxy
-// Purpose: Protects application routes requiring authentication while keeping public pages accessible.
-
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 // ログインしていなくてもアクセス可能なパブリックなルートを定義
 const isPublicRoute = createRouteMatcher([
@@ -28,6 +25,7 @@ const isPublicRoute = createRouteMatcher([
   '/contact(.*)',
   '/privacy(.*)',
   '/terms(.*)',
+  '/about(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
@@ -35,6 +33,24 @@ export default clerkMiddleware(async (auth, request) => {
     // パブリックルート以外はログインを要求する
     await auth.protect();
   }
+
+  // Content Security Policy (CSP) の設定
+  // AdSense や Google Tag Manager は 'unsafe-eval' を必要とする場合があります
+  const cspHeader = `
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:;
+    style-src 'self' 'unsafe-inline' https: http:;
+    img-src 'self' data: https: http: blob:;
+    font-src 'self' data: https: http:;
+    connect-src 'self' https: http:;
+    frame-src 'self' https: http:;
+    worker-src 'self' blob:;
+    upgrade-insecure-requests;
+  `.replace(/\s{2,}/g, ' ').trim();
+
+  const response = NextResponse.next();
+  response.headers.set('Content-Security-Policy', cspHeader);
+  return response;
 }, { clockSkewInMs: 30000 });
 
 export const config = {

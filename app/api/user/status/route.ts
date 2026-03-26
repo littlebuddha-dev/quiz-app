@@ -8,8 +8,6 @@ import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureLocalUser } from '@/lib/clerk-sync';
 
-export const runtime = 'edge';
-
 export async function GET(request: NextRequest) {
   try {
     const { env } = getCloudflareContext();

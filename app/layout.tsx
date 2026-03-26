@@ -75,10 +75,8 @@ export default async function RootLayout({
     process.env.NEXT_PUBLIC_CLERK_MULTI_SESSION_ENABLED === "true";
   const adSenseSettings = await getStoredPublicAdSenseSettings();
   const adSenseScript = adSenseSettings.enabled && adSenseSettings.clientId ? (
-    <Script
-      id="adsense-script"
+    <script
       async
-      strategy="afterInteractive"
       src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseSettings.clientId}`}
       crossOrigin="anonymous"
     />
