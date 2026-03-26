@@ -486,7 +486,7 @@ export default function QuizClient({
                 <Link 
                   href={`/watch/${quiz.id}`}
                   key={quiz.id} 
-                  className="group min-w-0 cursor-pointer flex flex-col gap-3"
+                  className="group min-w-0 cursor-pointer flex flex-col gap-3 overflow-hidden"
                 >
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                     {cardImage ? (
