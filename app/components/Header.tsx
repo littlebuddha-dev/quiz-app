@@ -100,7 +100,7 @@ export default function Header({
                 <ClerkLoaded>
                   <SignedOut>
                     <SignInButton mode="modal">
-                      <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-full text-xs transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
+                      <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-full text-xs transition-all shadow-lg shadow-amber-500/20 md:hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
                         {t.login}
                       </button>
                     </SignInButton>
@@ -272,7 +272,7 @@ export default function Header({
               <ClerkLoaded>
                 <SignedOut>
                   <SignInButton mode="modal">
-                    <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 sm:py-2 px-3 sm:px-6 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
+                    <button type="button" className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 sm:py-2 px-3 sm:px-6 rounded-full text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 md:hover:scale-105 active:scale-95 whitespace-nowrap safari-no-faux-bold">
                       {t.login}
                     </button>
                   </SignInButton>

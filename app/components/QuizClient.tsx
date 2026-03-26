@@ -495,7 +495,7 @@ export default function QuizClient({
                         src={cardImage} 
                         alt={qt.title} 
                         fill 
-                        className="object-cover group-hover:scale-105 transition-transform duration-500" 
+                        className="object-cover md:group-hover:scale-105 transition-transform duration-500" 
                         unoptimized={isDataUri}
                       />
                     ) : (
