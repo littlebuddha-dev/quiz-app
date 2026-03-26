@@ -42,6 +42,33 @@ export default function Header({
 
   const { userId } = useAuth();
   const router = useRouter();
+  const [currentStatus, setCurrentStatus] = useState(userStatus);
+
+  // プロップが更新されたらローカルステートを同期
+  useEffect(() => {
+    if (userStatus) {
+      setCurrentStatus(userStatus);
+    }
+  }, [userStatus]);
+
+  // クライアントサイドでの最新ステータス取得 (同期漏れ対策)
+  useEffect(() => {
+    if (!mounted || !userId) return;
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/user/status');
+        if (res.ok) {
+          const data = (await res.json()) as { xp: number; level: number; role: string };
+          setCurrentStatus(data);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch user status:', err);
+      }
+    };
+
+    fetchStatus();
+  }, [userId, mounted]);
 
   useEffect(() => {
     setMounted(true);
@@ -131,21 +158,21 @@ export default function Header({
                           href="/onboarding"
                         />
                         {/* 管理者用メニューを別枠（後続）に配置 */}
-                        {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                        {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                           <UserButton.Link
                             label="管理者ダッシュボード"
                             labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                             href="/admin"
                           />
                         )}
-                        {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                        {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                           <UserButton.Link
                             label="ユーザー管理"
                             labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                             href="/admin/users"
                           />
                         )}
-                        {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                        {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                           <UserButton.Link
                             label="Google AdSense"
                             labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
@@ -164,10 +191,10 @@ export default function Header({
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
-          {userStatus && (
+          {currentStatus && (
             <div className="flex-shrink-0 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-center min-w-[4.5rem]">
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600">Level</div>
-              <div className="text-sm font-semibold text-amber-500 safari-no-faux-bold">{userStatus.level}</div>
+              <div className="text-sm font-semibold text-amber-500 safari-no-faux-bold">{currentStatus.level}</div>
             </div>
           )}
 
@@ -226,16 +253,16 @@ export default function Header({
         )}
 
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-          {userStatus && (
+          {currentStatus && (
             <div className="hidden lg:flex flex-col items-end gap-1">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Level</span>
-                <span className="text-sm font-semibold text-amber-500 safari-no-faux-bold">{userStatus.level}</span>
+                <span className="text-sm font-semibold text-amber-500 safari-no-faux-bold">{currentStatus.level}</span>
               </div>
               <div className="w-24 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-500"
-                  style={{ width: `${(userStatus.xp / (userStatus.level * 100)) * 100}%` }}
+                  style={{ width: `${(currentStatus.xp / (currentStatus.level * 100)) * 100}%` }}
                 />
               </div>
             </div>
@@ -303,21 +330,21 @@ export default function Header({
                         href="/onboarding"
                       />
                       {/* 管理者専用メニューを後半に集約 */}
-                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                      {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                         <UserButton.Link
                           label="管理者ダッシュボード"
                           labelIcon={<img src="/icons/dashboard.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                           href="/admin"
                         />
                       )}
-                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                      {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                         <UserButton.Link
                           label="ユーザー管理"
                           labelIcon={<img src="/icons/users.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                           href="/admin/users"
                         />
                       )}
-                      {(userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT') && (
+                      {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                         <UserButton.Link
                           label="Google AdSense"
                           labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
