@@ -101,12 +101,15 @@ export default function Header({
     >
       <div className="flex flex-col gap-3 sm:hidden w-full max-w-full overflow-hidden">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
+          <Link 
+            href="/" 
+            className="flex items-center gap-2 flex-shrink-0 transition-transform active:scale-95 md:hover:opacity-80 p-1 -m-1"
+          >
             <div className="h-8 w-24">
               <img
                 src="/logo-header.svg"
                 alt="Cue Logo"
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain pointer-events-none"
               />
             </div>
           </Link>
@@ -229,12 +232,15 @@ export default function Header({
 
       <div className="hidden sm:flex sm:h-full sm:items-center sm:justify-between sm:gap-0">
         <div className="flex items-center gap-4 sm:gap-6 flex-shrink-0">
-          <Link href="/" className="flex items-center gap-2">
+          <Link 
+            href="/" 
+            className="flex items-center gap-2 transition-transform active:scale-95 md:hover:opacity-80 p-1 -m-1"
+          >
             <div className="h-8 w-24 sm:h-9 sm:w-28">
               <img
                 src="/logo-header.svg"
                 alt="Cue Logo"
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain pointer-events-none"
               />
             </div>
           </Link>
