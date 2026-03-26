@@ -156,25 +156,25 @@ export default function Header({
           </div>
         </div>
 
-        <div className={`grid gap-2 ${userStatus ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
           {userStatus && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50 px-2 py-1 text-center">
+            <div className="flex-shrink-0 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-center min-w-[4.5rem]">
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600">Level</div>
               <div className="text-sm font-semibold text-amber-500 safari-no-faux-bold">{userStatus.level}</div>
             </div>
           )}
 
-          <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
+          <Link href="/ranking" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100 whitespace-nowrap flex-shrink-0">
             <img src="/icons/ranking.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
             <span className="text-xs font-medium safari-no-faux-bold">{t.ranking}</span>
           </Link>
 
-          <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
+          <Link href="/courses" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100 whitespace-nowrap flex-shrink-0">
             <img src="/icons/course.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
             <span className="text-xs font-medium safari-no-faux-bold">{t.courses}</span>
           </Link>
 
-          <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100">
+          <Link href="/analysis" className="text-sm font-bold text-zinc-500 hover:text-amber-500 transition-colors flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl hover:bg-amber-50 border border-transparent hover:border-amber-100 whitespace-nowrap flex-shrink-0">
             <img src="/icons/analysis.svg" alt="" className="w-5 h-5 opacity-70 grayscale" />
             <span className="text-xs font-medium safari-no-faux-bold">{t.analysis}</span>
           </Link>

@@ -4,7 +4,28 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
+import { usePreferredLocale } from '../hooks/usePreferredLocale';
+import { Locale } from '../types';
+
+const DICTIONARY: Record<Locale, { catchphrase: string; description: string }> = {
+  ja: {
+    catchphrase: 'すべての人に学ぶことの楽しさを。',
+    description: '直感的なクイズで知的好奇心を刺激するプラットフォーム。',
+  },
+  en: {
+    catchphrase: 'Fun of learning for everyone.',
+    description: 'A platform that stimulates intellectual curiosity with intuitive quizzes.',
+  },
+  zh: {
+    catchphrase: '给每个人的学习乐趣。',
+    description: '通过直观的测验激发求知欲的平台。',
+  },
+};
+
 export default function Footer() {
+  const { locale } = usePreferredLocale();
+  const t = DICTIONARY[locale];
+
   return (
     <footer className="w-full py-12 pb-24 md:pb-12 bg-transparent border-t border-[var(--border)] mt-auto mt-20" suppressHydrationWarning>
       <div className="container mx-auto px-6 flex flex-col items-center gap-6">
@@ -21,9 +42,9 @@ export default function Footer() {
 
         <div className="flex flex-col items-center gap-4">
           <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium max-w-md text-center leading-relaxed">
-            すべての人に学ぶことの楽しさを。
+            {t.catchphrase}
             <br />
-            直感的なクイズで知的好奇心を刺激するプラットフォーム。
+            {t.description}
           </p>
 
           <div className="flex items-center gap-6">
