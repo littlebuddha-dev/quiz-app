@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import LatexRenderer from '../../components/LatexRenderer';
 import QuizVisual from '../../components/QuizVisual';
 
@@ -52,6 +53,7 @@ export default function WatchClient({
   relatedQuizzes,
   userStatus
 }: WatchClientProps) {
+  const router = useRouter();
   const { locale, setLocale } = usePreferredLocale();
   const isOnline = useOnlineStatus();
   const [showHint, setShowHint] = useState(false);
@@ -63,10 +65,21 @@ export default function WatchClient({
 
   const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [textAnswer, setTextAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<'correct' | 'incorrect' | null>(null);
   const [explanationMode, setExplanationMode] = useState<'gentle' | 'full'>('gentle');
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (val) {
+      router.push(`/?q=${encodeURIComponent(val)}`);
+    } else {
+      router.push('/');
+    }
+  };
 
   // 現在の言語の翻訳を取得。なければ日本語をフォールバックに。
   const t = quiz.translations[locale] || quiz.translations['ja'];
@@ -176,7 +189,8 @@ export default function WatchClient({
         locale={locale}
         setLocale={setLocale}
         userStatus={userStatus}
-        hideSearch={true}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearch}
       />
 
       <div className="pt-[calc(var(--header-height)+1rem)] flex justify-center w-full overflow-x-hidden">
