@@ -4,7 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut, SignInButton, UserButton, useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -74,12 +74,19 @@ export default function Header({
     setMounted(true);
   }, []);
 
-  // ログイン・ログアウト時にサーバーコンポーネントのデータを再取得して
-  // userStatus などのプロップを最新にする
+  const prevUserId = useRef<string | null | undefined>(undefined);
+
+  // ログイン・ログアウトなど、セッション状態が実際に「変化」した時のみ
+  // サーバーコンポーネントのデータを再取得する
   useEffect(() => {
-    if (mounted) {
+    if (!mounted) return;
+
+    // 初回ロード（undefined -> null/string）はサーバー側の初期レンダリングを尊重するためスキップ
+    // null <-> string の変化（サインイン・サインアウト）があった場合のみ refresh を実行
+    if (prevUserId.current !== undefined && prevUserId.current !== userId) {
       router.refresh();
     }
+    prevUserId.current = userId;
   }, [userId, mounted, router]);
 
   const authSkeleton = (
