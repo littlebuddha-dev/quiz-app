@@ -86,8 +86,7 @@ export async function POST(req: NextRequest) {
       });
       const metadataRole = extractRoleFromMetadata(
         (public_metadata as Record<string, unknown> | undefined)?.role,
-        (private_metadata as Record<string, unknown> | undefined)?.role,
-        (unsafe_metadata as Record<string, unknown> | undefined)?.role
+        (private_metadata as Record<string, unknown> | undefined)?.role
       );
       const role = resolveUserRole({
         email: primaryEmail,

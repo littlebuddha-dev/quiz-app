@@ -77,8 +77,7 @@ export async function ensureLocalUser(clerkId: string, prisma: PrismaClient): Pr
     existingRole: conflictingUser?.role,
     metadataRole: extractRoleFromMetadata(
       (clerkUser.publicMetadata as Record<string, unknown> | undefined)?.role,
-      (clerkUser.privateMetadata as Record<string, unknown> | undefined)?.role,
-      (clerkUser.unsafeMetadata as Record<string, unknown> | undefined)?.role
+      (clerkUser.privateMetadata as Record<string, unknown> | undefined)?.role
     ),
   });
 

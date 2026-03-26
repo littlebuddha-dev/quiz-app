@@ -84,8 +84,11 @@ export default async function Home({
         effectiveAge = user.targetAge;
       }
     }
-    // Note: Removed aggressive redirect to /onboarding to prevent potential loops.
-    // Users not in DB will see the guest view or can click onboarding manually if needed.
+    // オンボーディングが未完了（DBにユーザーがいない、または生年月日がない）の場合はオンボーディングへ
+    // ただし、ADMINはスキップ可能とする（運用上の利便性のため）
+    if ((!user || !user.birthDate) && user?.role !== 'ADMIN') {
+      redirect('/onboarding');
+    }
   }
 
   // カテゴリーを取得
