@@ -264,7 +264,7 @@ export default function WatchClient({
               <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] lg:truncate lg:!whitespace-nowrap" />
             </h1>
 
-            <div className="flex flex-wrap items-center gap-4 mb-6 pb-6 border-b border-[var(--border)]">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mb-6 pb-6 border-b border-[var(--border)] min-w-0 max-w-full overflow-hidden">
               {quiz.channel ? (
                 <Link href={`/channel/${quiz.channel.id}`} className="flex items-center gap-3 hover:bg-[var(--card)] p-2 rounded-xl transition-all border border-transparent hover:border-[var(--border)]">
                   <div className="w-10 h-10 rounded-full bg-zinc-300 dark:bg-zinc-700 overflow-hidden relative border border-[var(--border)]">
@@ -285,7 +285,7 @@ export default function WatchClient({
                   <div className="font-bold text-sm">{quiz.channel.name}</div>
                 </Link>
               ) : (
-                <div className="flex items-center gap-3 p-2">
+                <div className="flex items-center gap-3 p-2 min-w-0 max-w-full">
                   <div className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-500 text-white shadow-sm" title="Official">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
@@ -298,7 +298,7 @@ export default function WatchClient({
                 </div>
               )}
 
-              <div className="ml-auto flex gap-2 sm:gap-3">
+              <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-3 min-w-0 max-w-full">
                 <button type="button" onClick={() => handleAction('like')} className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-[var(--card)] border border-[var(--border)] text-zinc-500 hover:text-pink-500 hover:border-pink-500'}`}>
                   <Image src="/icons/heart.svg" alt="" width={16} height={16} className={`w-4 h-4 transition-colors ${isLiked ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} />
                   {locale === 'ja' ? 'いいね' : locale === 'en' ? 'Like' : '点赞'}
