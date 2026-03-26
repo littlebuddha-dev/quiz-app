@@ -35,7 +35,7 @@ export default clerkMiddleware(async (auth, request) => {
     // パブリックルート以外はログインを要求する
     await auth.protect();
   }
-});
+}, { clockSkewInMs: 30000 });
 
 export const config = {
   matcher: [

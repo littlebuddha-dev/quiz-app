@@ -1,4 +1,6 @@
 import { SignIn } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 
 function resolveRedirectUrl(raw?: string) {
   if (!raw || !raw.startsWith('/')) {
@@ -19,6 +21,11 @@ export default async function SignInPage({
 }) {
   const { redirect_url: redirectUrlParam } = await searchParams;
   const redirectUrl = resolveRedirectUrl(redirectUrlParam);
+
+  const { userId } = await auth();
+  if (userId) {
+    redirect(redirectUrl);
+  }
 
   return (
     <main className="min-h-screen bg-[var(--background)] px-4 py-10 sm:px-6">
