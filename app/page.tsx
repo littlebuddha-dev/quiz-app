@@ -54,7 +54,7 @@ export default async function Home({
   if (clerkId) {
     // 常に最新のユーザー情報を確保（開発環境の移行等でClerkIDが変わっていても再リンクされる）
     const user = await ensureLocalUser(clerkId, prisma);
-    
+
     // 改めて詳細情報を取得
     const fullUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -169,15 +169,15 @@ export default async function Home({
           : {},
         searchQuery
           ? {
-              translations: {
-                some: {
-                  OR: [
-                    { title: { contains: searchQuery } },
-                    { question: { contains: searchQuery } },
-                  ],
-                },
+            translations: {
+              some: {
+                OR: [
+                  { title: { contains: searchQuery } },
+                  { question: { contains: searchQuery } },
+                ],
               },
-            }
+            },
+          }
           : {},
       ],
     },
@@ -248,105 +248,105 @@ export default async function Home({
 
   const studyRecommendations: StudyRecommendations | undefined = clerkId
     ? (() => {
-        const sortedHistoryEntries = [...userHistoryEntries].sort(
-          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-        );
-        const quizById = new Map(rawQuizzes.map((quiz) => [quiz.id, quiz]));
-        const reviewQuizIds: string[] = [];
-        const seenReview = new Set<string>();
-        const quizAttemptMap = new Map<string, { total: number; correct: number; wrong: number; latestCorrect: boolean }>();
-        const categoryAttemptMap = new Map<string, { total: number; correct: number; wrong: number; focusQuizIds: string[] }>();
+      const sortedHistoryEntries = [...userHistoryEntries].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      );
+      const quizById = new Map(rawQuizzes.map((quiz) => [quiz.id, quiz]));
+      const reviewQuizIds: string[] = [];
+      const seenReview = new Set<string>();
+      const quizAttemptMap = new Map<string, { total: number; correct: number; wrong: number; latestCorrect: boolean }>();
+      const categoryAttemptMap = new Map<string, { total: number; correct: number; wrong: number; focusQuizIds: string[] }>();
 
-        for (const history of sortedHistoryEntries) {
-          const relatedQuiz = quizById.get(history.quizId);
-          if (!relatedQuiz) continue;
+      for (const history of sortedHistoryEntries) {
+        const relatedQuiz = quizById.get(history.quizId);
+        if (!relatedQuiz) continue;
 
-          const quizStats = quizAttemptMap.get(history.quizId) || {
-            total: 0,
-            correct: 0,
-            wrong: 0,
-            latestCorrect: history.isCorrect,
-          };
-          quizStats.total += 1;
-          quizStats.correct += history.isCorrect ? 1 : 0;
-          quizStats.wrong += history.isCorrect ? 0 : 1;
-          if (quizStats.total === 1) {
-            quizStats.latestCorrect = history.isCorrect;
-          }
-          quizAttemptMap.set(history.quizId, quizStats);
-
-          const categoryStats = categoryAttemptMap.get(relatedQuiz.categoryId) || {
-            total: 0,
-            correct: 0,
-            wrong: 0,
-            focusQuizIds: [],
-          };
-          categoryStats.total += 1;
-          categoryStats.correct += history.isCorrect ? 1 : 0;
-          categoryStats.wrong += history.isCorrect ? 0 : 1;
-          if (!history.isCorrect && !categoryStats.focusQuizIds.includes(history.quizId)) {
-            categoryStats.focusQuizIds.push(history.quizId);
-          }
-          categoryAttemptMap.set(relatedQuiz.categoryId, categoryStats);
-
-          if (!history.isCorrect && !seenReview.has(history.quizId)) {
-            seenReview.add(history.quizId);
-            reviewQuizIds.push(history.quizId);
-          }
-        }
-
-        const weakCategories: WeakCategoryInsight[] = Array.from(categoryAttemptMap.entries())
-          .filter(([, stats]) => stats.total >= 2 && stats.wrong > 0)
-          .map(([categoryId, stats]) => ({
-            categoryId,
-            label: categoryLabelMap.get(categoryId) || categoryId,
-            totalAttempts: stats.total,
-            correctCount: stats.correct,
-            wrongCount: stats.wrong,
-            accuracy: Math.round((stats.correct / stats.total) * 100),
-            focusQuizIds: stats.focusQuizIds.slice(0, 4),
-          }))
-          .sort((a, b) => {
-            if (a.accuracy !== b.accuracy) return a.accuracy - b.accuracy;
-            return b.totalAttempts - a.totalAttempts;
-          })
-          .slice(0, 3);
-
-        const weakCategoryBoost = new Map(
-          weakCategories.map((category, index) => [category.categoryId, (weakCategories.length - index) * 15])
-        );
-
-        const dailyQuizIds = rawQuizzes
-          .map((quiz) => {
-            const attempts = quizAttemptMap.get(quiz.id);
-            const isSolved = !!attempts?.correct;
-            const isInReview = reviewQuizIds.includes(quiz.id);
-            let score = 0;
-
-            if (!attempts) score += 35;
-            if (attempts && !isSolved) score += 20;
-            if (isInReview) score += 12;
-            score += weakCategoryBoost.get(quiz.categoryId) || 0;
-            if (typeof effectiveAge === 'number') {
-              score -= Math.abs(quiz.targetAge - effectiveAge);
-            }
-            if (userBookmarks.includes(quiz.id)) {
-              score += 4;
-            }
-
-            return { id: quiz.id, score };
-          })
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3)
-          .map((quiz) => quiz.id);
-
-        return {
-          todayLabel: getTodayLabel(),
-          dailyQuizIds,
-          reviewQuizIds: reviewQuizIds.slice(0, 12),
-          weakCategories,
+        const quizStats = quizAttemptMap.get(history.quizId) || {
+          total: 0,
+          correct: 0,
+          wrong: 0,
+          latestCorrect: history.isCorrect,
         };
-      })()
+        quizStats.total += 1;
+        quizStats.correct += history.isCorrect ? 1 : 0;
+        quizStats.wrong += history.isCorrect ? 0 : 1;
+        if (quizStats.total === 1) {
+          quizStats.latestCorrect = history.isCorrect;
+        }
+        quizAttemptMap.set(history.quizId, quizStats);
+
+        const categoryStats = categoryAttemptMap.get(relatedQuiz.categoryId) || {
+          total: 0,
+          correct: 0,
+          wrong: 0,
+          focusQuizIds: [],
+        };
+        categoryStats.total += 1;
+        categoryStats.correct += history.isCorrect ? 1 : 0;
+        categoryStats.wrong += history.isCorrect ? 0 : 1;
+        if (!history.isCorrect && !categoryStats.focusQuizIds.includes(history.quizId)) {
+          categoryStats.focusQuizIds.push(history.quizId);
+        }
+        categoryAttemptMap.set(relatedQuiz.categoryId, categoryStats);
+
+        if (!history.isCorrect && !seenReview.has(history.quizId)) {
+          seenReview.add(history.quizId);
+          reviewQuizIds.push(history.quizId);
+        }
+      }
+
+      const weakCategories: WeakCategoryInsight[] = Array.from(categoryAttemptMap.entries())
+        .filter(([, stats]) => stats.total >= 2 && stats.wrong > 0)
+        .map(([categoryId, stats]) => ({
+          categoryId,
+          label: categoryLabelMap.get(categoryId) || categoryId,
+          totalAttempts: stats.total,
+          correctCount: stats.correct,
+          wrongCount: stats.wrong,
+          accuracy: Math.round((stats.correct / stats.total) * 100),
+          focusQuizIds: stats.focusQuizIds.slice(0, 4),
+        }))
+        .sort((a, b) => {
+          if (a.accuracy !== b.accuracy) return a.accuracy - b.accuracy;
+          return b.totalAttempts - a.totalAttempts;
+        })
+        .slice(0, 3);
+
+      const weakCategoryBoost = new Map(
+        weakCategories.map((category, index) => [category.categoryId, (weakCategories.length - index) * 15])
+      );
+
+      const dailyQuizIds = rawQuizzes
+        .map((quiz) => {
+          const attempts = quizAttemptMap.get(quiz.id);
+          const isSolved = !!attempts?.correct;
+          const isInReview = reviewQuizIds.includes(quiz.id);
+          let score = 0;
+
+          if (!attempts) score += 35;
+          if (attempts && !isSolved) score += 20;
+          if (isInReview) score += 12;
+          score += weakCategoryBoost.get(quiz.categoryId) || 0;
+          if (typeof effectiveAge === 'number') {
+            score -= Math.abs(quiz.targetAge - effectiveAge);
+          }
+          if (userBookmarks.includes(quiz.id)) {
+            score += 4;
+          }
+
+          return { id: quiz.id, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map((quiz) => quiz.id);
+
+      return {
+        todayLabel: getTodayLabel(),
+        dailyQuizIds,
+        reviewQuizIds: reviewQuizIds.slice(0, 12),
+        weakCategories,
+      };
+    })()
     : undefined;
 
   return (
