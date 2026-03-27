@@ -15,17 +15,26 @@ interface LatexRendererProps {
 function normalizeLatexText(value: string) {
   if (typeof value !== 'string') return "";
   
-  return value
-    .trim()
-    // 1. バックスラッシュの過剰なエスケープを修正 (\+コマンド名 のパターンを統合)
-    .replace(/\\+([a-zA-Z]+)/g, '\\$1')
-    // 2. 二重以上のバックスラッシュを単体に統合 (文脈に注意)
-    .replace(/\\\\+/g, '\\')
-    // 3. 標準的なデリミタへの統一
+  let processed = value.trim();
+  
+  // 1. \\n (二重エスケープされた改行) を実際の改行に置換
+  processed = processed.replace(/\\n/g, '\n');
+  
+  // 2. バックスラッシュの過剰なエスケープを最小化 (2つ以上を1つに)
+  processed = processed.replace(/\\{2,}/g, '\\');
+  
+  // 3. \× や \± のように記号が誤ってエスケープされているパターンを修正
+  // (KaTeXにおいて \× はエラーになるため、記号単体にするか \times に置換が必要)
+  processed = processed.replace(/\\([×±÷≠≤≥])/g, '$1');
+
+  // 4. 標準的なデリミタへの統一
+  processed = processed
     .replace(/\\\(/g, '$')
     .replace(/\\\)/g, '$')
     .replace(/\\\[/g, '$$')
     .replace(/\\\]/g, '$$');
+    
+  return processed;
 }
 
 export default function LatexRenderer({ text, className = "" }: LatexRendererProps) {
