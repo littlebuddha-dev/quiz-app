@@ -1,7 +1,7 @@
 // Path: app/game/GameClient.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Quiz } from '../types';
 import LatexRenderer from '../components/LatexRenderer';
@@ -104,6 +104,22 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const t: any = currentQuiz?.translations[locale] || currentQuiz?.translations['ja'];
   
+  // Merge split LaTeX fragments if they exist (defensive fix for potential serialization/translation issues)
+  const mergedOptions = useMemo(() => {
+    if (!t || !t.options) return [];
+    const merged: string[] = [];
+    for (let i = 0; i < t.options.length; i++) {
+      let opt = t.options[i];
+      // If this option starts a LaTeX block but doesn't close it, try to merge with the next one
+      if (opt.includes('$') && (opt.match(/\$/g) || []).length % 2 !== 0 && i + 1 < t.options.length) {
+        opt = opt + ' ' + t.options[i + 1];
+        i++;
+      }
+      merged.push(opt);
+    }
+    return merged;
+  }, [t]);
+
   const displayImageUrl = (t?.imageUrl && t.imageUrl !== "") 
     ? t.imageUrl 
     : (currentQuiz?.imageUrl && currentQuiz.imageUrl !== "") 
@@ -180,9 +196,9 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
 
           {/* Answer Area */}
           <div className="w-full max-w-3xl mx-auto mt-4 md:mt-8 min-h-[12rem] flex items-center justify-center">
-            {t.type === 'CHOICE' && t.options ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full">
-                {t.options.map((opt: string, i: number) => (
+            {t.type === 'CHOICE' && mergedOptions.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full" translate="no">
+                {mergedOptions.map((opt: string, i: number) => (
                   <button 
                     key={i} 
                     onClick={() => handleSubmit(opt === t.answer)} 

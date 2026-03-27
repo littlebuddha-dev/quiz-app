@@ -579,7 +579,7 @@ export default function QuizClient({
                     })()}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere] font-bold leading-snug group-hover:text-amber-500 transition-colors">
+                    <h3 className="min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere] font-bold leading-snug group-hover:text-amber-500 transition-colors" translate="no">
                       <LatexRenderer text={qt.title} className="block w-full max-w-full break-words [overflow-wrap:anywhere] sm:line-clamp-2" />
                     </h3>
                     <div className="flex items-center gap-2 mt-1">

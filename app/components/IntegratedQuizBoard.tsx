@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import Header from './Header';
 import CorrectEffect from './CorrectEffect';
@@ -98,6 +98,21 @@ export default function IntegratedQuizBoard() {
   const gentleExplanation = quiz ? buildGentleExplanation(locale, quiz.answer, quiz.explanation) : '';
   const displayedExplanation = explanationMode === 'gentle' ? gentleExplanation : quiz?.explanation;
 
+  // Merge split LaTeX fragments if they exist
+  const mergedOptions = useMemo(() => {
+    if (!quiz || !quiz.options) return [];
+    const merged: string[] = [];
+    for (let i = 0; i < quiz.options.length; i++) {
+      let opt = quiz.options[i];
+      if (opt.includes('$') && (opt.match(/\$/g) || []).length % 2 !== 0 && i + 1 < quiz.options.length) {
+        opt = opt + ' ' + quiz.options[i + 1];
+        i++;
+      }
+      merged.push(opt);
+    }
+    return merged;
+  }, [quiz]);
+
   return (
     <div className="flex flex-col items-center bg-zinc-100 min-h-screen text-zinc-900">
       <Header 
@@ -169,9 +184,9 @@ export default function IntegratedQuizBoard() {
             </div>
 
             {/* 選択肢の表示 (選択式の場合) */}
-            {quiz.type === 'CHOICE' && quiz.options && quiz.options.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                {quiz.options.map((opt, i) => (
+            {quiz.type === 'CHOICE' && mergedOptions.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2" translate="no">
+                {mergedOptions.map((opt, i) => (
                   <div key={i} className="bg-white border-2 border-zinc-200 p-4 rounded-xl font-bold text-zinc-700 flex items-center gap-3">
                     <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-sm">{i + 1}</span>
                     <LatexRenderer text={opt} />
