@@ -1,3 +1,6 @@
+// Path: app/watch/[id]/WatchClient.tsx
+// Title: Watch Client Component
+// Purpose: Handles the interactive quiz interface, results, comments, and related recommendations on the client side.
 'use client';
 
 import { useState, useRef } from 'react';

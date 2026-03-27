@@ -1,7 +1,6 @@
 // Path: app/watch/[id]/WatchClientWrapper.tsx
-// Title: Watch Client SSR Wrapper
-// Purpose: Disables SSR for the WatchClient component to prevent hydration errors.
-
+// Title: Watch Client Wrapper
+// Purpose: Disables SSR for WatchClient for stability and consistent client-side behavior.
 'use client';
 
 import dynamic from 'next/dynamic';

@@ -1,7 +1,6 @@
 // Path: app/components/LatexRenderer.tsx
-// Title: LaTeX Math Renderer
-// Purpose: Renders mathematical formulas using KaTeX.
-
+// Title: LaTeX Renderer Component
+// Purpose: Safely renders LaTeX mathematical formulas using KaTeX on the client side.
 'use client';
 
 import React, { useEffect, useRef } from 'react';

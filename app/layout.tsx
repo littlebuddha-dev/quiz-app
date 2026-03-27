@@ -1,3 +1,6 @@
+// Path: app/layout.tsx
+// Title: Root Layout Component
+// Purpose: Defines the global layout, including HTML structure, fonts, scripts, and basic providers.
 import { ClerkProvider } from "@clerk/nextjs";
 import { jaJP } from "@clerk/localizations";
 import type { Metadata, Viewport } from "next";
@@ -116,6 +119,9 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head>
+        <meta charSet="utf-8" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {tagManagerScripts}
         <noscript>
