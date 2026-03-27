@@ -50,15 +50,13 @@ export function getPrimaryEmailFromWebhookUser(user: {
 
 export async function ensureLocalUser(clerkId: string, prisma: PrismaClient): Promise<User> {
   const existingUser = await prisma.user.findUnique({ where: { clerkId } });
-  if (existingUser) {
-    return existingUser;
-  }
 
   const client = await clerkClient();
   const clerkUser = await client.users.getUser(clerkId);
   const email = getPrimaryEmailFromClerkUser(clerkUser);
 
   if (!email) {
+    if (existingUser) return existingUser;
     throw new Error(`Clerk user ${clerkId} does not have a usable primary email`);
   }
 
@@ -66,8 +64,10 @@ export async function ensureLocalUser(clerkId: string, prisma: PrismaClient): Pr
     where: { email },
   });
 
-  if (conflictingUser && conflictingUser.clerkId !== clerkId) {
-    throw new Error(`Email ${email} is already linked to another local user`);
+  // 自分自身（existingUser）以外でメールが重複しているユーザーがいれば再リンクの対象
+  const needsRelink = conflictingUser && conflictingUser.clerkId !== clerkId;
+  if (needsRelink) {
+    console.warn(`Clerk ID mismatch for ${email}. Re-linking from ${conflictingUser.clerkId} to ${clerkId}`);
   }
 
   const name =
@@ -81,15 +81,26 @@ export async function ensureLocalUser(clerkId: string, prisma: PrismaClient): Pr
     ),
   });
 
-  if (conflictingUser) {
-    return prisma.user.update({
-      where: { id: conflictingUser.id },
-      data: {
-        clerkId,
-        name,
-        role,
-      },
-    });
+  // 更新対象のID（自分自身、またはメール重複している他ユーザーのID）
+  const targetUser = existingUser || conflictingUser;
+
+  if (targetUser) {
+    // ロールや名前、IDが変わっている場合のみ更新を実行
+    if (
+      targetUser.clerkId !== clerkId ||
+      targetUser.role !== role ||
+      targetUser.name !== name
+    ) {
+      return prisma.user.update({
+        where: { id: targetUser.id },
+        data: {
+          clerkId,
+          name,
+          role,
+        },
+      });
+    }
+    return targetUser;
   }
 
   return prisma.user.create({

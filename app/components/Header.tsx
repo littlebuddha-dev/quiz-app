@@ -43,6 +43,7 @@ export default function Header({
   const { userId } = useAuth();
   const router = useRouter();
   const [currentStatus, setCurrentStatus] = useState(userStatus);
+  const [currentLocation, setCurrentLocation] = useState('');
 
   // プロップが更新されたらローカルステートを同期
   useEffect(() => {
@@ -50,6 +51,14 @@ export default function Header({
       setCurrentStatus(userStatus);
     }
   }, [userStatus]);
+
+  // URL情報の同期 (hydrationを考慮)
+  useEffect(() => {
+    if (mounted) {
+      const sp = searchParams?.toString();
+      setCurrentLocation(`${pathname}${sp ? `?${sp}` : ''}`);
+    }
+  }, [mounted, pathname, searchParams]);
 
   // クライアントサイドでの最新ステータス取得 (同期漏れ対策)
   useEffect(() => {
@@ -61,6 +70,8 @@ export default function Header({
         if (res.ok) {
           const data = (await res.json()) as { xp: number; level: number; role: string };
           setCurrentStatus(data);
+        } else {
+          console.warn('User status fetch non-ok:', res.status);
         }
       } catch (err) {
         console.warn('Failed to fetch user status:', err);
@@ -76,28 +87,20 @@ export default function Header({
 
   const prevUserId = useRef<string | null | undefined>(undefined);
 
-  // ログイン・ログアウトなど、セッション状態が実際に「変化」した時のみ
-  // サーバーコンポーネントのデータを再取得する
+  // セッション状態の変化に伴う再取得ロジックを一旦停止 (React 19 の router.refresh 競合回避)
   useEffect(() => {
-    if (!mounted) return;
-
-    // 初回ロード（undefined -> null/string）はサーバー側の初期レンダリングを尊重するためスキップ
-    // null <-> string の変化（サインイン・サインアウト）があった場合のみ refresh を実行
-    if (prevUserId.current !== undefined && prevUserId.current !== userId) {
-      router.refresh();
-    }
     prevUserId.current = userId;
-  }, [userId, mounted, router]);
+  }, [userId]);
 
   const authSkeleton = (
     <div className="h-8 w-20 sm:w-24 rounded-full bg-zinc-100/80 border border-[var(--border)]" aria-hidden="true" />
   );
-  const currentLocation = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
-  const addAccountHref = `/sign-in?redirect_url=${encodeURIComponent(currentLocation)}`;
+  
+  const addAccountHref = `/sign-in?redirect_url=${encodeURIComponent(currentLocation || '/')}`;
   const userButtonProps = multiSessionEnabled
     ? {
         signInUrl: addAccountHref,
-        afterSwitchSessionUrl: currentLocation,
+        afterSwitchSessionUrl: currentLocation || '/',
       }
     : {};
 
@@ -155,19 +158,11 @@ export default function Header({
                       appearance={{ elements: { avatarBox: "w-8 h-8 border-2 border-amber-400 shadow-sm" } }}
                     >
                       <UserButton.MenuItems>
-                        {multiSessionEnabled && (
-                          <UserButton.Link
-                            label="他のアカウントを追加"
-                            labelIcon={<img src="/icons/plus.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                            href={addAccountHref}
-                          />
-                        )}
                         <UserButton.Link
                           label="プロフィール設定"
                           labelIcon={<img src="/icons/course.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                           href="/onboarding"
                         />
-                        {/* 管理者用メニューを別枠（後続）に配置 */}
                         {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                           <UserButton.Link
                             label="管理者ダッシュボード"
@@ -330,19 +325,11 @@ export default function Header({
                     appearance={{ elements: { avatarBox: "w-8 h-8 sm:w-9 sm:h-9 border-2 border-amber-400 shadow-sm" } }}
                   >
                     <UserButton.MenuItems>
-                      {multiSessionEnabled && (
-                        <UserButton.Link
-                          label="他のGoogleアカウントを追加"
-                          labelIcon={<img src="/icons/plus.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
-                          href={addAccountHref}
-                        />
-                      )}
                       <UserButton.Link
                         label="プロフィール設定"
                         labelIcon={<img src="/icons/course.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                         href="/onboarding"
                       />
-                      {/* 管理者専用メニューを後半に集約 */}
                       {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                         <UserButton.Link
                           label="管理者ダッシュボード"
@@ -362,6 +349,15 @@ export default function Header({
                           label="Google AdSense"
                           labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                           href="/admin/adsense"
+                        />
+                      )}
+                      {multiSessionEnabled && (
+                        <UserButton.Action
+                          label="アカウント切り替え"
+                          labelIcon={<img src="/icons/plus.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
+                          onClick={() => {
+                            window.location.href = addAccountHref;
+                          }}
                         />
                       )}
                     </UserButton.MenuItems>

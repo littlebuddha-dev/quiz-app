@@ -35,9 +35,8 @@ export default async function OnboardingPage() {
     where: { clerkId },
   });
 
-  // ADMINはオンボーディングをスキップできる（任意）が、
-  // ここでは birthDate がすでにあるならメインへ飛ばす
-  if (existingUser?.birthDate) {
+  // ADMINはプロフィールの確認や調整のためにアクセスを許可し、それ以外はトップへ戻す
+  if (existingUser?.birthDate && existingUser.role !== 'ADMIN') {
     redirect('/');
   }
 

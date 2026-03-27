@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz, StudyRecommendations, WeakCategoryInsight } from './types';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+import { ensureLocalUser } from '@/lib/clerk-sync';
 
 type CategoryRow = {
   id: string;
@@ -51,8 +52,12 @@ export default async function Home({
   let effectiveAge: number | null = null;
 
   if (clerkId) {
-    const user = await prisma.user.findUnique({
-      where: { clerkId },
+    // 常に最新のユーザー情報を確保（開発環境の移行等でClerkIDが変わっていても再リンクされる）
+    const user = await ensureLocalUser(clerkId, prisma);
+    
+    // 改めて詳細情報を取得
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
       include: {
         bookmarks: true,
         likes: true,
@@ -60,34 +65,35 @@ export default async function Home({
       },
     });
 
-    if (user) {
-      userBookmarks = user.bookmarks.map((b) => b.quizId);
-      userLikes = user.likes.map((l) => l.quizId);
-      userHistories = user.histories.filter((h) => h.isCorrect).map((h) => h.quizId);
-      userHistoryEntries = user.histories.map((h) => ({
+    if (fullUser) {
+      userBookmarks = fullUser.bookmarks.map((b) => b.quizId);
+      userLikes = fullUser.likes.map((l) => l.quizId);
+      userHistories = fullUser.histories.filter((h) => h.isCorrect).map((h) => h.quizId);
+      userHistoryEntries = fullUser.histories.map((h) => ({
         quizId: h.quizId,
         isCorrect: h.isCorrect,
         createdAt: h.createdAt,
       }));
-      userTargetAge = user.targetAge;
-      userStatus = { xp: user.xp, level: user.level, role: user.role };
+      userTargetAge = fullUser.targetAge;
+      userStatus = { xp: fullUser.xp, level: fullUser.level, role: fullUser.role };
 
       // 年齢の計算
-      if (user.birthDate) {
+      if (fullUser.birthDate) {
         const today = new Date();
-        const birth = new Date(user.birthDate);
+        const birth = new Date(fullUser.birthDate);
         effectiveAge = today.getFullYear() - birth.getFullYear();
         if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
           effectiveAge--;
         }
-      } else if (user.targetAge) {
-        effectiveAge = user.targetAge;
+      } else if (fullUser.targetAge) {
+        effectiveAge = fullUser.targetAge;
       }
-    }
-    // オンボーディングが未完了（DBにユーザーがいない、または生年月日がない）の場合はオンボーディングへ
-    // ただし、ADMINはスキップ可能とする（運用上の利便性のため）
-    if ((!user || !user.birthDate) && user?.role !== 'ADMIN') {
-      redirect('/onboarding');
+
+      // オンボーディングが未完了（生年月日がない）の場合はオンボーディングへ
+      // ただし、ADMINはスキップ可能とする
+      if (!fullUser.birthDate && fullUser.role !== 'ADMIN') {
+        redirect('/onboarding');
+      }
     }
   }
 
