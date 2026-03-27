@@ -237,30 +237,40 @@ export default function QuizClient({
   const studyText = STUDY_COPY[locale];
 
   useEffect(() => {
+    // 画面表示後の最初のタイミングでキャッシュを読み込む
     const cache = readOfflineHomeCache();
     if (cache.quizzes) setCachedQuizzes(cache.quizzes);
     if (cache.categories) setCachedCategories(cache.categories);
     if (cache.studyRecommendations) setCachedStudyRecommendations(cache.studyRecommendations);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        OFFLINE_HOME_CACHE_KEY,
-        JSON.stringify({
-          quizzes: buildOfflineQuizCache(initialQuizzes),
-          categories,
-          studyRecommendations,
-          cachedAt: new Date().toISOString(),
-        })
-      );
-    } catch (error) {
-      console.error('Failed to save offline quiz cache:', error);
+    const handleSync = () => {
       try {
-        window.localStorage.removeItem(OFFLINE_HOME_CACHE_KEY);
-      } catch {
-        // ignore cleanup failure
+        window.localStorage.setItem(
+          OFFLINE_HOME_CACHE_KEY,
+          JSON.stringify({
+            quizzes: buildOfflineQuizCache(initialQuizzes),
+            categories,
+            studyRecommendations,
+            cachedAt: new Date().toISOString(),
+          })
+        );
+      } catch (error) {
+        console.error('Failed to save offline quiz cache:', error);
+        try {
+          window.localStorage.removeItem(OFFLINE_HOME_CACHE_KEY);
+        } catch { /* ignore */ }
       }
+    };
+
+    // requestIdleCallbackがある場合はそれを使用し、なければsetTimeoutで逃がす
+    if ('requestIdleCallback' in window) {
+      const handle = (window as unknown as any).requestIdleCallback(handleSync, { timeout: 2000 });
+      return () => (window as unknown as any).cancelIdleCallback(handle);
+    } else {
+      const timer = setTimeout(handleSync, 1000);
+      return () => clearTimeout(timer);
     }
   }, [initialQuizzes, categories, studyRecommendations]);
 

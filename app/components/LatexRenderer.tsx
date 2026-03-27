@@ -3,7 +3,7 @@
 // Purpose: Safely renders LaTeX mathematical formulas using KaTeX on the client side.
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -85,7 +85,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
     }).join('');
   };
 
-  const html = getHtml();
+  const html = useMemo(() => getHtml(), [text]);
 
   return (
     <span 

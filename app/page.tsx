@@ -7,14 +7,13 @@ import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { ensureLocalUser } from '@/lib/clerk-sync';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz, StudyRecommendations, WeakCategoryInsight } from './types';
-import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
-import { ensureLocalUser } from '@/lib/clerk-sync';
 
 
 
-export const revalidate = 60; // 1分間のキャッシュを許可
+export const revalidate = 300; // 5分間のキャッシュを許可
 
 function getTodayLabel() {
   const now = new Date();
@@ -58,13 +57,11 @@ export default async function Home({
     if (fullUser) {
       userBookmarks = fullUser.bookmarks.map((b) => b.quizId);
       userLikes = fullUser.likes.map((l) => l.quizId);
-      userHistories = fullUser.histories.filter((h) => h.isCorrect).map((h) => h.quizId);
       userHistoryEntries = fullUser.histories.map((h) => ({
         quizId: h.quizId,
         isCorrect: h.isCorrect,
         createdAt: h.createdAt,
       }));
-      userTargetAge = fullUser.targetAge;
       userStatus = { xp: fullUser.xp, level: fullUser.level, role: fullUser.role };
 
       // 年齢の計算
