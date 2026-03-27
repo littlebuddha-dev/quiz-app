@@ -15,7 +15,11 @@ interface LatexRendererProps {
 function normalizeLatexText(value: string) {
   return value
     .trim()
-    .replace(/\\\\([a-zA-Z]+)/g, '\\$1')
+    .replace(/\\\\/g, '\\') // Fix double escaping from server serialization
+    .replace(/\\([a-zA-Z]+)/g, (match) => {
+      // Avoid accidental unescaping of already correct commands
+      return match;
+    })
     .replace(/\\\(/g, '$')
     .replace(/\\\)/g, '$')
     .replace(/\\\[/g, '$$')

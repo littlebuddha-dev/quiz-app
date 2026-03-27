@@ -3,7 +3,7 @@
 // Purpose: Handles the interactive quiz interface, results, comments, and related recommendations on the client side.
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -88,6 +88,23 @@ export default function WatchClient({
 
   // 現在の言語の翻訳を取得。なければ日本語、それもなければ最初の翻訳をフォールバックに。
   const t = quiz.translations[locale] || quiz.translations['ja'] || Object.values(quiz.translations)[0];
+
+  // Merge split LaTeX fragments if they exist (defensive fix for potential serialization/translation issues)
+  const mergedOptions = useMemo(() => {
+    if (!t || !t.options) return [];
+    const merged: string[] = [];
+    for (let i = 0; i < t.options.length; i++) {
+      let opt = t.options[i];
+      // If this option starts a LaTeX block but doesn't close it, try to merge with the next one
+      if (opt.includes('$') && (opt.match(/\$/g) || []).length % 2 !== 0 && i + 1 < t.options.length) {
+        opt = opt + ' ' + t.options[i + 1];
+        i++;
+      }
+      merged.push(opt);
+    }
+    return merged;
+  }, [t]);
+
   if (!t) return null; // 基本的にありえないが、安全のため
 
   const explanation = t.explanation?.trim();
@@ -349,9 +366,9 @@ export default function WatchClient({
                     </div>
                   )}
 
-                  {t.type === 'CHOICE' && t.options ? (
+                  {t.type === 'CHOICE' && mergedOptions.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" translate="no">
-                      {t.options.map((opt: string, i: number) => {
+                      {mergedOptions.map((opt: string, i: number) => {
                         const isOptLatex = isLatex(opt);
                         return (
                           <button
