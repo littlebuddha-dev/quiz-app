@@ -13,5 +13,5 @@ const WatchClient = dynamic(() => import('./WatchClient'), {
 });
 
 export default function WatchClientWrapper(props: WatchClientProps) {
-  return <WatchClient {...props} />;
+  return <WatchClient key={props.quiz.id} {...props} />;
 }

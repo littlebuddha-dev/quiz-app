@@ -350,7 +350,7 @@ export default function WatchClient({
                   )}
 
                   {t.type === 'CHOICE' && t.options ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" translate="no">
                       {t.options.map((opt: string, i: number) => {
                         const isOptLatex = isLatex(opt);
                         return (

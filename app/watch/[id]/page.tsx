@@ -24,6 +24,14 @@ function normalizeOptions(value: unknown): string[] | undefined {
     return value.filter((item): item is string => typeof item === 'string');
   }
 
+  if (value && typeof value === 'object') {
+    // Some drivers return JSON fields as objects instead of arrays
+    const values = Object.values(value);
+    if (values.every(v => typeof v === 'string')) {
+      return values as string[];
+    }
+  }
+
   if (typeof value === 'string' && value.trim() !== '') {
     try {
       const parsed = JSON.parse(value);
@@ -31,7 +39,10 @@ function normalizeOptions(value: unknown): string[] | undefined {
         return parsed.filter((item): item is string => typeof item === 'string');
       }
     } catch {
-      return undefined;
+      // If it looks like a comma-separated list, try splitting
+      if (value.includes(',') && !value.includes('{') && !value.includes('[')) {
+        return value.split(',').map(s => s.trim()).filter(Boolean);
+      }
     }
   }
 
