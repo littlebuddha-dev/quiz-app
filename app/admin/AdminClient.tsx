@@ -247,6 +247,11 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     setLoading(false);
   };
 
+  const handleDirectDbDownload = () => {
+    // 認証済みのセッションで直接ブラウザからDL
+    window.open('/api/admin/backup?format=file', '_blank');
+  };
+
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1786,6 +1791,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-600/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
                     >
                       バックアップをダウンロード 📦
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDirectDbDownload}
+                      className="w-full bg-zinc-100 text-zinc-600 py-2.5 rounded-xl text-[10px] font-black hover:bg-zinc-200 transition-all border border-zinc-200"
+                    >
+                      SQLiteファイルを直接ダウンロード（推奨） 🗄️
                     </button>
                   </div>
 

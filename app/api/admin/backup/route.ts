@@ -61,6 +61,26 @@ export async function GET(req: NextRequest) {
     const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
     if (!user || user.role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
+    // format=file が指定されている場合はバイナリを直接返す
+    const format = req.nextUrl.searchParams.get('format');
+    if (format === 'file') {
+      const fs = require('fs');
+      const path = require('path');
+      const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+      
+      if (fs.existsSync(dbPath)) {
+        const fileBuffer = fs.readFileSync(dbPath);
+        return new NextResponse(fileBuffer, {
+          headers: {
+            'Content-Disposition': `attachment; filename="dev.db"`,
+            'Content-Type': 'application/x-sqlite3',
+          },
+        });
+      } else {
+        return NextResponse.json({ error: 'FILE_NOT_FOUND', message: 'データベースファイルが見つかりません。' }, { status: 404 });
+      }
+    }
+
     // Fetch all tables
     const users = await prisma.user.findMany();
     const categories = await prisma.category.findMany();
