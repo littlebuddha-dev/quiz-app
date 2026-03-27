@@ -116,7 +116,8 @@ export default async function Home({
   const displayCategoriesRaw = allCategories.filter(c => (c.nameJa || c.name) && (c.nameJa || c.name).trim() !== '');
 
   // クイズフィルタリング用の有効なカテゴリーID
-  const filteredCategories = effectiveAge === null
+  const isAdmin = userStatus?.role === 'ADMIN';
+  const filteredCategories = (effectiveAge === null || isAdmin)
     ? allCategories
     : allCategories.filter(cat => {
         const minMatch = effectiveAge >= cat.minAge;
@@ -130,7 +131,8 @@ export default async function Home({
   const rawQuizzes = await prisma.quiz.findMany({
     where: {
       AND: [
-        { categoryId: { in: filteredCategoryIds } },
+        // ADMINの場合は年齢制限を無視してすべて取得。それ以外はマッチするカテゴリのみ。
+        isAdmin ? {} : { categoryId: { in: filteredCategoryIds } },
         activeCategory && activeCategory !== 'すべて'
           ? { categoryId: activeCategory }
           : {},

@@ -297,10 +297,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         alert('バックアップファイルが空です。');
       } else if (error?.message === 'HTML_BACKUP_FILE') {
         alert('JSONではなくHTMLファイルが選択されています。バックアップのダウンロードに失敗した可能性があります。');
-      } else if (error instanceof SyntaxError) {
-        alert('バックアップJSONの形式が壊れています。');
+      } else if (error instanceof SyntaxError || error.message?.includes('JSON')) {
+        alert('バックアップの読み込みに失敗しました（JSON形式が不完全です）。\n\nファイルサイズが非常に大きい場合（10MB超など）、通信の途中でデータが途切れた可能性があります。\n大容量データの移行には、docs/backup_guide.mdに記載の「SQLiteファイル直接コピー」を推奨します。');
       } else {
-        alert('エラーが発生しました');
+        alert(`エラーが発生しました: ${error.message || '不明なエラー'}`);
       }
     } finally {
       e.target.value = '';
