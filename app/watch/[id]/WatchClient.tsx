@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -71,6 +71,7 @@ export default function WatchClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<'correct' | 'incorrect' | null>(null);
   const [explanationMode, setExplanationMode] = useState<'gentle' | 'full'>('gentle');
+  const quizVisualRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -136,6 +137,11 @@ export default function WatchClient({
     // ログインしていれば履歴を保存
     if (isCorrect) {
       setShowCorrectEffect(true);
+    }
+
+    // クイズ表示エリアへスクロール（モバイル等で回答ボタンが下にある場合を考慮）
+    if (quizVisualRef.current) {
+      quizVisualRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     if (isLoggedIn) {
@@ -213,7 +219,10 @@ export default function WatchClient({
                 </div>
               </div>
             )}
-            <div className="w-full aspect-video rounded-3xl overflow-hidden bg-transparent relative mb-4 group/visual">
+            <div 
+              ref={quizVisualRef}
+              className="w-full aspect-video rounded-3xl overflow-hidden bg-transparent relative mb-4 group/visual"
+            >
               {displayImageUrl ? (
                 <QuizVisual
                   imageUrl={displayImageUrl}
@@ -236,22 +245,22 @@ export default function WatchClient({
                 <div className={`absolute inset-0 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300 ${lastResult === 'correct' ? 'bg-green-900/40' : 'bg-red-900/90'}`}>
                   {lastResult === 'correct' ? (
                     <>
-                      <div className="w-32 h-32 mb-6 animate-bounce filter drop-shadow-[0_0_30px_rgba(255,255,255,0.8)] flex items-center justify-center">
+                      <div className="w-20 h-20 sm:w-32 sm:h-32 mb-4 sm:mb-6 animate-bounce filter drop-shadow-[0_0_30px_rgba(255,255,255,0.8)] flex items-center justify-center">
                         <Image src="/icons/circle.svg" alt="" width={128} height={128} className="w-full h-full brightness-0 invert opacity-90" />
                       </div>
-                      <h2 className="text-white font-black text-6xl mb-2 drop-shadow-lg">
+                      <h2 className="text-white font-black text-3xl sm:text-6xl mb-2 drop-shadow-lg">
                         {locale === 'ja' ? '正解！' : locale === 'en' ? 'Bingo!' : '答对了！'}
                       </h2>
                     </>
                   ) : (
                     <>
-                      <div className="w-24 h-24 mb-6 text-white opacity-80 flex items-center justify-center">
+                      <div className="w-16 h-16 sm:w-24 sm:h-24 mb-4 sm:mb-6 text-white opacity-80 flex items-center justify-center">
                         <Image src="/icons/cross.svg" alt="" width={96} height={96} className="w-full h-full brightness-0 invert" />
                       </div>
-                      <h2 className="text-white font-bold text-4xl mb-2">
+                      <h2 className="text-white font-bold text-2xl sm:text-4xl mb-2">
                         {locale === 'ja' ? 'おしい！' : locale === 'en' ? 'Too bad!' : '可惜！'}
                       </h2>
-                      <p className="text-red-200 text-lg font-bold mb-6">
+                      <p className="text-red-200 text-base sm:text-lg font-bold mb-4 sm:mb-6">
                         {locale === 'ja' ? '正解は...' : locale === 'en' ? 'The answer is...' : '正确答案是...'}
                       </p>
                     </>
@@ -263,8 +272,8 @@ export default function WatchClient({
               )}
             </div>
 
-            <h1 className="min-w-0 max-w-full text-2xl font-medium mb-2 leading-tight break-words [overflow-wrap:anywhere] lg:truncate safari-no-faux-bold" title={t.title}>
-              <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] lg:truncate lg:!whitespace-nowrap" />
+            <h1 className="min-w-0 max-w-full text-2xl font-medium mb-2 leading-tight break-words [overflow-wrap:anywhere] [word-break:break-all] lg:truncate safari-no-faux-bold" title={t.title}>
+              <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] [word-break:break-all] lg:truncate lg:!whitespace-nowrap" />
             </h1>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mb-6 pb-6 border-b border-[var(--border)] min-w-0 max-w-full overflow-hidden">
@@ -316,7 +325,7 @@ export default function WatchClient({
             {/* 問題文と回答フォーム */}
             <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] mb-8">
               {isOnline && <AdSense slot="watch" />}
-              <h3 className="font-medium text-lg sm:text-xl mb-6 leading-relaxed safari-no-faux-bold">
+              <h3 className="font-medium text-lg sm:text-xl mb-6 leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-all] safari-no-faux-bold">
                 <LatexRenderer text={t.question} />
               </h3>
 
@@ -328,7 +337,7 @@ export default function WatchClient({
                       {locale === 'ja' ? 'ヒントをみる' : locale === 'en' ? 'Show hint' : '看提示'}
                     </button>
                   ) : (
-                    <div className="text-sm bg-blue-500/10 text-blue-500 p-5 rounded-2xl mb-6 font-bold border border-blue-500/20">
+                    <div className="text-sm bg-blue-500/10 text-blue-500 p-5 rounded-2xl mb-6 font-bold border border-blue-500/20 break-words [overflow-wrap:anywhere] [word-break:break-all]">
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <Image src="/icons/hint.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
                         <span className="uppercase text-[10px] tracking-widest font-semibold">Hint</span>
@@ -412,7 +421,7 @@ export default function WatchClient({
                       </button>
                     </div>
                   </div>
-                  <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)] break-words [overflow-wrap:anywhere]">
+                  <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)] break-words [overflow-wrap:anywhere] [word-break:break-all]">
                     <LatexRenderer text={displayedExplanation || explanation} />
                   </div>
                 </div>
@@ -465,7 +474,7 @@ export default function WatchClient({
                         <span className="font-black text-sm">{c.userName}</span>
                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{c.createdAt.split('T')[0]}</span>
                       </div>
-                      <p className="text-sm leading-relaxed text-[var(--foreground)]/80 break-words [overflow-wrap:anywhere]">{c.content}</p>
+                      <p className="text-sm leading-relaxed text-[var(--foreground)]/80 break-words [overflow-wrap:anywhere] [word-break:break-all]">{c.content}</p>
                     </div>
                   </div>
                 ))}
