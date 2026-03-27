@@ -34,8 +34,8 @@
 
 html,
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
+  width: 100%;
+  min-height: 100dvh;
   overflow-wrap: anywhere;
   word-break: break-word; /* for older browsers */
   background: var(--background);

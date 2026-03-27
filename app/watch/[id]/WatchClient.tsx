@@ -206,7 +206,7 @@ export default function WatchClient({
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors overflow-x-hidden">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
       <CorrectEffect
         isVisible={showCorrectEffect}
         onClose={() => setShowCorrectEffect(false)}
@@ -222,8 +222,8 @@ export default function WatchClient({
         onSearchChange={handleSearch}
       />
 
-      <div className="pt-[calc(var(--header-height)+1rem)] flex justify-center w-full overflow-x-hidden">
-        <div className="max-w-7xl w-full flex flex-col lg:flex-row items-start gap-8 p-4 sm:p-6 overflow-x-hidden">
+      <div className="pt-[calc(var(--header-height)+1rem)] flex justify-center w-full">
+        <div className="max-w-7xl w-full flex flex-col lg:flex-row items-start gap-8 p-4 sm:p-6">
 
           {/* 左側: メインプレイヤーエリア */}
           <div className="flex-1 min-w-0">

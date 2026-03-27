@@ -49,10 +49,10 @@ function normalizeOptions(value: unknown): string[] | undefined {
   return undefined;
 }
 
-export async function generateMetadata({ 
-  params 
-}: { 
-  params: Promise<{ id: string }> 
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params;
   const { env } = getCloudflareContext();
@@ -239,8 +239,8 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   }));
 
   return (
-    <WatchClientWrapper 
-      quiz={quizData as any} 
+    <WatchClientWrapper
+      quiz={quizData as any}
       initialComments={initialComments}
       initialBookmark={isBookmarked}
       initialLike={isLiked}
