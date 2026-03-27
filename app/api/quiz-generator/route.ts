@@ -603,15 +603,25 @@ export async function POST(req: NextRequest) {
     const guidelines = eduSetting?.value ? JSON.parse(eduSetting.value) : null;
 
     // カテゴリ固有のシステムプロンプトを取得
+    let finalCategoryId = categoryId;
     let categorySystemPrompt = '';
     let categoryName = '';
     let categoryNames: Array<string | null | undefined> = [];
-    if (categoryId) {
+
+    // もしcategoryIdが提供されていないか、空の場合はDBから有効なものを一つ取得する
+    if (!finalCategoryId || finalCategoryId === '') {
+      const firstCategory = await prisma.category.findFirst({ select: { id: true, nameJa: true, name: true } });
+      finalCategoryId = firstCategory?.id || '算数';
+      categoryName = firstCategory?.nameJa || firstCategory?.name || finalCategoryId;
+      categoryNames = [firstCategory?.name, firstCategory?.nameJa];
+    }
+
+    if (finalCategoryId && categoryNames.length === 0) {
       const [category] = await prisma.$queryRawUnsafe<CategorySummary[]>(
         'SELECT "systemPrompt", "nameJa", "nameEn", "nameZh", "name" FROM "Category" WHERE "id" = ? LIMIT 1',
-        categoryId
+        finalCategoryId
       );
-      categoryName = category?.nameJa || category?.name || categoryId;
+      categoryName = category?.nameJa || category?.name || finalCategoryId;
       categoryNames = [category?.name, category?.nameJa, category?.nameEn, category?.nameZh];
       if (category?.systemPrompt) {
         categorySystemPrompt = `\n\n## ジャンル別個別指示:\n${category.systemPrompt}`;
@@ -636,7 +646,7 @@ export async function POST(req: NextRequest) {
 
     let textPrompt = `
 テーマ: ${topicForAi}
-ジャンル: ${categoryName || categoryId || '未指定'}
+ジャンル: ${categoryName || finalCategoryId || '未指定'}
 クイズ形式: ${quizType === 'CHOICE' ? '選択式(4択)' : '記述式'}
 適正年齢: ${parsedAge}歳
 
@@ -739,6 +749,14 @@ ${finalSystemInstruction}
       }, { status: 500 });
     }
 
+    // トークン履歴などの保存用のデータ準備
+    const context = JSON.stringify({
+      categoryName: categoryName || finalCategoryId || '未指定',
+      categoryNames,
+      requestedQuizType: (quizType || 'TEXT') as 'TEXT' | 'CHOICE',
+      topic: topicForAi,
+      correctionPrompt,
+    });
     const qualityIssues = buildQualityFeedback({
       quiz: multiLangData as MultiLangQuiz,
       age: parsedAge,
@@ -885,7 +903,7 @@ Return one finished ${loc.langName} version of the image.`
     // DBへ保存
     const savedQuiz = await prisma.quiz.create({
       data: {
-        categoryId: categoryId,
+        categoryId: finalCategoryId,
         targetAge: parsedAge,
         imageUrl: imageUrl || '',
         translations: {

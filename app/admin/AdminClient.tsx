@@ -441,7 +441,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
   const handleAiGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!aiTopic.trim()) return;
+    // API側で空トピックの自動生成に対応したため、フロントでのガードを削除
     setLoading(true);
     try {
       const res = await fetchWithRetry('/api/quiz-generator', {
@@ -458,6 +458,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           modelId: getModelById(selectedModel).generatorId,
         })
       });
+      
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response:', text);
+        alert(`サーバーから不正なレスポンス（HTMLなど）が返されました。 Status: ${res.status}\n${text.slice(0, 50)}...`);
+        setLoading(false);
+        return;
+      }
+
       if (res.ok) {
         alert('AIでクイズを生成しました！');
         setAiTopic('');

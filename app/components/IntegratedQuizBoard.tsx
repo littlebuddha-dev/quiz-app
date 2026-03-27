@@ -50,12 +50,33 @@ export default function IntegratedQuizBoard() {
     setShowAnswer(false);
     setExplanationMode('gentle');
     try {
+      // 学年を具体的な年齢にマッピング
+      let targetAge = 8;
+      if (gradeLevel.includes('低学年')) targetAge = 7;
+      else if (gradeLevel.includes('中学年')) targetAge = 9;
+      else if (gradeLevel.includes('高学年')) targetAge = 11;
+
       const res = await fetch('/api/quiz-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, gradeLevel, locale }),
+        body: JSON.stringify({ 
+          topic, 
+          targetAge, 
+          categoryId: '算数', // デフォルトカテゴリを設定
+          locale 
+        }),
       });
       
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response:', text);
+        alert(`サーバーから不正なレスポンス（HTMLなど）が返されました。サーバーエラーの可能性があります。\nStatus: ${res.status}\n${text.slice(0, 50)}...`);
+        setQuiz(null);
+        setLoading(false);
+        return;
+      }
+
       const data = (await res.json()) as any;
       if (!res.ok) {
         const detail = data.details ? ` (${data.details})` : '';
