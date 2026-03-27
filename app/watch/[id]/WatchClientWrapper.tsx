@@ -5,11 +5,12 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import WatchSkeleton from './WatchSkeleton';
 import type { WatchClientProps } from './WatchClient';
 
 const WatchClient = dynamic(() => import('./WatchClient'), { 
-  ssr: false,
-  loading: () => <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-20 text-zinc-500 font-bold">読み込み中...</div>
+  ssr: true,
+  loading: () => <WatchSkeleton />
 });
 
 export default function WatchClientWrapper(props: WatchClientProps) {

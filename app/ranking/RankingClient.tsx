@@ -87,7 +87,7 @@ export default function RankingClient({
   const currentRankings = activeTab === 'solve' ? solveRankings : accuracyRankings;
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]" suppressHydrationWarning>
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Header 
         locale={locale} 
         setLocale={setLocale} 

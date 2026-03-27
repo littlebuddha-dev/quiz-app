@@ -1,14 +1,11 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import RankingSkeleton from './RankingSkeleton';
 
 const RankingClient = dynamic(() => import('./RankingClient'), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-20 text-zinc-500 font-bold">
-      Loading...
-    </div>
-  ),
+  ssr: true,
+  loading: () => <RankingSkeleton />,
 });
 
 type RankingEntry = {

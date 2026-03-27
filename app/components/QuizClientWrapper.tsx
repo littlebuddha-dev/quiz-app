@@ -5,12 +5,13 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import QuizSkeleton from './QuizSkeleton';
 import type { QuizClientWrapperProps } from './QuizClient';
 
-// ssr: false を指定してクライアントサイドでのみレンダリング
+// ssr: true に変更し、スケルトンを表示
 const QuizClient = dynamic(() => import('./QuizClient'), { 
-  ssr: false,
-  loading: () => <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-20 text-zinc-500 font-bold">Loading...</div>
+  ssr: true,
+  loading: () => <QuizSkeleton />
 });
 
 export default function QuizClientWrapper(props: QuizClientWrapperProps) {

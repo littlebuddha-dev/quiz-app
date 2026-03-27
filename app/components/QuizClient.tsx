@@ -225,9 +225,9 @@ export default function QuizClient({
   const [maxAge, setMaxAge] = useState(initialMaxAge);
   const [studyMode, setStudyMode] = useState<'all' | 'review' | 'daily'>('all');
   const [isStudyDashboardOpen, setIsStudyDashboardOpen] = useState(false);
-  const [cachedQuizzes] = useState<Quiz[] | null>(() => readOfflineHomeCache().quizzes);
-  const [cachedCategories] = useState<QuizClientWrapperProps['categories'] | null>(() => readOfflineHomeCache().categories);
-  const [cachedStudyRecommendations] = useState<StudyRecommendations | undefined>(() => readOfflineHomeCache().studyRecommendations);
+  const [cachedQuizzes, setCachedQuizzes] = useState<Quiz[] | null>(null);
+  const [cachedCategories, setCachedCategories] = useState<QuizClientWrapperProps['categories'] | null>(null);
+  const [cachedStudyRecommendations, setCachedStudyRecommendations] = useState<StudyRecommendations | undefined>(undefined);
 
   // パーソナライズ用の状態管理（セットを使って高速にO(1)で存在確認）
   const [bookmarks] = useState<Set<string>>(new Set(userBookmarks));
@@ -235,6 +235,13 @@ export default function QuizClient({
 
   const t = DICTIONARY[locale];
   const studyText = STUDY_COPY[locale];
+
+  useEffect(() => {
+    const cache = readOfflineHomeCache();
+    if (cache.quizzes) setCachedQuizzes(cache.quizzes);
+    if (cache.categories) setCachedCategories(cache.categories);
+    if (cache.studyRecommendations) setCachedStudyRecommendations(cache.studyRecommendations);
+  }, []);
 
   useEffect(() => {
     try {
@@ -339,7 +346,7 @@ export default function QuizClient({
   const reviewQuizzes = sortedQuizzes.filter((quiz) => reviewQuizSet.has(quiz.id));
 
   return (
-    <div className={hideHeader ? '' : 'min-h-screen bg-[var(--background)] text-[var(--foreground)]'} suppressHydrationWarning>
+    <div className={hideHeader ? '' : 'min-h-screen bg-[var(--background)] text-[var(--foreground)]'}>
       {/* トップバー */}
       {!hideHeader && (
         <Header 
