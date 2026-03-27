@@ -3,7 +3,7 @@
 // Purpose: Handles state (search, filter, modal) for the Quiz Dashboard
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -284,13 +284,22 @@ export default function QuizClient({
     updateQuery({ category: category === 'すべて' ? null : category });
   };
 
+  // スライダー操作のデバウンス処理 (URL更新とサーバーフェッチの頻度を抑える)
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleAgeRangeChange = (min: number, max: number) => {
+    // クライアント側の状態は即座に反映してUIをサクサク動かす
     setMinAge(min);
     setMaxAge(max);
-    updateQuery({ 
-      minAge: min === initialMinAge ? null : min.toString(), 
-      maxAge: max === initialMaxAge ? null : max.toString() 
-    });
+    
+    if (timerRef.current) clearTimeout(timerRef.current);
+    
+    timerRef.current = setTimeout(() => {
+      updateQuery({ 
+        minAge: min === initialMinAge ? null : min.toString(), 
+        maxAge: max === initialMaxAge ? null : max.toString() 
+      });
+    }, 300);
   };
 
   const reviewQuizSet = useMemo(
