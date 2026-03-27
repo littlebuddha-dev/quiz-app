@@ -13,13 +13,15 @@ interface LatexRendererProps {
 }
 
 function normalizeLatexText(value: string) {
+  if (typeof value !== 'string') return "";
+  
   return value
     .trim()
-    .replace(/\\\\/g, '\\') // Fix double escaping from server serialization
-    .replace(/\\([a-zA-Z]+)/g, (match) => {
-      // Avoid accidental unescaping of already correct commands
-      return match;
-    })
+    // 1. バックスラッシュの過剰なエスケープを修正 (\+コマンド名 のパターンを統合)
+    .replace(/\\+([a-zA-Z]+)/g, '\\$1')
+    // 2. 二重以上のバックスラッシュを単体に統合 (文脈に注意)
+    .replace(/\\\\+/g, '\\')
+    // 3. 標準的なデリミタへの統一
     .replace(/\\\(/g, '$')
     .replace(/\\\)/g, '$')
     .replace(/\\\[/g, '$$')
@@ -91,6 +93,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
     <span 
       className={`latex-container inline-block max-w-full min-w-0 align-top whitespace-pre-line break-words [overflow-wrap:anywhere] [word-break:break-word] ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
+      suppressHydrationWarning
     />
   );
 }
