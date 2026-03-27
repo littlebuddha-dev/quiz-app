@@ -3,7 +3,7 @@
 // Purpose: Handles state (search, filter, modal) for the Quiz Dashboard
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -218,6 +218,7 @@ export default function QuizClient({
   const searchParams = useSearchParams();
   const { locale, setLocale } = usePreferredLocale();
   const isOnline = useOnlineStatus();
+  const [isPending, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [minAge, setMinAge] = useState(initialMinAge);
@@ -270,7 +271,7 @@ export default function QuizClient({
         newSearchParams.delete(key);
       }
     });
-    router.push(`/?${newSearchParams.toString()}`);
+    router.replace(`/?${newSearchParams.toString()}`, { scroll: false });
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -295,11 +296,13 @@ export default function QuizClient({
     if (timerRef.current) clearTimeout(timerRef.current);
     
     timerRef.current = setTimeout(() => {
-      updateQuery({ 
-        minAge: min === initialMinAge ? null : min.toString(), 
-        maxAge: max === initialMaxAge ? null : max.toString() 
+      startTransition(() => {
+        updateQuery({ 
+          minAge: min === initialMinAge ? null : min.toString(), 
+          maxAge: max === initialMaxAge ? null : max.toString() 
+        });
       });
-    }, 300);
+    }, 500);
   };
 
   const reviewQuizSet = useMemo(

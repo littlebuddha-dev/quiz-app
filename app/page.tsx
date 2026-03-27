@@ -142,8 +142,11 @@ export default async function Home({
     }
   }
 
-  const currentMinAge = minAgeParam ? parseInt(minAgeParam) : defaultMin;
-  const currentMaxAge = maxAgeParam ? parseInt(maxAgeParam) : defaultMax;
+  const parsedMin = minAgeParam ? parseInt(minAgeParam) : NaN;
+  const parsedMax = maxAgeParam ? parseInt(maxAgeParam) : NaN;
+
+  const currentMinAge = isNaN(parsedMin) ? defaultMin : parsedMin;
+  const currentMaxAge = isNaN(parsedMax) ? defaultMax : parsedMax;
 
   // カテゴリーの絞り込み (指定された年齢範囲 [currentMinAge, currentMaxAge] と重なるカテゴリーのみ)
   const filteredCategories = allCategories.filter(cat => {

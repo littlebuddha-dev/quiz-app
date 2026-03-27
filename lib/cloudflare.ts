@@ -5,6 +5,12 @@
 import { getCloudflareContext as getOriginalContext } from '@opennextjs/cloudflare';
 
 export function getCloudflareContext(options?: { async?: boolean }): any {
+  // 開発環境またはローカル環境では、高コストなCloudflareコンテキスト取得をスキップして高速化する
+  if (process.env.NODE_ENV === 'development' || !process.env.CF_PAGES) {
+    const result = { env: process.env };
+    return (options as any)?.async ? Promise.resolve(result) : result;
+  }
+
   try {
     const context = getOriginalContext(options as any);
     if (!context) {
@@ -12,7 +18,6 @@ export function getCloudflareContext(options?: { async?: boolean }): any {
     }
     return context;
   } catch (e) {
-    // If it fails (e.g., not initialized in Next.js config), fallback to process.env
     return { env: process.env };
   }
 }

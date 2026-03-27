@@ -51,12 +51,17 @@ export function getPrimaryEmailFromWebhookUser(user: {
 export async function ensureLocalUser(clerkId: string, prisma: PrismaClient): Promise<User> {
   const existingUser = await prisma.user.findUnique({ where: { clerkId } });
 
+  // すでにローカルユーザーが存在する場合は、毎回Clerk APIを叩かずにそのまま返す (処理速度向上のため)
+  // ただし、名前やロールを同期したい場合は、別の仕組み（Webhook等）か明示的な同期フラグを検討する
+  if (existingUser) {
+    return existingUser;
+  }
+
   const client = await clerkClient();
   const clerkUser = await client.users.getUser(clerkId);
   const email = getPrimaryEmailFromClerkUser(clerkUser);
 
   if (!email) {
-    if (existingUser) return existingUser;
     throw new Error(`Clerk user ${clerkId} does not have a usable primary email`);
   }
 
