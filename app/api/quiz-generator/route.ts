@@ -5,6 +5,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
@@ -854,44 +855,21 @@ Requirements:
         console.warn('Japanese image generation failed:', err);
       }
 
+      // タイムアウトを防ぐため、他言語への画像加工（Imagen Edit）はデフォルトでスキップし、
+      // オリジナル（ja用）の画像を全言語で使い回すように変更
+      translationImageUrls.en = translationImageUrls.ja;
+      translationImageUrls.zh = translationImageUrls.ja;
+      
+      /* 
+      // もし将来的に非同期などで実行したい場合の参考用にコメントアウトで残します
       if (jaImage?.data) {
         const targetLocales: { code: 'en' | 'zh'; langName: string; text: string }[] = [
           { code: 'en', langName: 'English', text: multiLangData.en.title },
           { code: 'zh', langName: 'Chinese', text: multiLangData.zh.title },
         ];
-
-        await Promise.all(targetLocales.map(async (loc) => {
-          try {
-            console.log(`Generating ${loc.langName} localized image from Japanese base...`);
-            const localizedImage = await editNanobananaImage(
-              ai,
-              jaImage,
-              `Use the attached Japanese quiz image as the exact visual source.
-
-Keep the composition, characters, objects, camera angle, background, colors, lighting, and overall style as consistent as possible.
-Remove all Japanese text in the image and replace it with only this ${loc.langName} title text: "${loc.text}".
-The new text must feel naturally embedded in the same place and design treatment as the original.
-Do not add any other text, translation notes, UI, borders, or extra elements.
-Return one finished ${loc.langName} version of the image.`
-            );
-
-            if (localizedImage?.data) {
-              translationImageUrls[loc.code] = `data:${localizedImage.mimeType};base64,${localizedImage.data}`;
-            } else {
-              translationImageUrls[loc.code] = translationImageUrls.ja;
-            }
-          } catch (err) {
-            console.warn(`${loc.langName} image generation failed:`, err);
-            translationImageUrls[loc.code] = translationImageUrls.ja;
-          }
-        }));
-
-        for (const code of ['en' as const, 'zh' as const]) {
-          if (!translationImageUrls[code]) {
-            translationImageUrls[code] = translationImageUrls.ja;
-          }
-        }
+        // ...Promise.all(targetLocales.map(...))
       }
+      */
     }
 
     // AIの回答からクイズ形式を決定 (AIが自動で変更した場合に対応)
@@ -954,6 +932,14 @@ Return one finished ${loc.langName} version of the image.`
 
     const finishDuration = Date.now() - startTime;
     console.log(`Generation finished in ${finishDuration}ms`);
+
+    // トップページのキャッシュを再検証して、新しいクイズが表示されるようにする
+    try {
+      revalidatePath('/');
+      console.log('Revalidated path: /');
+    } catch (revalError) {
+      console.warn('Revalidation failed:', revalError);
+    }
 
     // フロントエンドで指定されたロケールのデータを返す
     const responseData = {
