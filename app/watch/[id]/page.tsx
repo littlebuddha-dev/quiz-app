@@ -11,6 +11,9 @@ import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
 import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
 import { getSiteUrl } from '@/lib/site-config';
+import { getServerLocale } from '@/lib/locale-server';
+
+import React, { Suspense } from 'react';
 
 import { Metadata } from 'next';
 
@@ -35,31 +38,36 @@ function normalizeOptions(value: unknown): string[] | undefined {
   return undefined;
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { env } = await getCloudflareContext({ async: true });
-  const prisma = createPrisma(env);
-  await ensureQuizTranslationExplanationColumn(prisma as any);
-  await ensureQuizTranslationVisualColumns(prisma as any);
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> 
+}): Promise<Metadata> {
   const { id } = await params;
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
+  const locale = await getServerLocale();
+
   const quiz = await prisma.quiz.findUnique({
     where: { id },
-    include: { translations: { where: { locale: 'ja' } } },
+    include: {
+      translations: {
+        where: { locale }
+      },
+      category: true,
+    },
   });
 
-  if (!quiz) return { title: 'Not Found' };
-  const t = quiz.translations[0];
+  if (!quiz) return { title: "Quiz Not Found" };
+
+  const translation = quiz.translations[0] || { title: "Quiz" };
+  const baseTitle = `${translation.title} | Cue`;
 
   return {
-    title: t?.title || 'クイズ詳細',
-    description: t?.question || 'クイズに挑戦して、学ぶ楽しさを体験しよう。',
-    alternates: {
-      canonical: `${getSiteUrl()}/watch/${id}`,
-    },
+    title: baseTitle,
     openGraph: {
-      title: `${t?.title} | Cue`,
-      description: t?.question,
-      url: `${getSiteUrl()}/watch/${id}`,
-      images: [quiz.imageUrl || '/og-image.png'],
+      title: baseTitle,
+      images: [`/api/quiz/${id}/og-image?locale=${locale}`],
     },
   };
 }

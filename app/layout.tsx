@@ -7,6 +7,7 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import { getSiteUrl } from "@/lib/site-config";
 import { getStoredPublicAdSenseSettings } from "@/lib/adsense-server";
+import { getServerLocale } from "@/lib/locale-server";
 import ServiceWorkerRegistrar from "./components/ServiceWorkerRegistrar";
 import MultisessionAppSupport from "./components/MultisessionAppSupport";
 
@@ -25,6 +26,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
 };
+
+
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -45,7 +48,7 @@ export const metadata: Metadata = {
     description: "直感的なクイズで知的好奇心を刺激。学ぶことの楽しさを、すべての人へ。",
     images: [
       {
-        url: "/og-image.png", // 仮のパス
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "Cue - Learn with Fun",
@@ -55,7 +58,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Cue | すべての人に学ぶことの楽しさを",
-    description: "直感的なクイズで知的好奇みを刺激。学ぶことの楽しさを、すべての人へ。",
+    description: "直感的なクイズで知的好奇心を刺激。学ぶことの楽しさを、すべての人へ。",
     images: ["/og-image.png"],
   },
   icons: {
@@ -69,6 +72,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getServerLocale();
   const gtmContainerId = "GTM-PM7XG62T";
   const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const multiSessionEnabled =
@@ -110,11 +114,9 @@ export default async function RootLayout({
     </>
   );
 
-  const innerContent = (
-    <html lang="ja" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+  return (
+    <html lang={locale} suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {tagManagerScripts}
         <noscript>
           <iframe
@@ -126,34 +128,26 @@ export default async function RootLayout({
         </noscript>
         {adSenseScript}
         <ServiceWorkerRegistrar />
-        {clerkPubKey && multiSessionEnabled ? (
-          <MultisessionAppSupport>{children}</MultisessionAppSupport>
+        {clerkPubKey ? (
+          <ClerkProvider
+            publishableKey={clerkPubKey}
+            localization={jaJP}
+            signInUrl="/sign-in"
+            signUpUrl="/sign-up"
+            signInFallbackRedirectUrl="/"
+            signUpFallbackRedirectUrl="/onboarding"
+            afterSignOutUrl="/"
+          >
+            {clerkPubKey && multiSessionEnabled ? (
+              <MultisessionAppSupport>{children}</MultisessionAppSupport>
+            ) : (
+              children
+            )}
+          </ClerkProvider>
         ) : (
           children
         )}
       </body>
     </html>
-  );
-
-  if (!clerkPubKey) {
-    if (process.env.NODE_ENV === "production" && !process.env.NEXT_PHASE) {
-      console.warn("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set.");
-    }
-    return innerContent;
-  }
-
-  return (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      localization={jaJP}
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      signInFallbackRedirectUrl="/"
-      signUpFallbackRedirectUrl="/onboarding"
-      afterSignOutUrl="/"
-      dynamic={true}
-    >
-      {innerContent}
-    </ClerkProvider>
   );
 }

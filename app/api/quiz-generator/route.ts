@@ -67,9 +67,52 @@ function normalizeChoiceOptions(value: unknown): string[] | undefined {
   }
 
   if (typeof value === 'string' && value.trim() !== '') {
+    const trimmed = value.trim();
+    // 既にJSON形式（配列）の文字列ならパースを試みる
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        return normalizeChoiceOptions(JSON.parse(trimmed));
+      } catch {
+        // パース失敗時は下へ進む
+      }
+    }
+
     try {
-      return normalizeChoiceOptions(JSON.parse(value));
+      // 全体が単一の値としてパースできるか試す
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return normalizeChoiceOptions(parsed);
     } catch {
+      // フォールバック: カンマ区切り。ただしLaTeX記法 ($...$ または $$...$$) を考慮して分割
+      if (value.includes('$')) {
+        const parts: string[] = [];
+        let current = '';
+        let inSingleDollar = false;
+        let inDoubleDollar = false;
+        
+        for (let i = 0; i < value.length; i++) {
+          const char = value[i];
+          if (char === '$' && value[i + 1] === '$') {
+            inDoubleDollar = !inDoubleDollar;
+            current += '$$';
+            i++;
+          } else if (char === '$') {
+            inSingleDollar = !inSingleDollar;
+            current += '$';
+          } else if (char === ',' && !inSingleDollar && !inDoubleDollar) {
+            parts.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        parts.push(current.trim());
+        const filtered = parts.filter(Boolean);
+        // 分割結果が4つの場合は、意図した4択である可能性が高いので採用
+        if (filtered.length === 4) return filtered;
+        // それ以外でも、単純パースに失敗している以上、この分割結果を返す
+        if (filtered.length > 0) return filtered;
+      }
+      
       return value.split(',').map((item) => item.trim()).filter(Boolean);
     }
   }
@@ -79,7 +122,7 @@ function normalizeChoiceOptions(value: unknown): string[] | undefined {
 
 function normalizeJapaneseScientificNotation(value: string) {
   return value
-    .replace(/\btimes\b/gi, '×')
+    .replace(/(?<!\\)\btimes\b/gi, '×')
     .replace(/\\text\{times\}/gi, '×')
     .replace(/(\d(?:\.\d+)?)\s*×\s*10\^(\d+)/g, '$1 × 10^{$2}')
     .replace(/(\d(?:\.\d+)?)\s*x\s*10\^(\d+)/gi, '$1 × 10^{$2}');

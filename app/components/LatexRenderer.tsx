@@ -26,65 +26,68 @@ function normalizeLatexText(value: string) {
 export default function LatexRenderer({ text, className = "" }: LatexRendererProps) {
   const containerRef = useRef<HTMLSpanElement>(null);
 
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.innerHTML = ''; // クリア
-      const normalizedText = normalizeLatexText(text);
+  const escapeHtml = (unsafe: string) => {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
 
-      // 1. デリミタ ($$ または $) が含まれているかチェック
-      const hasDelimiters = /\$\$[\s\S]*?\$\$|\$[\s\S]*?\$/.test(normalizedText);
+  const getHtml = () => {
+    const normalizedText = normalizeLatexText(text);
 
-      if (!hasDelimiters && normalizedText.includes('\\')) {
-        // デリミタはないがバックスラッシュがある場合、全体を数式として扱う（フォールバック）
-        const span = document.createElement('span');
-        try {
-          katex.render(normalizedText, span, { displayMode: false, throwOnError: false });
-        } catch {
-          span.textContent = normalizedText;
-        }
-        containerRef.current.appendChild(span);
-        return;
+    // 1. デリミタ ($$ または $) が含まれているかチェック
+    const hasDelimiters = /\$\$[\s\S]*?\$\$|\$[\s\S]*?\$/.test(normalizedText);
+
+    if (!hasDelimiters && normalizedText.includes('\\')) {
+      try {
+        return katex.renderToString(normalizedText, { displayMode: false, throwOnError: false });
+      } catch {
+        return escapeHtml(normalizedText);
       }
-
-      // 2. 従来のデリミタ分割ロジック
-      const parts = normalizedText.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
-      
-      parts.forEach(part => {
-        if (part.startsWith('$$') && part.endsWith('$$')) {
-          // ブロック数式
-          const formula = part.slice(2, -2);
-          const span = document.createElement('div');
-          span.className = 'my-4 overflow-x-auto';
-          try {
-            katex.render(formula, span, { displayMode: true, throwOnError: false });
-        } catch {
-            span.textContent = part;
-          }
-          containerRef.current?.appendChild(span);
-        } else if (part.startsWith('$') && part.endsWith('$')) {
-          // インライン数式
-          const formula = part.slice(1, -1);
-          const span = document.createElement('span');
-          try {
-            katex.render(formula, span, { displayMode: false, throwOnError: false });
-        } catch {
-            span.textContent = part;
-          }
-          containerRef.current?.appendChild(span);
-        } else {
-          // 通常テキスト
-          const span = document.createElement('span');
-          span.textContent = part;
-          containerRef.current?.appendChild(span);
-        }
-      });
     }
-  }, [text]);
+
+    // 2. デリミタ分割ロジック
+    const parts = normalizedText.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
+    
+    return parts.map(part => {
+      if (!part) return '';
+
+      if (part.startsWith('$$') && part.endsWith('$$') && part.length > 4) {
+        const formula = part.slice(2, -2);
+        try {
+          return `<div class="my-4 overflow-x-auto text-center">${katex.renderToString(formula, { displayMode: true, throwOnError: false })}</div>`;
+        } catch {
+          return escapeHtml(part);
+        }
+      } else if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
+        const formula = part.slice(1, -1);
+        try {
+          return katex.renderToString(formula, { displayMode: false, throwOnError: false });
+        } catch {
+          return escapeHtml(part);
+        }
+      } else if (part.includes('\\')) {
+        const cleaned = part.replace(/^\$|\$$/g, '');
+        try {
+          return katex.renderToString(cleaned, { displayMode: false, throwOnError: false });
+        } catch {
+          return escapeHtml(part);
+        }
+      } else {
+        return escapeHtml(part);
+      }
+    }).join('');
+  };
+
+  const html = getHtml();
 
   return (
     <span 
-      ref={containerRef} 
       className={`latex-container inline-block max-w-full min-w-0 align-top whitespace-pre-line break-words [overflow-wrap:anywhere] ${className}`}
+      dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }

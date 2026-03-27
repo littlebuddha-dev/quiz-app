@@ -15,35 +15,47 @@ import { getSiteUrl } from '@/lib/site-config';
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { env } = await getCloudflareContext({ async: true });
-  const prisma = createPrisma(env);
-  const { id } = await params;
+import { getServerLocale } from '@/lib/locale-server';
 
-  const channel = await prisma.channel.findUnique({
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params;
+  const { env } = getCloudflareContext();
+  const prisma = createPrisma(env);
+  const locale = await getServerLocale();
+
+  const channel = await prisma.category.findUnique({
     where: { id },
     select: {
+      id: true,
       name: true,
-      description: true,
-      avatarUrl: true,
+      nameJa: true,
+      nameEn: true,
+      nameZh: true,
     },
   });
 
-  if (!channel) {
-    return { title: 'チャンネルが見つかりません' };
-  }
+  if (!channel) return { title: 'Channel Not Found' };
+
+  const titleJa = channel.nameJa || channel.name;
+  const titleEn = channel.nameEn || channel.name;
+  const titleZh = channel.nameZh || channel.name;
+
+  let title = titleJa;
+  if (locale === 'en') title = titleEn;
+  if (locale === 'zh') title = titleZh;
+
+  const baseTitle = `${title} | Cue`;
 
   return {
-    title: `${channel.name} | チャンネル`,
-    description: channel.description || `${channel.name} が公開している学習クイズ一覧です。`,
-    alternates: {
-      canonical: `${getSiteUrl()}/channel/${id}`,
-    },
+    title: baseTitle,
     openGraph: {
-      title: `${channel.name} | Cue`,
-      description: channel.description || `${channel.name} が公開している学習クイズ一覧です。`,
+      title: baseTitle,
       url: `${getSiteUrl()}/channel/${id}`,
-      images: [channel.avatarUrl || '/og-image.png'],
+      images: ['/og-image.png'],
     },
   };
 }

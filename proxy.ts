@@ -35,7 +35,8 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   // Content Security Policy (CSP) の設定
-  // AdSense や Google Tag Manager は 'unsafe-eval' を必要とする場合があります
+  // 開発環境 (localhost) では SSL がない場合が多いため、upgrade-insecure-requests を除外する
+  const isDev = process.env.NODE_ENV === 'development';
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:;
@@ -45,7 +46,7 @@ export default clerkMiddleware(async (auth, request) => {
     connect-src 'self' https: http:;
     frame-src 'self' https: http:;
     worker-src 'self' blob:;
-    upgrade-insecure-requests;
+    ${isDev ? '' : 'upgrade-insecure-requests;'}
   `.replace(/\s{2,}/g, ' ').trim();
 
   const response = NextResponse.next();

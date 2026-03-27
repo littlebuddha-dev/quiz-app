@@ -82,8 +82,10 @@ export default function WatchClient({
     }
   };
 
-  // 現在の言語の翻訳を取得。なければ日本語をフォールバックに。
-  const t = quiz.translations[locale] || quiz.translations['ja'];
+  // 現在の言語の翻訳を取得。なければ日本語、それもなければ最初の翻訳をフォールバックに。
+  const t = quiz.translations[locale] || quiz.translations['ja'] || Object.values(quiz.translations)[0];
+  if (!t) return null; // 基本的にありえないが、安全のため
+
   const explanation = t.explanation?.trim();
   const gentleExplanation = buildGentleExplanation(locale, t.answer, explanation);
   const displayedExplanation = explanationMode === 'gentle' ? gentleExplanation : explanation;
