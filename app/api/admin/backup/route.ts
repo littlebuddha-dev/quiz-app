@@ -123,7 +123,17 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
     if (!user || user.role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-    const body = (await req.json()) as Partial<BackupPayload>;
+    let body;
+    try {
+      body = (await req.json()) as Partial<BackupPayload>;
+    } catch (e) {
+      console.error('JSON parse error in backup upload:', e);
+      return NextResponse.json({
+        error: 'JSON_PARSE_ERROR',
+        message: 'バックアップデータの読み込みに失敗しました（JSONが不完全です）。ファイルサイズが大きすぎるため、アップロードの途中でデータが途切れた可能性があります。大容量データの移行には、docs/backup_guide.mdに記載の「SQLiteファイル直接コピー」を推奨します。',
+        details: getErrorMessage(e)
+      }, { status: 400 });
+    }
     const data = body.data;
     const includeUsers = body.options?.includeUsers ?? true;
 
