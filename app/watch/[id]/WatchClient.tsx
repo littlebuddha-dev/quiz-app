@@ -141,7 +141,7 @@ export default function WatchClient({
 
     // クイズ表示エリアへスクロール（モバイル等で回答ボタンが下にある場合を考慮）
     if (quizVisualRef.current) {
-      quizVisualRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      quizVisualRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     if (isLoggedIn) {
@@ -272,8 +272,8 @@ export default function WatchClient({
               )}
             </div>
 
-            <h1 className="min-w-0 max-w-full text-2xl font-medium mb-2 leading-tight break-words [overflow-wrap:anywhere] [word-break:break-all] lg:truncate safari-no-faux-bold" title={t.title}>
-              <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] [word-break:break-all] lg:truncate lg:!whitespace-nowrap" />
+            <h1 className="min-w-0 max-w-full text-2xl font-medium mb-2 leading-tight break-words [overflow-wrap:anywhere] lg:truncate safari-no-faux-bold" title={t.title}>
+              <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] lg:truncate lg:!whitespace-nowrap" />
             </h1>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mb-6 pb-6 border-b border-[var(--border)] min-w-0 max-w-full overflow-hidden">
@@ -325,7 +325,7 @@ export default function WatchClient({
             {/* 問題文と回答フォーム */}
             <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] mb-8">
               {isOnline && <AdSense slot="watch" />}
-              <h3 className="font-medium text-lg sm:text-xl mb-6 leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-all] safari-no-faux-bold">
+              <h3 className="font-medium text-lg sm:text-xl mb-6 leading-relaxed break-words [overflow-wrap:anywhere] safari-no-faux-bold">
                 <LatexRenderer text={t.question} />
               </h3>
 
@@ -337,7 +337,7 @@ export default function WatchClient({
                       {locale === 'ja' ? 'ヒントをみる' : locale === 'en' ? 'Show hint' : '看提示'}
                     </button>
                   ) : (
-                    <div className="text-sm bg-blue-500/10 text-blue-500 p-5 rounded-2xl mb-6 font-bold border border-blue-500/20 break-words [overflow-wrap:anywhere] [word-break:break-all]">
+                    <div className="text-sm bg-blue-500/10 text-blue-500 p-5 rounded-2xl mb-6 font-bold border border-blue-500/20 break-words [overflow-wrap:anywhere]">
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <Image src="/icons/hint.svg" alt="" width={16} height={16} className="w-4 h-4 opacity-80" style={{ filter: 'invert(52%) sepia(87%) saturate(3015%) hue-rotate(193deg) brightness(101%) contrast(105%)' }} />
                         <span className="uppercase text-[10px] tracking-widest font-semibold">Hint</span>
@@ -421,7 +421,7 @@ export default function WatchClient({
                       </button>
                     </div>
                   </div>
-                  <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)] break-words [overflow-wrap:anywhere] [word-break:break-all]">
+                  <div className="text-sm sm:text-base leading-relaxed text-[var(--foreground)] break-words [overflow-wrap:anywhere]">
                     <LatexRenderer text={displayedExplanation || explanation} />
                   </div>
                 </div>
