@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-const CONTACT_EMAIL = 'apple.darwin@gmail.com';
+const CONTACT_EMAIL = 'cue.college.library@gmail.com';
 
 export default function ContactForm() {
   const [name, setName] = useState('');
