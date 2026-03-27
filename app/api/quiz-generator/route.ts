@@ -15,6 +15,7 @@ import {
   buildLanguageSubjectPromptBlock,
   detectLanguageSubjectRule,
   getPersonaByAge,
+  getRandomTopicFromCurriculum,
   BASE_SYSTEM_INSTRUCTION,
 } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
@@ -574,16 +575,32 @@ export async function POST(req: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     const body = (await req.json()) as any;
-    const { topic, categoryId, targetAge, quizType, imageUrl: providedImageUrl, systemPrompt, correctionPrompt, excludeTitles, modelId } = body;
+    const {
+      topic: rawTopic,
+      categoryId,
+      targetAge,
+      quizType,
+      imageUrl: providedImageUrl,
+      systemPrompt,
+      correctionPrompt,
+      excludeTitles,
+      modelId,
+      locale: requestedLocale
+    } = body;
+    const finalLocale = (requestedLocale || 'ja') as 'ja' | 'en' | 'zh';
 
+    const parsedAge = parseInt(targetAge) || 8;
     const hybridModelId = modelId || DEFAULT_MODEL_ID;
     const hybridModel = getModelById(hybridModelId);
-    // If modelId is already a raw Gemini model name (passed from auto-generator), use it. 
+    // If modelId is already a raw Gemini model name (passed from auto-generator), use it.
     // Otherwise use the generatorId from the hybrid config.
     selectedModel = (modelId && !modelId.startsWith('hybrid-')) ? modelId : hybridModel.generatorId;
 
-    const parsedAge = parseInt(targetAge) || 8;
     const persona = getPersonaByAge(parsedAge);
+
+    // DBから教育課程ガイドラインを取得
+    const eduSetting = await prisma.setting.findUnique({ where: { key: 'educational_guidelines' } });
+    const guidelines = eduSetting?.value ? JSON.parse(eduSetting.value) : null;
 
     // カテゴリ固有のシステムプロンプトを取得
     let categorySystemPrompt = '';
@@ -601,11 +618,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // トピックが空の場合、教育課程データからランダムに選択
+    let topicForAi = rawTopic;
+    if (!topicForAi || topicForAi.trim() === '') {
+      console.log('Topic is empty. Picking a random topic from curriculum data...');
+      topicForAi = getRandomTopicFromCurriculum(parsedAge, categoryNames, guidelines);
+      console.log(`Selected random topic: ${topicForAi}`);
+    }
+
     const agePersonaInstruction = buildAgePromptBlock(parsedAge);
 
-    // DBから教育課程ガイドラインを取得（存在すれば）
-    const eduSetting = await prisma.setting.findUnique({ where: { key: 'educational_guidelines' } });
-    const guidelines = eduSetting?.value ? JSON.parse(eduSetting.value) : null;
     const educationalContextInstruction = buildEducationalContextPrompt(parsedAge, categoryNames, guidelines);
 
     const languageSubjectInstruction = buildLanguageSubjectPromptBlock(categoryNames);
@@ -613,7 +635,7 @@ export async function POST(req: NextRequest) {
     const finalSystemInstruction = BASE_SYSTEM_INSTRUCTION + agePersonaInstruction + educationalContextInstruction + languageSubjectInstruction + categorySystemPrompt + (systemPrompt ? `\n\n## ユーザー定義の追加システム要件:\n${systemPrompt}` : '');
 
     let textPrompt = `
-テーマ: ${topic}
+テーマ: ${topicForAi}
 ジャンル: ${categoryName || categoryId || '未指定'}
 クイズ形式: ${quizType === 'CHOICE' ? '選択式(4択)' : '記述式'}
 適正年齢: ${parsedAge}歳
@@ -723,7 +745,7 @@ ${finalSystemInstruction}
       categoryName: categoryName || categoryId || '未指定',
       categoryNames,
       requestedQuizType: (quizType || 'TEXT') as 'TEXT' | 'CHOICE',
-      topic,
+      topic: topicForAi,
       correctionPrompt,
     });
 
@@ -792,7 +814,7 @@ ${finalSystemInstruction}
     if (!providedImageUrl && imageGenerationEnabled) {
       console.log('Generating Japanese base image with nanobanana...');
       const jaPrompt = `Create exactly one polished educational illustration in a wide 16:9 layout for learners around age ${parsedAge}.
-Theme: ${topic}
+Theme: ${topicForAi}
 Question context: ${multiLangData.ja.question}
 Visual direction: ${persona.imageStyle}
 
@@ -870,7 +892,7 @@ Return one finished ${loc.langName} version of the image.`
           create: [
             {
               locale: 'ja',
-              title: multiLangData.ja.title || topic || 'クイズ',
+              title: multiLangData.ja.title || topicForAi || 'クイズ',
               question: multiLangData.ja.question,
               hint: multiLangData.ja.hint,
               answer: multiLangData.ja.answer,
@@ -882,7 +904,7 @@ Return one finished ${loc.langName} version of the image.`
             },
             {
               locale: 'en',
-              title: multiLangData.en.title || topic || 'Quiz',
+              title: multiLangData.en.title || topicForAi || 'Quiz',
               question: multiLangData.en.question,
               hint: multiLangData.en.hint,
               answer: multiLangData.en.answer,
@@ -894,7 +916,7 @@ Return one finished ${loc.langName} version of the image.`
             },
             {
               locale: 'zh',
-              title: multiLangData.zh.title || topic || '问答',
+              title: multiLangData.zh.title || topicForAi || '问答',
               question: multiLangData.zh.question,
               hint: multiLangData.zh.hint,
               answer: multiLangData.zh.answer,
@@ -915,7 +937,17 @@ Return one finished ${loc.langName} version of the image.`
     const finishDuration = Date.now() - startTime;
     console.log(`Generation finished in ${finishDuration}ms`);
 
-    return NextResponse.json({ ...multiLangData.ja, options: jaOptions, id: savedQuiz.id, imageUrl });
+    // フロントエンドで指定されたロケールのデータを返す
+    const responseData = {
+      ...(multiLangData[finalLocale] || multiLangData.ja),
+      options: finalLocale === 'ja' ? jaOptions : (finalLocale === 'en' ? enOptions : zhOptions),
+      id: savedQuiz.id,
+      imageUrl,
+      // デバッグ用に利用したトピック（自動選択された場合など）を返す
+      generatedTopic: topicForAi
+    };
+
+    return NextResponse.json(responseData);
 
   } catch (error: any) {
     console.error('API Error details:', error);
@@ -953,7 +985,9 @@ Return one finished ${loc.langName} version of the image.`
 
     return NextResponse.json({
       error: 'Failed to generate quiz',
-      message: `クイズの生成中にエラーが発生しました。詳細は管理者にお問い合わせください。(${status})`
+      message: `クイズの生成中にエラーが発生しました。(${status})`,
+      details: errorMessage,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, { status: 500 });
   }
 }

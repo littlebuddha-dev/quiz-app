@@ -465,11 +465,12 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         fetchQuizzes();
       } else {
         const errorData = (await res.json()) as any;
-        alert(errorData.message || '生成に失敗しました');
+        const detail = errorData.details ? ` (${errorData.details})` : '';
+        alert(errorData.message || `生成に失敗しました。(Status: ${res.status}${detail})`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('エラーが発生しました');
+      alert(`エラーが発生しました：\n${error.message || ''}`);
     }
     setLoading(false);
   };
@@ -670,11 +671,12 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         fetchQuizzes();
       } else {
         const err = (await res.json()) as any;
-        alert(err.message || '自動生成に失敗しました');
+        const detail = err.details ? ` (${err.details})` : '';
+        alert(err.message || `自動生成に失敗しました。(Status: ${res.status}${detail})`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('エラーが発生しました');
+      alert(`エラーが発生しました：\n${error.message || ''}`);
     }
     setBulkLoading(false);
   };

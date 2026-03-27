@@ -431,3 +431,48 @@ export function buildEducationalContextPrompt(age: number, categoryNames: Array<
 ${matchedContent}
 `;
 }
+
+/**
+ * 教育課程データから、対象年齢とカテゴリに基づいてランダムなトピックを抽出します。
+ */
+export function getRandomTopicFromCurriculum(age: number, categoryNames: Array<string | null | undefined>, guidelines?: any): string {
+  let group: '小学校' | '中学校' | '高等学校' = "小学校";
+  if (age >= 6 && age <= 12) group = "小学校";
+  else if (age > 12 && age <= 15) group = "中学校";
+  else if (age > 15) group = "高等学校";
+
+  const data = (guidelines && guidelines[group]) ? guidelines[group] : EDUCATIONAL_DATA[group];
+  const contentMap = data.content || {};
+  const subjects = Object.keys(contentMap);
+
+  if (subjects.length === 0) return "自由なテーマ";
+
+  // カテゴリに合致する科目があるか探す
+  const normalizedCategoryNames = categoryNames
+    .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+    .map(v => v.toLowerCase().replace(/\s+/g, ''));
+
+  let targetSubjects = subjects.filter(subject => 
+    normalizedCategoryNames.some(cat => subject.toLowerCase().includes(cat) || cat.includes(subject.toLowerCase()))
+  );
+
+  // 合致する科目がなければ、全科目からランダムに選択
+  if (targetSubjects.length === 0) {
+    targetSubjects = subjects;
+  }
+
+  const selectedSubject = targetSubjects[Math.floor(Math.random() * targetSubjects.length)];
+  const subjectContent = contentMap[selectedSubject];
+
+  // 句点や読点で区切って、ランダムに1つの要素（トピック候補）を抽出
+  const topics = subjectContent
+    .split(/[、。]|を学びます|について学びます/)
+    .map((s: string) => s.trim())
+    .filter((s: string) => s.length >= 2 && s.length <= 20);
+
+  if (topics.length > 0) {
+    return topics[Math.floor(Math.random() * topics.length)];
+  }
+
+  return selectedSubject;
+}

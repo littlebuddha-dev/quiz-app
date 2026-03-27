@@ -56,17 +56,17 @@ export default function IntegratedQuizBoard() {
         body: JSON.stringify({ topic, gradeLevel, locale }),
       });
       
-      const data = (await res.json()) as QuizGeneratorResponse;
-
+      const data = (await res.json()) as any;
       if (!res.ok) {
-        alert(data.message || 'クイズの生成に失敗しました。');
+        const detail = data.details ? ` (${data.details})` : '';
+        alert(data.message || `クイズの生成に失敗しました。(Status: ${res.status}${detail})`);
         setQuiz(null);
       } else {
         setQuiz(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('通信エラーが発生しました。インターネット接続を確認してください。');
+      alert(`通信エラーが発生しました。インターネット接続を確認してください。\n${error.message || ''}`);
       setQuiz(null);
     }
     setLoading(false);
