@@ -84,7 +84,7 @@ export function SidebarContents({
   const ageLabel = locale === 'ja' ? '対象年齢' : locale === 'en' ? 'Age Range' : '年龄范围';
 
   const rangeSlider = onAgeRangeChange ? (
-    <div className={`mb-8 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 ${isMobile ? 'min-w-[200px]' : ''}`}>
+    <div className={`${isMobile ? 'mb-2' : 'mb-8'} p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 w-full`}>
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <img src="/icons/list.svg" alt="" className="w-3.5 h-3.5 opacity-50 grayscale" />
@@ -207,12 +207,15 @@ export function SidebarContents({
 
   if (isMobile) {
     return (
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-4 items-center">
-            {rangeSlider}
-            <div className="flex-1">
-                {studyModeButtons}
-            </div>
+      <div className="flex flex-col gap-3">
+        {/* スライダーだけの段（幅いっぱいに表示） */}
+        <div className="w-full">
+          {rangeSlider}
+        </div>
+        
+        {/* ボタンの段 */}
+        <div className="w-full">
+          {studyModeButtons}
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
           {gameModeLink}
