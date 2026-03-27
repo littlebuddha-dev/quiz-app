@@ -223,10 +223,10 @@ export default function WatchClient({
       />
 
       <div className="pt-[calc(var(--header-height)+1rem)] flex justify-center w-full">
-        <div className="max-w-7xl w-full flex flex-col lg:flex-row items-start gap-8 p-4 sm:p-6">
+        <div className="max-w-7xl w-full flex flex-col lg:flex-row items-stretch lg:items-start gap-8 p-4 sm:p-6">
 
           {/* 左側: メインプレイヤーエリア */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 w-full">
             {!isOnline && (
               <div className="mb-4 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 px-4 py-3">
                 <div className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Offline</div>
@@ -296,7 +296,7 @@ export default function WatchClient({
               <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] lg:truncate lg:!whitespace-nowrap" />
             </h1>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mb-6 pb-6 border-b border-[var(--border)] min-w-0 max-w-full overflow-hidden">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-3 mb-6 pb-6 border-b border-[var(--border)] min-w-0 max-w-full overflow-hidden">
               {quiz.channel ? (
                 <Link href={`/channel/${quiz.channel.id}`} className="flex items-center gap-3 hover:bg-[var(--card)] p-2 rounded-xl transition-all border border-transparent hover:border-[var(--border)]">
                   <div className="w-10 h-10 rounded-full bg-zinc-300 dark:bg-zinc-700 overflow-hidden relative border border-[var(--border)]">

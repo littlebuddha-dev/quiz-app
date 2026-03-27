@@ -106,7 +106,7 @@ export default function Header({
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 bg-[var(--card)]/80 backdrop-blur-md px-4 py-3 sm:h-16 sm:px-6 sm:py-0 border-b border-[var(--border)] z-50 transition-colors"
+      className="fixed top-0 left-0 right-0 bg-[var(--card)]/80 backdrop-blur-md px-4 py-3 sm:h-16 sm:px-6 sm:py-0 border-b border-[var(--border)] z-50 transition-colors overflow-x-hidden"
       suppressHydrationWarning
     >
       <div className="flex flex-col gap-3 sm:hidden w-full max-w-full overflow-hidden">
