@@ -34,12 +34,12 @@ function getTodayLabel() {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; minAge?: string; maxAge?: string }>;
 }) {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   await ensureCategoryLocalizationColumns(prisma as any);
-  const { q: searchQuery, category: activeCategory } = await searchParams;
+  const { q: searchQuery, category: activeCategory, minAge: minAgeParam, maxAge: maxAgeParam } = await searchParams;
   const { userId: clerkId } = await auth();
 
   // ログイン中のユーザーがいればその設定・履歴を取得
@@ -121,15 +121,35 @@ export default async function Home({
   // ただし、名前が空のものは除外する
   const displayCategoriesRaw = allCategories.filter(c => (c.nameJa || c.name) && (c.nameJa || c.name).trim() !== '');
 
-  // クイズフィルタリング用の有効なカテゴリーID
+  // 年齢範囲のデフォルト設定
+  // 1. 管理者はデフォルト 0-100
+  // 2. 16歳以上はデフォルト 16-100
+  // 3. それ以外は 実年齢〜実年齢+3
+  let defaultMin = 0;
+  let defaultMax = 100;
   const isAdmin = userStatus?.role === 'ADMIN';
-  const filteredCategories = (effectiveAge === null || isAdmin)
-    ? allCategories
-    : allCategories.filter(cat => {
-        const minMatch = effectiveAge >= cat.minAge;
-        const maxMatch = cat.maxAge === null || effectiveAge <= cat.maxAge;
-        return minMatch && maxMatch;
-      });
+
+  if (isAdmin) {
+    defaultMin = 0;
+    defaultMax = 100;
+  } else if (effectiveAge !== null) {
+    if (effectiveAge >= 16) {
+      defaultMin = 16;
+      defaultMax = 100;
+    } else {
+      defaultMin = effectiveAge;
+      defaultMax = Math.min(effectiveAge + 3, 100);
+    }
+  }
+
+  const currentMinAge = minAgeParam ? parseInt(minAgeParam) : defaultMin;
+  const currentMaxAge = maxAgeParam ? parseInt(maxAgeParam) : defaultMax;
+
+  // カテゴリーの絞り込み (指定された年齢範囲 [currentMinAge, currentMaxAge] と重なるカテゴリーのみ)
+  const filteredCategories = allCategories.filter(cat => {
+    const catMax = cat.maxAge ?? 100;
+    return cat.minAge <= currentMaxAge && catMax >= currentMinAge;
+  });
 
   const filteredCategoryIds = filteredCategories.map(c => c.id);
 
@@ -137,8 +157,10 @@ export default async function Home({
   const rawQuizzes = await prisma.quiz.findMany({
     where: {
       AND: [
-        // ADMINの場合は年齢制限を無視してすべて取得。それ以外はマッチするカテゴリのみ。
-        isAdmin ? {} : { categoryId: { in: filteredCategoryIds } },
+        // 年齢範囲フィルタ (targetAgeが指定範囲内か)
+        { targetAge: { gte: currentMinAge, lte: currentMaxAge } },
+        // カテゴリーの一致 (isAdmin であっても範囲内カテゴリーのみに絞る方が直感的)
+        { categoryId: { in: filteredCategoryIds } },
         activeCategory && activeCategory !== 'すべて'
           ? { categoryId: activeCategory }
           : {},
@@ -158,6 +180,9 @@ export default async function Home({
     },
     include: {
       translations: true,
+      _count: {
+        select: { histories: true }
+      }
     },
     orderBy: {
       createdAt: 'desc',
@@ -201,6 +226,7 @@ export default async function Home({
       imageUrl: q.imageUrl,
       translations: translationsMap,
       createdAt: q.createdAt.toISOString(),
+      viewCount: q._count?.histories || 0,
     };
   });
 
@@ -331,6 +357,8 @@ export default async function Home({
       userStatus={userStatus}
       initialSearchQuery={searchQuery}
       initialCategory={activeCategory}
+      initialMinAge={currentMinAge}
+      initialMaxAge={currentMaxAge}
       studyRecommendations={studyRecommendations}
     />
   );

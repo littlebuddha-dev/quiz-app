@@ -45,4 +45,5 @@ export interface Quiz {
     avatarUrl?: string | null;
   };
   createdAt: string;
+  viewCount?: number;
 }

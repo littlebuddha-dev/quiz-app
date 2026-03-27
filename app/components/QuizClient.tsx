@@ -180,6 +180,8 @@ type QuizClientProps = {
   userStatus?: { xp: number; level: number; role: string };
   initialSearchQuery?: string;
   initialCategory?: string;
+  initialMinAge?: number;
+  initialMaxAge?: number;
   studyRecommendations?: StudyRecommendations;
 }
 
@@ -207,6 +209,8 @@ export default function QuizClient({
   userStatus,
   initialSearchQuery = '', 
   initialCategory = 'すべて',
+  initialMinAge = 0,
+  initialMaxAge = 100,
   studyRecommendations,
   hideHeader = false 
 }: QuizClientWrapperProps) {
@@ -216,6 +220,8 @@ export default function QuizClient({
   const isOnline = useOnlineStatus();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const [minAge, setMinAge] = useState(initialMinAge);
+  const [maxAge, setMaxAge] = useState(initialMaxAge);
   const [studyMode, setStudyMode] = useState<'all' | 'review' | 'daily'>('all');
   const [isStudyDashboardOpen, setIsStudyDashboardOpen] = useState(false);
   const [cachedQuizzes] = useState<Quiz[] | null>(() => readOfflineHomeCache().quizzes);
@@ -278,6 +284,15 @@ export default function QuizClient({
     updateQuery({ category: category === 'すべて' ? null : category });
   };
 
+  const handleAgeRangeChange = (min: number, max: number) => {
+    setMinAge(min);
+    setMaxAge(max);
+    updateQuery({ 
+      minAge: min === initialMinAge ? null : min.toString(), 
+      maxAge: max === initialMaxAge ? null : max.toString() 
+    });
+  };
+
   const reviewQuizSet = useMemo(
     () => new Set(activeStudyRecommendations?.reviewQuizIds || []),
     [activeStudyRecommendations]
@@ -332,6 +347,9 @@ export default function QuizClient({
         onSelectCategory={handleCategorySelect}
         studyMode={studyMode}
         onSelectStudyMode={setStudyMode}
+        minAge={minAge}
+        maxAge={maxAge}
+        onAgeRangeChange={handleAgeRangeChange}
       />
 
       {/* メインコンテンツ */}
@@ -347,6 +365,9 @@ export default function QuizClient({
             studyMode={studyMode}
             onSelectStudyMode={setStudyMode}
             isMobile
+            minAge={minAge}
+            maxAge={maxAge}
+            onAgeRangeChange={handleAgeRangeChange}
           />
         </div>
 
@@ -406,6 +427,9 @@ export default function QuizClient({
                           return (
                             <Link key={quiz.id} href={`/watch/${quiz.id}`} className="block rounded-2xl bg-white/80 px-3 py-2.5 font-bold hover:bg-white transition-colors">
                               <div className="line-clamp-2 text-sm"><LatexRenderer text={qt.title} /></div>
+                              <div className="mt-1 text-[10px] text-zinc-400 font-bold">
+                                {quiz.viewCount || 0}{locale === 'ja' ? ' 回視聴' : ' views'}
+                              </div>
                             </Link>
                           );
                         })}
@@ -424,6 +448,9 @@ export default function QuizClient({
                           return (
                             <Link key={quiz.id} href={`/watch/${quiz.id}`} className="block rounded-2xl bg-white/80 px-3 py-2.5 font-bold hover:bg-white transition-colors">
                               <div className="line-clamp-2 text-sm"><LatexRenderer text={qt.title} /></div>
+                              <div className="mt-1 text-[10px] text-zinc-400 font-bold">
+                                {quiz.viewCount || 0}{locale === 'ja' ? ' 回視聴' : ' views'}
+                              </div>
                             </Link>
                           );
                         })}
@@ -536,7 +563,12 @@ export default function QuizClient({
                     <h3 className="min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere] font-bold leading-snug group-hover:text-amber-500 transition-colors">
                       <LatexRenderer text={qt.title} className="block w-full max-w-full break-words [overflow-wrap:anywhere] sm:line-clamp-2" />
                     </h3>
-                    <div className="text-xs font-bold text-zinc-400 mt-1 uppercase tracking-wider">{translatedCategory}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{translatedCategory}</div>
+                      <span className="text-[10px] text-zinc-400/70 flex items-center gap-1 leading-none">
+                        • {quiz.viewCount || 0}{locale === 'ja' ? ' 回' : locale === 'en' ? ' views' : ' 次'}
+                      </span>
+                    </div>
                   </div>
                 </Link>
               );
@@ -568,7 +600,7 @@ export default function QuizClient({
                         </h3>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600">
-                            {translatedCategory}
+                            {translatedCategory} • {quiz.viewCount || 0}{locale === 'ja' ? ' 回' : ' views'}
                           </span>
                           <span className="rounded-full bg-zinc-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-500">
                             {quiz.targetAge}{t.age}

@@ -30,6 +30,7 @@ type RelatedQuiz = {
   imageUrl: string;
   targetAge: number;
   translations: Record<string, { title: string; imageUrl: string | null; options?: string[] }>;
+  viewCount?: number;
 };
 
 export interface WatchClientProps {
@@ -415,10 +416,16 @@ export default function WatchClient({
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-amber-500/20">{quiz.category}</span>
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-amber-500/20">
+                  {quiz.category}
+                </span>
                 <span className="bg-zinc-500/10 text-zinc-500 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-zinc-500/20">
                   {quiz.targetAge}{locale === 'ja' ? '歳' : locale === 'en' ? ' yrs' : '岁'}
+                </span>
+                <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5 ml-1">
+                  <Image src="/icons/review.svg" alt="" width={12} height={12} className="w-3 h-3 opacity-40 grayscale" />
+                  {quiz.viewCount || 0}{locale === 'ja' ? ' 回視聴' : locale === 'en' ? ' views' : ' 次观看'}
                 </span>
               </div>
             </div>
@@ -495,7 +502,12 @@ export default function WatchClient({
                           <h4 className="font-semibold text-sm line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors safari-no-faux-bold break-words [overflow-wrap:anywhere]">
                             {relTitle}
                           </h4>
-                          <p className="text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-widest">Cue Official</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Cue Official</p>
+                            <span className="text-[10px] text-zinc-400/70 flex items-center gap-1">
+                              • {rel.viewCount || 0}{locale === 'ja' ? ' 回' : locale === 'en' ? ' views' : ' 次'}
+                            </span>
+                          </div>
                         </div>
                       </>
                     );

@@ -81,6 +81,9 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
         include: { user: true },
         orderBy: { createdAt: 'desc' },
       },
+      _count: {
+        select: { histories: true }
+      }
     },
   });
 
@@ -160,6 +163,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     imageUrl: rawQuiz.imageUrl,
     translations: translationsMap,
     channel: rawQuiz.channel ? { id: rawQuiz.channel.id, name: rawQuiz.channel.name, avatarUrl: rawQuiz.channel.avatarUrl } : null,
+    viewCount: (rawQuiz as any)._count?.histories || 0,
   };
 
   // 3. 関連クイズ（レコメンド）の取得
@@ -178,6 +182,9 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     take: 6,
     include: {
       translations: true,
+      _count: {
+        select: { histories: true }
+      }
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -201,6 +208,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       imageUrl: q.imageUrl,
       targetAge: q.targetAge,
       translations,
+      viewCount: q._count?.histories || 0,
     };
   });
 
