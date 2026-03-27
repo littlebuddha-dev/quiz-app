@@ -8,7 +8,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import RankingClientWrapper from './RankingClientWrapper';
 import { Metadata } from 'next';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300; // 5分
 
 export const metadata: Metadata = {
   title: 'ランキング | Cue',

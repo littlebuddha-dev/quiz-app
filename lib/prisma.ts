@@ -4,6 +4,7 @@
 // Note: Removed Cloudflare D1 adapter to ensure stability on VPS.
 
 import { PrismaClient } from "@prisma/client";
+import { ensureCategoryLocalizationColumns } from "./category-localization";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -17,6 +18,11 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
+
+// 起動時に一度だけスキーマの整合性を確認
+ensureCategoryLocalizationColumns(prisma as any).catch(err => {
+  console.error('Failed to ensure category localization columns:', err);
+});
 
 /**
  * createPrisma関数の互換性維持

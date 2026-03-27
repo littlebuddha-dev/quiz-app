@@ -59,6 +59,9 @@ model Quiz {
   histories    QuizHistory[]
   likes        QuizLike[]
   translations QuizTranslation[]
+
+  @@index([targetAge])
+  @@index([categoryId])
 }
 
 model QuizTranslation {
@@ -78,6 +81,8 @@ model QuizTranslation {
   quiz     Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@unique([quizId, locale])
+  @@index([title])
+  @@index([question])
 }
 
 model QuizLike {

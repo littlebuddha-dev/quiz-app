@@ -5,7 +5,7 @@ import GameClientWrapper from './GameClientWrapper';
 import { Locale, Quiz, QuizVisualMode } from '../types';
 import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 0; // ゲーム画面は最新の状態が必要なため動的だが、force-dynamicよりは柔軟
 
 type RawQuizTranslation = {
   quizId: string;

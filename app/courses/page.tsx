@@ -9,7 +9,7 @@ import {
   getCurriculumCourseForAge,
 } from '@/lib/learning';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // 1時間
 
 export default async function CoursesPage() {
   const { env } = await getCloudflareContext({ async: true });

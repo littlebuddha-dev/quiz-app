@@ -17,7 +17,7 @@ type CategoryRow = {
   nameJa: string | null;
 };
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // onboardingは1時間キャッシュで十分
 
 export default async function OnboardingPage() {
   const { env } = await getCloudflareContext({ async: true });

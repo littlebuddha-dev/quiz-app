@@ -23,7 +23,7 @@ type CategoryRow = {
   icon: string | null;
 };
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60; // 1分間のキャッシュを許可
 
 function getTodayLabel() {
   const now = new Date();
@@ -38,7 +38,8 @@ export default async function Home({
 }) {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
-  await ensureCategoryLocalizationColumns(prisma as any);
+  // スキーマチェックは lib/prisma.ts または起動時に別途行うように変更するため、リクエストごとの await は削除
+  // await ensureCategoryLocalizationColumns(prisma as any);
   const { q: searchQuery, category: activeCategory, minAge: minAgeParam, maxAge: maxAgeParam } = await searchParams;
   const { userId: clerkId } = await auth();
 

@@ -17,7 +17,7 @@ import React, { Suspense } from 'react';
 
 import { Metadata } from 'next';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 600; // 10分
 
 function normalizeOptions(value: unknown): string[] | undefined {
   if (Array.isArray(value)) {
