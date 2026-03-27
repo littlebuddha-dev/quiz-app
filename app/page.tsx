@@ -12,16 +12,7 @@ import { Quiz, StudyRecommendations, WeakCategoryInsight } from './types';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import { ensureLocalUser } from '@/lib/clerk-sync';
 
-type CategoryRow = {
-  id: string;
-  name: string;
-  nameJa: string | null;
-  nameEn: string | null;
-  nameZh: string | null;
-  minAge: number;
-  maxAge: number | null;
-  icon: string | null;
-};
+
 
 export const revalidate = 60; // 1分間のキャッシュを許可
 
@@ -38,8 +29,6 @@ export default async function Home({
 }) {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
-  // スキーマチェックは lib/prisma.ts または起動時に別途行うように変更するため、リクエストごとの await は削除
-  // await ensureCategoryLocalizationColumns(prisma as any);
   const { q: searchQuery, category: activeCategory, minAge: minAgeParam, maxAge: maxAgeParam } = await searchParams;
   const { userId: clerkId } = await auth();
 
@@ -97,35 +86,7 @@ export default async function Home({
       }
     }
   }
-
-  // カテゴリーを取得
-  const allCategories = await prisma.category.findMany({
-    select: {
-      id: true,
-      name: true,
-      nameJa: true,
-      nameEn: true,
-      nameZh: true,
-      minAge: true,
-      maxAge: true,
-      icon: true,
-    },
-    orderBy: [
-      { sortOrder: 'asc' },
-      { minAge: 'asc' },
-      { createdAt: 'asc' },
-    ],
-  });
-
-
-  // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）
-  // ただし、名前が空のものは除外する
-  const displayCategoriesRaw = allCategories.filter(c => (c.nameJa || c.name) && (c.nameJa || c.name).trim() !== '');
-
   // 年齢範囲のデフォルト設定
-  // 1. 管理者はデフォルト 0-100
-  // 2. 16歳以上はデフォルト 16-100
-  // 3. それ以外は 実年齢〜実年齢+3
   let defaultMin = 0;
   let defaultMax = 100;
   const isAdmin = userStatus?.role === 'ADMIN';
@@ -149,49 +110,72 @@ export default async function Home({
   const currentMinAge = isNaN(parsedMin) ? defaultMin : parsedMin;
   const currentMaxAge = isNaN(parsedMax) ? defaultMax : parsedMax;
 
-  // カテゴリーの絞り込み (指定された年齢範囲 [currentMinAge, currentMaxAge] と重なるカテゴリーのみ)
-  const filteredCategories = allCategories.filter(cat => {
-    const catMax = cat.maxAge ?? 100;
-    return cat.minAge <= currentMaxAge && catMax >= currentMinAge;
-  });
-
-  const filteredCategoryIds = filteredCategories.map(c => c.id);
-
-  // DBからクイズ一覧を取得 (表示可能なカテゴリーのみ)
-  const rawQuizzes = await prisma.quiz.findMany({
-    where: {
-      AND: [
-        // 年齢範囲フィルタ (targetAgeが指定範囲内か)
-        { targetAge: { gte: currentMinAge, lte: currentMaxAge } },
-        // カテゴリーの一致 (isAdmin であっても範囲内カテゴリーのみに絞る方が直感的)
-        { categoryId: { in: filteredCategoryIds } },
-        activeCategory && activeCategory !== 'すべて'
-          ? { categoryId: activeCategory }
-          : {},
-        searchQuery
-          ? {
-            translations: {
-              some: {
-                OR: [
-                  { title: { contains: searchQuery } },
-                  { question: { contains: searchQuery } },
-                ],
-              },
-            },
-          }
-          : {},
+  // 並列でデータを取得開始
+  const [allCategories, rawQuizzesResult] = await Promise.all([
+    prisma.category.findMany({
+      select: {
+        id: true,
+        name: true,
+        nameJa: true,
+        nameEn: true,
+        nameZh: true,
+        minAge: true,
+        maxAge: true,
+        icon: true,
+      },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { minAge: 'asc' },
+        { createdAt: 'asc' },
       ],
-    },
-    include: {
-      translations: true,
-      _count: {
-        select: { histories: true }
-      }
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+    }),
+    prisma.quiz.findMany({
+      where: {
+        AND: [
+          { targetAge: { gte: currentMinAge, lte: currentMaxAge } },
+          // カテゴリーの年齢範囲フィルタを結合条件で記述
+          {
+            category: {
+              AND: [
+                { minAge: { lte: currentMaxAge } },
+                { OR: [{ maxAge: null }, { maxAge: { gte: currentMinAge } }] }
+              ]
+            }
+          },
+          activeCategory && activeCategory !== 'すべて'
+            ? { categoryId: activeCategory }
+            : {},
+          searchQuery
+            ? {
+              translations: {
+                some: {
+                  OR: [
+                    { title: { contains: searchQuery } },
+                    { question: { contains: searchQuery } },
+                  ],
+                },
+              },
+            }
+            : {},
+        ],
+      },
+      include: {
+        translations: true,
+        _count: {
+          select: { histories: true }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 48, // 初期表示を48件に制限して高速化
+    })
+  ]);
+
+  const rawQuizzes = [...rawQuizzesResult];
+
+  // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）
+  const displayCategoriesRaw = allCategories.filter(c => (c.nameJa || c.name) && (c.nameJa || c.name).trim() !== '');
 
   // 年齢によるソート (サーバーサイド)
   if (effectiveAge !== null) {
