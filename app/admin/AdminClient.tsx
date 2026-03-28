@@ -489,28 +489,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         const data = (await res.json()) as any;
         if (data?.id) {
-          fetch('/api/admin/quiz/generate-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              quizId: data.id,
-              locale,
-            }),
-          })
-            .then(async (imageRes) => {
-              if (!imageRes.ok) {
-                const err = await imageRes.text();
-                console.warn('Deferred image generation failed:', imageRes.status, err);
-                return;
-              }
-              fetchQuizzes();
-            })
-            .catch((imageErr) => {
-              console.warn('Deferred image generation request failed:', imageErr);
-            });
+          const imageGenerated = await triggerDeferredImageGeneration(data.id, locale);
+          if (!imageGenerated) {
+            alert('クイズ本文は作成されましたが、画像生成はまだ完了していません。ログを確認してください。');
+          }
         }
 
-        alert('AIでクイズを生成しました。画像は続けて作成します。');
+        alert('AIでクイズを生成しました。画像も順次生成します。');
         setAiTopic('');
         setCorrectionPrompt('');
         fetchQuizzes();
@@ -781,6 +766,39 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       return fetchWithRetry(url, options, retries - 1);
     }
     return res;
+  };
+
+  const triggerDeferredImageGeneration = async (quizId: string, targetLocale: Locale, retries = 2): Promise<boolean> => {
+    try {
+      const imageRes = await fetchWithRetry('/api/admin/quiz/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quizId,
+          locale: targetLocale,
+          force: true,
+        }),
+      });
+
+      if (!imageRes.ok) {
+        const errText = await imageRes.text();
+        throw new Error(`Status ${imageRes.status}: ${errText}`);
+      }
+
+      const imageData = (await imageRes.json()) as { imageUrl?: string };
+      if (imageData.imageUrl) {
+        setAiImageUrl(imageData.imageUrl);
+      }
+      fetchQuizzes();
+      return true;
+    } catch (error) {
+      console.warn('Deferred image generation failed:', error);
+      if (retries > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        return triggerDeferredImageGeneration(quizId, targetLocale, retries - 1);
+      }
+      return false;
+    }
   };
 
   const fetchQuizzes = async () => {

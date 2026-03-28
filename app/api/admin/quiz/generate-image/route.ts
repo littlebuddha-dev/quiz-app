@@ -73,6 +73,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing quizId' }, { status: 400 });
     }
 
+    console.log(`[generate-image] start quizId=${quizId} locale=${locale} force=${force}`);
+
     const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 });
@@ -103,6 +105,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!force && targetTranslation.imageUrl) {
+      console.log(`[generate-image] skipped existing image quizId=${quizId} locale=${locale}`);
       return NextResponse.json({ success: true, imageUrl: targetTranslation.imageUrl, skipped: true });
     }
 
@@ -153,6 +156,7 @@ Requirements:
     }
 
     if (locale === 'ja') {
+      console.log(`[generate-image] success quizId=${quizId} locale=ja`);
       return NextResponse.json({ success: true, imageUrl: baseImageUrl });
     }
 
@@ -187,6 +191,7 @@ Return one finished localized image.`;
       data: { imageUrl: localizedImageUrl },
     });
 
+    console.log(`[generate-image] success quizId=${quizId} locale=${locale}`);
     return NextResponse.json({ success: true, imageUrl: localizedImageUrl });
   } catch (error: any) {
     console.error('Generate Quiz Image Error:', error);
