@@ -74,31 +74,36 @@ export default async function AdminPage() {
     createdAt: c.createdAt.toISOString(),
   }));
 
-  // Fetch all quizzes
   const rawQuizzes = await prisma.quiz.findMany({
-    include: {
-      translations: true,
+    select: {
+      id: true,
+      categoryId: true,
+      targetAge: true,
+      imageUrl: true,
+      createdAt: true,
+      translations: {
+        select: {
+          locale: true,
+          title: true,
+          imageUrl: true,
+          type: true,
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
   });
 
   const quizzes = rawQuizzes.map((q: any) => {
-    // 全言語の翻訳をマップ形式に変換
     const translationsMap: any = {};
     const jaT = q.translations.find((t: any) => t.locale === 'ja') || {
-      title: 'No Title', question: '', hint: '', answer: '', explanation: null, type: 'TEXT', options: null, imageUrl: null
+      title: 'No Title', type: 'TEXT', imageUrl: null
     };
 
     ['ja', 'en', 'zh'].forEach(loc => {
       const t = q.translations.find((trans: any) => trans.locale === loc);
       translationsMap[loc] = {
         title: t?.title || jaT.title,
-        question: t?.question || jaT.question,
-        hint: t?.hint || jaT.hint,
-        answer: t?.answer || jaT.answer,
-        explanation: t?.explanation || jaT.explanation || null,
         type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
-        options: t?.options ?? jaT.options,
         imageUrl: t?.imageUrl || null,
       };
     });
@@ -107,16 +112,12 @@ export default async function AdminPage() {
       id: q.id,
       title: jaT.title,
       type: jaT.type,
-      question: jaT.question,
-      hint: jaT.hint,
-      answer: jaT.answer,
-      explanation: jaT.explanation || null,
-      options: jaT.options,
       imageUrl: q.imageUrl,
       category: q.categoryId,
+      categoryId: q.categoryId,
       targetAge: q.targetAge,
       createdAt: q.createdAt.toISOString(),
-      translations: translationsMap, // 全翻訳データを含める
+      translations: translationsMap,
     };
   });
 

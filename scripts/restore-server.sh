@@ -47,6 +47,12 @@ if [[ -f "$TMP_DIR/.env" ]]; then
   cp "$TMP_DIR/.env" "$PROJECT_ROOT/.env"
 fi
 
+if [[ -d "$TMP_DIR/public/uploads" ]]; then
+  mkdir -p "$PROJECT_ROOT/public"
+  rm -rf "$PROJECT_ROOT/public/uploads"
+  cp -R "$TMP_DIR/public/uploads" "$PROJECT_ROOT/public/uploads"
+fi
+
 echo "[restore] Rebuilding application..."
 npm run build
 

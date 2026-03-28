@@ -3,6 +3,7 @@ import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
+import { storeImageBuffer } from '@/lib/image-storage';
 
 // import { writeFile } from 'fs/promises';
 // import { join } from 'path';
@@ -49,14 +50,12 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString('base64');
-    const mimeType = file.type || 'image/png';
-    const imageUrl = `data:${mimeType};base64,${base64}`;
+    const stored = await storeImageBuffer(buffer, file.type || 'image/png');
 
     return NextResponse.json({ 
       success: true, 
-      imageUrl,
-      message: "Converted to Data URI (Base64)"
+      imageUrl: stored.publicPath,
+      message: 'Stored as managed upload file'
     });
   } catch (error) {
     console.error('Image Upload Error:', error);

@@ -8,6 +8,12 @@ import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { Prisma } from '@prisma/client';
 import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
+import {
+  buildManagedAssetRecord,
+  isUploadPath,
+  restoreManagedAsset,
+  type StoredImageAsset,
+} from '@/lib/image-storage';
 
 type BackupPayload = {
   version: string;
@@ -28,6 +34,7 @@ type BackupPayload = {
     subscriptions: unknown[];
     settings: unknown[];
     apiUsage: unknown[];
+    assets?: StoredImageAsset[];
   };
 };
 
@@ -45,6 +52,27 @@ function getConfiguredAdminEmails() {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown error';
+}
+
+async function collectManagedAssets(imageUrls: Array<string | null | undefined>) {
+  const uniquePaths = Array.from(
+    new Set(
+      imageUrls.filter((value): value is string => typeof value === 'string' && isUploadPath(value))
+    )
+  );
+
+  const assets = await Promise.all(
+    uniquePaths.map(async (assetPath) => {
+      try {
+        return await buildManagedAssetRecord(assetPath);
+      } catch (error) {
+        console.warn(`Failed to include managed asset in backup: ${assetPath}`, error);
+        return null;
+      }
+    })
+  );
+
+  return assets.filter((asset): asset is StoredImageAsset => Boolean(asset));
 }
 
 // GET: Export all data
@@ -96,6 +124,11 @@ export async function GET(req: NextRequest) {
     const subscriptions = await prisma.subscription.findMany();
     const settings = await prisma.setting.findMany();
     const apiUsage = await prisma.apiUsage.findMany();
+    const assets = await collectManagedAssets([
+      ...quizzes.map((entry: any) => entry.imageUrl),
+      ...((translations as any[]) || []).map((entry) => entry.imageUrl),
+      ...(includeUsers ? channels.map((entry: any) => entry.avatarUrl) : []),
+    ]);
 
     const backupData: BackupPayload = {
       version: '1.1',
@@ -116,6 +149,7 @@ export async function GET(req: NextRequest) {
         subscriptions: includeUsers ? subscriptions : [],
         settings,
         apiUsage,
+        assets,
       },
     };
 
@@ -162,6 +196,10 @@ export async function POST(req: NextRequest) {
         { error: 'INVALID_BACKUP_FORMAT', message: 'バックアップファイルの形式が正しくありません。' },
         { status: 400 }
       );
+    }
+    const backupAssets = Array.isArray(data.assets) ? (data.assets as StoredImageAsset[]) : [];
+    for (const asset of backupAssets) {
+      await restoreManagedAsset(asset);
     }
 
     const configuredAdminEmails = getConfiguredAdminEmails();

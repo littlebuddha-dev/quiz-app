@@ -42,6 +42,8 @@ model Category {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   quizzes      Quiz[]
+
+  @@index([sortOrder, minAge, createdAt])
 }
 
 model Quiz {
@@ -62,6 +64,9 @@ model Quiz {
 
   @@index([targetAge])
   @@index([categoryId])
+  @@index([targetAge, createdAt])
+  @@index([categoryId, targetAge, createdAt])
+  @@index([channelId, createdAt])
 }
 
 model QuizTranslation {
@@ -104,6 +109,10 @@ model QuizHistory {
   createdAt DateTime @default(now())
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([quizId, createdAt])
+  @@index([userId, quizId, isCorrect])
 }
 
 model Bookmark {
@@ -150,6 +159,8 @@ model Comment {
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId, createdAt])
 }
 
 model Setting {

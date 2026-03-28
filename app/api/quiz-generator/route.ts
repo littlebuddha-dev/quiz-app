@@ -22,6 +22,7 @@ import {
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+import { storeDataUrl, storeImageBuffer } from '@/lib/image-storage';
 import { editNanobananaImage, generateNanobananaImage } from '@/lib/nanobanana';
 
 type MultiLangQuiz = {
@@ -631,6 +632,10 @@ export async function POST(req: NextRequest) {
       modelId,
       locale: requestedLocale
     } = body;
+    const normalizedProvidedImageUrl =
+      typeof providedImageUrl === 'string' && providedImageUrl.startsWith('data:')
+        ? (await storeDataUrl(providedImageUrl)).publicPath
+        : providedImageUrl;
     const finalLocale = (requestedLocale || 'ja') as 'ja' | 'en' | 'zh';
 
     const parsedAge = parseInt(targetAge) || 8;
@@ -864,16 +869,16 @@ ${finalSystemInstruction}
     type QuizLocale = 'ja' | 'en' | 'zh';
     const QUIZ_OUTPUT_LOCALES: QuizLocale[] = ['ja', 'en', 'zh'];
     let translationImageUrls: Record<QuizLocale, string> = {
-      ja: providedImageUrl || '',
-      en: providedImageUrl || '',
-      zh: providedImageUrl || '',
+      ja: normalizedProvidedImageUrl || '',
+      en: normalizedProvidedImageUrl || '',
+      zh: normalizedProvidedImageUrl || '',
     };
-    let imageUrl = providedImageUrl || '/images/no-image.png';
+    let imageUrl = normalizedProvidedImageUrl || '/images/no-image.png';
 
     const imageGenerationFlag = process.env.ENABLE_GEMINI_IMAGE_GENERATION?.trim().toLowerCase();
     const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
     
-    if (!providedImageUrl && imageGenerationEnabled) {
+    if (!normalizedProvidedImageUrl && imageGenerationEnabled) {
       console.log('Generating Japanese base image with nanobanana...');
       const jaPrompt = `Create exactly one polished educational illustration in a wide 16:9 layout for learners around age ${parsedAge}.
 Theme: ${topicForAi}
@@ -891,7 +896,11 @@ Requirements:
       try {
         jaImage = await generateNanobananaImage(ai, jaPrompt);
         if (jaImage?.data) {
-          translationImageUrls.ja = `data:${jaImage.mimeType};base64,${jaImage.data}`;
+          const storedImage = await storeImageBuffer(
+            Buffer.from(jaImage.data, 'base64'),
+            jaImage.mimeType
+          );
+          translationImageUrls.ja = storedImage.publicPath;
           imageUrl = translationImageUrls.ja;
         }
       } catch (err) {

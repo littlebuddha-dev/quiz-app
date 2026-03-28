@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GoogleGenAI } from '@google/genai';
+import { readImageUrlAsBase64 } from './image-storage';
 
 export const NANOBANANA_MODEL = 'gemini-3.1-flash-image-preview';
 
@@ -21,22 +22,10 @@ function parseDataUrl(dataUrl: string): InlineImageData | null {
 }
 
 export async function resolveInlineImageData(imageUrl: string): Promise<InlineImageData> {
-  const inlineImage = parseDataUrl(imageUrl);
-  if (inlineImage) {
-    return inlineImage;
-  }
-
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch source image: ${response.status}`);
-  }
-
-  const contentType = response.headers.get('content-type') || 'image/jpeg';
-  const buffer = await response.arrayBuffer();
-
+  const resolved = await readImageUrlAsBase64(imageUrl);
   return {
-    mimeType: contentType,
-    data: Buffer.from(buffer).toString('base64'),
+    mimeType: resolved.mimeType,
+    data: resolved.base64,
   };
 }
 

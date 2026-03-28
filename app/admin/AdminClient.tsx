@@ -749,7 +749,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
   const fetchQuizzes = async () => {
     try {
-      const res = await fetch('/api/admin/quiz');
+      const res = await fetch('/api/admin/quiz?view=summary');
       if (res.ok) {
         const data = (await res.json()) as any;
         setQuizzes(data);

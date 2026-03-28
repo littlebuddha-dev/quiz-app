@@ -5,6 +5,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { GoogleGenAI } from '@google/genai';
 import { editNanobananaImage, resolveInlineImageData } from '@/lib/nanobanana';
+import { storeImageBuffer } from '@/lib/image-storage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,9 +56,12 @@ Return one finished localized image.`;
       throw new Error('Image generation failed');
     }
 
-    const newImageUrl = `data:${localizedImage.mimeType};base64,${localizedImage.data}`;
+    const storedImage = await storeImageBuffer(
+      Buffer.from(localizedImage.data, 'base64'),
+      localizedImage.mimeType
+    );
 
-    return NextResponse.json({ imageUrl: newImageUrl });
+    return NextResponse.json({ imageUrl: storedImage.publicPath });
   } catch (error: any) {
     console.error('Image Regeneration Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });

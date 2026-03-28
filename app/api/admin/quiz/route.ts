@@ -4,6 +4,7 @@ import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
+import { storeDataUrl } from '@/lib/image-storage';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
 import { buildDefaultOverlayVisualData, ensureQuizTranslationVisualColumns, serializeQuizVisualData } from '@/lib/quiz-translation-visual';
 
@@ -33,6 +34,13 @@ function normalizeTranslations(translations: Record<string, any>) {
     };
   }
   return normalized;
+}
+
+async function persistManagedImageUrl(imageUrl: string | null | undefined) {
+  if (!imageUrl) return '';
+  if (!imageUrl.startsWith('data:')) return imageUrl;
+  const stored = await storeDataUrl(imageUrl);
+  return stored.publicPath;
 }
 
 // 権限チェックのヘルパー
@@ -70,47 +78,92 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    const view = req.nextUrl.searchParams.get('view');
+    const isSummary = view !== 'full';
+
     const rawQuizzes = await prisma.quiz.findMany({
-      include: {
-        translations: true,
+      select: {
+        id: true,
+        categoryId: true,
+        targetAge: true,
+        imageUrl: true,
+        createdAt: true,
+        translations: {
+          select: isSummary
+            ? {
+                locale: true,
+                title: true,
+                imageUrl: true,
+                type: true,
+              }
+            : {
+                locale: true,
+                title: true,
+                question: true,
+                hint: true,
+                answer: true,
+                explanation: true,
+                type: true,
+                options: true,
+                imageUrl: true,
+              },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     const quizzes = rawQuizzes.map((q: any) => {
-      const translationsMap: any = {};
+      const translationsMap: Record<string, any> = {};
       const jaT = q.translations.find((t: any) => t.locale === 'ja') || {
-        title: 'No Title', question: '', hint: '', answer: '', explanation: null, type: 'TEXT', options: null, imageUrl: null
+        title: 'No Title',
+        question: '',
+        hint: '',
+        answer: '',
+        explanation: null,
+        type: 'TEXT',
+        options: null,
+        imageUrl: null,
       };
 
-      ['ja', 'en', 'zh'].forEach(loc => {
+      ['ja', 'en', 'zh'].forEach((loc) => {
         const t = q.translations.find((trans: any) => trans.locale === loc);
-        translationsMap[loc] = {
-          title: t?.title || jaT.title,
-          question: t?.question || jaT.question,
-          hint: t?.hint || jaT.hint,
-          answer: t?.answer || jaT.answer,
-          explanation: t?.explanation || jaT.explanation || null,
-          type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
-          options: t?.options ?? jaT.options,
-          imageUrl: t?.imageUrl || null,
-        };
+        translationsMap[loc] = isSummary
+          ? {
+              title: t?.title || jaT.title,
+              imageUrl: t?.imageUrl || null,
+              type: t?.type || jaT.type,
+            }
+          : {
+              title: t?.title || jaT.title,
+              question: t?.question || jaT.question,
+              hint: t?.hint || jaT.hint,
+              answer: t?.answer || jaT.answer,
+              explanation: t?.explanation || jaT.explanation || null,
+              type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
+              options: t?.options ?? jaT.options,
+              imageUrl: t?.imageUrl || null,
+            };
       });
 
       return {
         id: q.id,
         title: jaT.title,
         type: jaT.type,
-        question: jaT.question,
-        hint: jaT.hint,
-        answer: jaT.answer,
-        explanation: jaT.explanation || null,
-        options: jaT.options,
         imageUrl: q.imageUrl,
         category: q.categoryId,
+        categoryId: q.categoryId,
         targetAge: q.targetAge,
         createdAt: q.createdAt.toISOString(),
         translations: translationsMap,
+        ...(isSummary
+          ? {}
+          : {
+              question: jaT.question,
+              hint: jaT.hint,
+              answer: jaT.answer,
+              explanation: jaT.explanation || null,
+              options: jaT.options,
+            }),
       };
     });
 
@@ -140,16 +193,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const persistedImageUrl = await persistManagedImageUrl(imageUrl);
+
     // クイズを手動作成 (複数言語対応)
     const newQuiz = await prisma.quiz.create({
       data: {
         categoryId,
         targetAge: Number(targetAge) || 6,
-        imageUrl: imageUrl || '',
+        imageUrl: persistedImageUrl || '',
       },
     });
 
     for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
+      const persistedTranslationImageUrl = await persistManagedImageUrl(data.imageUrl);
       await prisma.$executeRawUnsafe(
         'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         crypto.randomUUID(),
@@ -162,7 +218,7 @@ export async function POST(req: NextRequest) {
         data.explanation,
         data.type,
         data.options ? JSON.stringify(data.options) : null,
-        data.imageUrl,
+        persistedTranslationImageUrl,
         data.visualMode,
         serializeQuizVisualData(data.visualData)
       );
@@ -194,18 +250,21 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const persistedImageUrl = await persistManagedImageUrl(imageUrl);
+
     // クイズの基本情報を更新
     await prisma.quiz.update({
       where: { id },
       data: {
         categoryId,
         targetAge: Number(targetAge) || 6,
-        imageUrl: imageUrl || '',
+        imageUrl: persistedImageUrl || '',
       },
     });
 
     // 各翻訳を順次upsert (SQLiteのロック問題を避けるため)
     for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
+      const persistedTranslationImageUrl = await persistManagedImageUrl(data.imageUrl);
       await prisma.$executeRawUnsafe(
         'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT("quizId", "locale") DO UPDATE SET "title" = excluded."title", "question" = excluded."question", "hint" = excluded."hint", "answer" = excluded."answer", "explanation" = excluded."explanation", "type" = excluded."type", "options" = excluded."options", "imageUrl" = excluded."imageUrl", "visualMode" = excluded."visualMode", "visualData" = excluded."visualData"',
         crypto.randomUUID(),
@@ -218,7 +277,7 @@ export async function PATCH(req: NextRequest) {
         data.explanation,
         data.type,
         data.options ? JSON.stringify(data.options) : null,
-        data.imageUrl,
+        persistedTranslationImageUrl,
         data.visualMode,
         serializeQuizVisualData(data.visualData)
       );

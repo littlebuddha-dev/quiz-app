@@ -5,6 +5,8 @@
 
 import { PrismaClient } from "@prisma/client";
 import { ensureCategoryLocalizationColumns } from "./category-localization";
+import { ensureAppIndexes } from "./db-indexes";
+import { ensureManagedImageStorageMigration } from "./image-migration";
 import { ensureQuizTranslationExplanationColumn } from "./quiz-translation-explanation";
 import { ensureQuizTranslationVisualColumns } from "./quiz-translation-visual";
 
@@ -30,6 +32,12 @@ ensureQuizTranslationExplanationColumn(prisma as any).catch(err => {
 });
 ensureQuizTranslationVisualColumns(prisma as any).catch(err => {
   console.error('Failed to ensure quiz translation visual columns:', err);
+});
+ensureAppIndexes(prisma as any).catch(err => {
+  console.error('Failed to ensure application indexes:', err);
+});
+ensureManagedImageStorageMigration(prisma as any).catch(err => {
+  console.error('Failed to migrate managed image storage:', err);
 });
 
 /**

@@ -38,6 +38,10 @@ cp "$PROJECT_ROOT/.env" "$TMP_DIR/.env" 2>/dev/null || true
 cp "$PROJECT_ROOT/ecosystem.config.js" "$TMP_DIR/ecosystem.config.js" 2>/dev/null || true
 cp "$PROJECT_ROOT/package.json" "$TMP_DIR/package.json"
 cp "$PROJECT_ROOT/package-lock.json" "$TMP_DIR/package-lock.json" 2>/dev/null || true
+if [[ -d "$PROJECT_ROOT/public/uploads" ]]; then
+  mkdir -p "$TMP_DIR/public"
+  cp -R "$PROJECT_ROOT/public/uploads" "$TMP_DIR/public/uploads"
+fi
 
 ARCHIVE_PATH="$BACKUP_DIR/quiz-app-backup-${STAMP}.tar.gz"
 tar -czf "$ARCHIVE_PATH" -C "$TMP_DIR" .
@@ -45,11 +49,13 @@ rm -rf "$TMP_DIR"
 
 echo "[backup] Created: $ARCHIVE_PATH"
 
-mapfile -t BACKUP_FILES < <(find "$BACKUP_DIR" -maxdepth 1 -name 'quiz-app-backup-*.tar.gz' | sort)
-if (( ${#BACKUP_FILES[@]} > KEEP_BACKUPS )); then
-  REMOVE_COUNT=$(( ${#BACKUP_FILES[@]} - KEEP_BACKUPS ))
-  for ((i=0; i<REMOVE_COUNT; i++)); do
-    rm -f "${BACKUP_FILES[$i]}"
-    echo "[backup] Removed old backup: ${BACKUP_FILES[$i]}"
+BACKUP_FILES="$(find "$BACKUP_DIR" -maxdepth 1 -name 'quiz-app-backup-*.tar.gz' | sort)"
+BACKUP_COUNT="$(printf '%s\n' "$BACKUP_FILES" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+if (( BACKUP_COUNT > KEEP_BACKUPS )); then
+  REMOVE_COUNT=$(( BACKUP_COUNT - KEEP_BACKUPS ))
+  printf '%s\n' "$BACKUP_FILES" | sed '/^$/d' | head -n "$REMOVE_COUNT" | while IFS= read -r old_backup; do
+    rm -f "$old_backup"
+    echo "[backup] Removed old backup: $old_backup"
   done
 fi
