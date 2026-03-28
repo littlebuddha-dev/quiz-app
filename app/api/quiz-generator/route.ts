@@ -829,6 +829,7 @@ export async function POST(req: NextRequest) {
   let selectedModel = DEFAULT_MODEL_ID;
   try {
     const startTime = Date.now();
+    console.log('[quiz-generator] request started');
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureCategoryLocalizationColumns(prisma as any);
@@ -865,6 +866,7 @@ export async function POST(req: NextRequest) {
       locale: requestedLocale,
       deferImageGeneration,
     } = body;
+    const isDeferredAdminGeneration = Boolean(deferImageGeneration);
     const normalizedProvidedImageUrl =
       typeof providedImageUrl === 'string' && providedImageUrl.startsWith('data:')
         ? await (async () => {
@@ -884,6 +886,9 @@ export async function POST(req: NextRequest) {
     // If modelId is already a raw Gemini model name (passed from auto-generator), use it.
     // Otherwise use the generatorId from the hybrid config.
     selectedModel = (modelId && !modelId.startsWith('hybrid-')) ? modelId : hybridModel.generatorId;
+    if (isDeferredAdminGeneration) {
+      selectedModel = 'gemini-2.0-flash';
+    }
 
     const persona = getPersonaByAge(parsedAge);
 
@@ -965,17 +970,29 @@ ${finalSystemInstruction}
       textPrompt += `\n\n## ユーザーからの追加指示（補正）:\n${correctionPrompt}`;
     }
 
-    const modelCandidates = Array.from(
-      new Set([
-        selectedModel,
-        hybridModel.generatorId,
-        'gemini-2.0-flash',
-        'gemini-flash-latest',
-      ])
-    );
+    const modelCandidates = isDeferredAdminGeneration
+      ? Array.from(
+          new Set([
+            'gemini-2.0-flash',
+            'gemini-flash-latest',
+            selectedModel,
+            hybridModel.generatorId,
+          ])
+        )
+      : Array.from(
+          new Set([
+            selectedModel,
+            hybridModel.generatorId,
+            'gemini-2.0-flash',
+            'gemini-flash-latest',
+          ])
+        );
 
     let textResponse;
     {
+      console.log(
+        `[quiz-generator] text generation start modelCandidates=${modelCandidates.join(',')} deferred=${isDeferredAdminGeneration}`
+      );
       const generation = await generateQuizPayload({
         ai,
         modelsToTry: modelCandidates,
@@ -984,6 +1001,7 @@ ${finalSystemInstruction}
       });
       textResponse = generation.response;
       selectedModel = generation.model;
+      console.log(`[quiz-generator] text generation success model=${selectedModel}`);
     }
 
     const resultText = textResponse.text;
@@ -1061,8 +1079,9 @@ ${finalSystemInstruction}
       topic: topicForAi,
       correctionPrompt,
     });
+    console.log(`[quiz-generator] quality issues count=${qualityIssues.length} deferred=${isDeferredAdminGeneration}`);
 
-    if (qualityIssues.length > 0) {
+    if (qualityIssues.length > 0 && !isDeferredAdminGeneration) {
       const correctionPromptWithIssues = `${correctionPrompt ? `${correctionPrompt}\n` : ''}以下の品質問題を必ず解消してください:\n${qualityIssues.map((issue) => `- ${issue}`).join('\n')}`;
       textPrompt += `\n\n## 品質修正指示\n${qualityIssues.map((issue) => `- ${issue}`).join('\n')}`;
 
@@ -1099,6 +1118,8 @@ ${finalSystemInstruction}
           rawResponse: multiLangData
         }, { status: 500 });
       }
+    } else if (qualityIssues.length > 0) {
+      console.warn('[quiz-generator] skipping quality retry for deferred admin generation:', qualityIssues);
     }
 
     // AI Usage Logging
@@ -1288,7 +1309,7 @@ ${finalSystemInstruction}
     });
 
     const finishDuration = Date.now() - startTime;
-    console.log(`Generation finished in ${finishDuration}ms`);
+    console.log(`[quiz-generator] generation finished in ${finishDuration}ms`);
 
     // トップページのキャッシュを再検証して、新しいクイズが表示されるようにする
     try {
