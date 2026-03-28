@@ -1347,7 +1347,7 @@ ${finalSystemInstruction}
 
     const imageGenerationFlag = process.env.ENABLE_GEMINI_IMAGE_GENERATION?.trim().toLowerCase();
     const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
-    const imageTimeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 12000);
+    const imageTimeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     
     if (!deferImageGeneration && !normalizedProvidedImageUrl && imageGenerationEnabled) {
       console.log('Generating localized educational images with nanobanana...');

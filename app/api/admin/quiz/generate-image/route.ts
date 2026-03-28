@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// Path: app/api/admin/quiz/generate-image/route.ts
+// Title: Deferred Quiz Image Generator API
+// Purpose: Generates educational images for existing quizzes using nanobanana (gemini-3.1-flash-image-preview).
+
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { GoogleGenAI } from '@google/genai';
@@ -111,7 +115,7 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
     const persona = getPersonaByAge(quiz.targetAge || 8);
-    const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 12000);
+    const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     const categoryName = quiz.category?.nameJa || quiz.category?.name || quiz.categoryId;
 
     let baseImageUrl = quiz.imageUrl || jaTranslation.imageUrl || '';
@@ -129,14 +133,27 @@ Requirements:
 - Do not include any letters, words, numbers, subtitles, captions, UI, watermark, or logo.
 - Use polished lighting and textbook-quality clarity.`;
 
-      const generatedBase = await withTimeout(
-        generateNanobananaImage(ai, basePrompt),
-        timeoutMs,
-        'Base image generation'
-      );
+      // リトライ付きベース画像生成（最大2回試行）
+      let generatedBase = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          generatedBase = await withTimeout(
+            generateNanobananaImage(ai, basePrompt),
+            timeoutMs,
+            'Base image generation'
+          );
+          if (generatedBase?.data) break;
+          console.warn(`[generate-image] attempt ${attempt + 1} returned no data, retrying...`);
+        } catch (retryErr: any) {
+          console.warn(`[generate-image] attempt ${attempt + 1} error:`, retryErr.message);
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+      }
 
       if (!generatedBase?.data) {
-        return NextResponse.json({ error: 'Base image generation failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Base image generation failed after retries' }, { status: 500 });
       }
 
       baseImageUrl = await storeImageWithFallback(

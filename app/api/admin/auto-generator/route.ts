@@ -168,10 +168,38 @@ export async function POST(req: NextRequest) {
                 excludeTitles: existingTitles,
                 modelId: hybridModel.generatorId,
                 visualMode: 'image_only',
+                deferImageGeneration: true,
               })
             });
             if (genRes.ok) {
-              results.push(await genRes.json());
+              const quizData = (await genRes.json()) as any;
+              results.push(quizData);
+
+              // 遅延画像生成: クイズ保存後に画像を個別生成
+              if (quizData?.id) {
+                try {
+                  const imageRes = await fetch(`${baseUrl}/api/admin/quiz/generate-image`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(forwardCookie ? { cookie: forwardCookie } : {}),
+                    },
+                    body: JSON.stringify({
+                      quizId: quizData.id,
+                      locale: 'ja',
+                      force: true,
+                    }),
+                  });
+                  if (!imageRes.ok) {
+                    const errText = await imageRes.text();
+                    console.warn(`[auto-generator] image generation failed for quiz ${quizData.id}:`, errText);
+                  } else {
+                    console.log(`[auto-generator] image generated for quiz ${quizData.id}`);
+                  }
+                } catch (imgErr) {
+                  console.warn(`[auto-generator] image generation error for quiz ${quizData.id}:`, imgErr);
+                }
+              }
             } else {
               const errBody = await genRes.text();
               console.error(`quiz-generator failed for topic "${topic}":`, genRes.status, errBody);
