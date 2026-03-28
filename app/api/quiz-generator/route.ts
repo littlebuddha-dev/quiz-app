@@ -63,6 +63,31 @@ type LocaleQuizEntry = {
   options?: string[] | string | null;
 };
 
+const PROGRAMMING_SUBJECT_ALIASES = [
+  'プログラミング',
+  'programming',
+  'coding',
+  'code',
+  '情報',
+  'information',
+  'informatics',
+  'computer science',
+];
+
+function normalizeCategoryName(value: string) {
+  return value.toLowerCase().replace(/\s+/g, '').trim();
+}
+
+function detectProgrammingSubject(categoryNames: Array<string | null | undefined>) {
+  const normalizedNames = categoryNames
+    .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+    .map(normalizeCategoryName);
+
+  return PROGRAMMING_SUBJECT_ALIASES.some((alias) =>
+    normalizedNames.some((name) => name.includes(normalizeCategoryName(alias)))
+  );
+}
+
 function normalizeChoiceOptions(value: unknown): string[] | undefined {
   if (Array.isArray(value)) {
     return value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean);
@@ -252,6 +277,44 @@ function clampText(value: string, maxLength: number) {
   return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
 }
 
+function stripCodeLikeSegments(value: string) {
+  return value
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`]*`/g, ' ')
+    .replace(/[{}[\]<>\\|=*_/~^#;]+/g, ' ')
+    .replace(/\b(?:const|let|var|function|return|if|else|for|while|print|console|input|def|class|import)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildImageQuestionSummary(params: {
+  question: string;
+  hint?: string;
+  explanation?: string | null;
+  isProgrammingSubject: boolean;
+}) {
+  const { question, hint, explanation, isProgrammingSubject } = params;
+  const source = normalizeText(question);
+
+  if (!isProgrammingSubject) {
+    return clampText(source, 140);
+  }
+
+  const strippedQuestion = stripCodeLikeSegments(source);
+  const strippedHint = stripCodeLikeSegments(normalizeText(hint));
+  const strippedExplanation = stripCodeLikeSegments(normalizeText(explanation));
+  const candidate = strippedQuestion || strippedHint || strippedExplanation;
+
+  if (!candidate) {
+    return 'Visualize the program flow, data movement, and the key logic idea without showing exact code.';
+  }
+
+  return clampText(
+    `${candidate}. Focus on the algorithm idea, execution order, and what changes step by step.`,
+    160
+  );
+}
+
 function detectLocaleLanguageName(locale: 'ja' | 'en' | 'zh') {
   switch (locale) {
     case 'ja':
@@ -272,16 +335,30 @@ function buildLocalizedImageCopy(params: {
 }) {
   const { locale, quiz, categoryNames } = params;
   const languageSubjectRule = detectLanguageSubjectRule(categoryNames);
+  const isProgrammingSubject = detectProgrammingSubject(categoryNames);
   const localeEntry = locale === 'ja' ? quiz.ja : (locale === 'en' ? quiz.en : quiz.zh);
   const localeQuestion = normalizeText(String(localeEntry.question || ''));
   const sharedExerciseText = extractExerciseText(normalizeText(quiz.ja.question));
   const localeInstructionBase = sharedExerciseText
     ? normalizeText(localeQuestion.replace(sharedExerciseText, ''))
     : localeQuestion;
-  const localeInstruction = clampText(localeInstructionBase || String(localeEntry.hint || localeEntry.explanation || ''), locale === 'en' ? 120 : 72);
+  const localeInstructionSource = isProgrammingSubject
+    ? buildImageQuestionSummary({
+        question: localeInstructionBase || localeQuestion,
+        hint: String(localeEntry.hint || ''),
+        explanation: String(localeEntry.explanation || ''),
+        isProgrammingSubject: true,
+      })
+    : (localeInstructionBase || String(localeEntry.hint || localeEntry.explanation || ''));
+  const localeInstruction = clampText(localeInstructionSource, locale === 'en' ? 120 : 72);
   const headlineText = languageSubjectRule
     ? clampText(sharedExerciseText || normalizeText(String(quiz.ja.title || '')), 80)
-    : clampText(normalizeText(String(localeEntry.title || localeQuestion || quiz.ja.title || '')), locale === 'en' ? 64 : 36);
+    : clampText(
+        isProgrammingSubject
+          ? normalizeText(String(localeEntry.title || localeEntry.hint || quiz.ja.title || ''))
+          : normalizeText(String(localeEntry.title || localeQuestion || quiz.ja.title || '')),
+        locale === 'en' ? 64 : 36
+      );
 
   return {
     headlineText,
@@ -302,12 +379,35 @@ function buildBaseIllustrationPrompt(params: {
   imageStyle: string;
   categoryName: string;
   curriculumGuidance: string;
+  isProgrammingSubject: boolean;
 }) {
-  const { age, topic, question, imageStyle, categoryName, curriculumGuidance } = params;
+  const { age, topic, question, imageStyle, categoryName, curriculumGuidance, isProgrammingSubject } = params;
+  const visualQuestionContext = buildImageQuestionSummary({
+    question,
+    isProgrammingSubject,
+  });
+
+  if (isProgrammingSubject) {
+    return `Create exactly one premium educational illustration in a wide 16:9 layout for learners around age ${age}.
+Topic: ${topic}
+Subject area: ${categoryName}
+Programming concept: ${visualQuestionContext}
+Curriculum guidance: ${curriculumGuidance}
+Visual direction: ${imageStyle}
+
+Requirements:
+- Show the programming idea visually: flow, sequence, branching, repetition, variables, inputs, outputs, or data movement.
+- Use friendly educational metaphors such as blocks, arrows, cards, robots, screens, sensors, charts, or highlighted steps.
+- Do not render exact source code, code fences, terminal text, letters, words, numbers, filenames, keyboard shortcuts, or UI chrome.
+- Represent logic with shapes, color grouping, icons, motion cues, and diagram-like structure instead of text.
+- Match the age level precisely and keep the scene exciting, clear, and easy to understand at a glance.
+- Use polished lighting, intentional composition, and textbook-quality clarity.`;
+  }
+
   return `Create exactly one premium educational illustration in a wide 16:9 layout for learners around age ${age}.
 Topic: ${topic}
 Subject area: ${categoryName}
-Question context: ${question}
+Question context: ${visualQuestionContext}
 Curriculum guidance: ${curriculumGuidance}
 Visual direction: ${imageStyle}
 
@@ -332,9 +432,17 @@ function buildLocalizedImageEditPrompt(params: {
 }) {
   const { age, locale, topic, question, imageStyle, categoryName, categoryNames, quiz } = params;
   const copy = buildLocalizedImageCopy({ locale, quiz, categoryNames });
+  const isProgrammingSubject = detectProgrammingSubject(categoryNames);
   const localeRule = copy.isLanguageSubject
     ? `The top headline must stay strictly in ${copy.headlineLanguage}. The supporting problem explanation must stay strictly in ${copy.instructionLanguage}. Do not translate the headline into any other language. Do not mix scripts inside each text block.`
     : `All visible text must stay strictly in ${copy.instructionLanguage}. Do not mix scripts or add text from other languages.`;
+  const programmingRules = isProgrammingSubject
+    ? [
+        'Do not show raw code, operators, braces, code fences, terminal dumps, stack traces, or multiline source text anywhere in the image.',
+        'Keep the support text as a short learner-friendly cue about the logic, output, order, or bug fix, not a pasted code snippet.',
+        'Preserve the underlying visual explanation of sequence, branching, loops, variables, or data flow.',
+      ]
+    : ['Keep the scene focused on one clear learning idea.'];
 
   return `Edit this educational illustration into a polished localized quiz image for ${detectLocaleLanguageName(locale)} learners around age ${age}.
 Topic: ${topic}
@@ -350,7 +458,29 @@ Visible text rules:
 - Keep the visible text exactly as written, with the same wording and punctuation.
 - The headline should be visually primary. The supporting text should be shorter and secondary.
 - Integrate the typography naturally into the scene while preserving legibility.
+- Underlying concept: ${buildImageQuestionSummary({ question, isProgrammingSubject })}
+- Avoid turning the image into a screenshot. Keep it as a high-quality educational illustration.
+${programmingRules.map((rule) => `- ${rule}`).join('\n')}
 - No extra text, no subtitles, no fake app chrome, no watermark, no logo.`;
+}
+
+function buildProgrammingImageFallbackPrompt(params: {
+  age: number;
+  topic: string;
+  imageStyle: string;
+  categoryName: string;
+}) {
+  const { age, topic, imageStyle, categoryName } = params;
+  return `Create one clean, premium educational illustration in a wide 16:9 layout for learners around age ${age}.
+Topic: ${topic}
+Subject area: ${categoryName}
+Visual direction: ${imageStyle}
+
+Requirements:
+- Show a programming concept using colorful blocks, arrows, nodes, cards, robots, or diagram pieces.
+- Emphasize order, logic, debugging, output prediction, or algorithm flow.
+- No code text, no letters, no words, no numbers, no UI chrome, no screenshots, no watermark.
+- Make it clear, inviting, and highly readable for study use.`;
 }
 
 function normalizeLanguageSubjectQuizFields(quiz: MultiLangQuiz) {
@@ -973,6 +1103,7 @@ ${finalSystemInstruction}
     
     if (!normalizedProvidedImageUrl && imageGenerationEnabled) {
       console.log('Generating localized educational images with nanobanana...');
+      const isProgrammingSubject = detectProgrammingSubject(categoryNames);
       const basePrompt = buildBaseIllustrationPrompt({
         age: parsedAge,
         topic: topicForAi,
@@ -980,11 +1111,23 @@ ${finalSystemInstruction}
         imageStyle: persona.imageStyle,
         categoryName: categoryName || finalCategoryId || '未指定',
         curriculumGuidance: curriculumTopicPlan.summary,
+        isProgrammingSubject,
       });
 
       let baseImage;
       try {
         baseImage = await generateNanobananaImage(ai, basePrompt);
+        if (!baseImage && isProgrammingSubject) {
+          baseImage = await generateNanobananaImage(
+            ai,
+            buildProgrammingImageFallbackPrompt({
+              age: parsedAge,
+              topic: topicForAi,
+              imageStyle: persona.imageStyle,
+              categoryName: categoryName || finalCategoryId || '未指定',
+            })
+          );
+        }
         if (baseImage?.data) {
           const localesToRender: QuizLocale[] = ['ja', 'en', 'zh'];
           for (const locale of localesToRender) {
