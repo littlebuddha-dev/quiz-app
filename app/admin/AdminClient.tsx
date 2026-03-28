@@ -9,6 +9,7 @@ import LatexRenderer from '../components/LatexRenderer';
 import { AI_MODELS, DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { getDefaultEducationalGuidelines, getEducationalGuidelinesValidation, normalizeEducationalGuidelines } from '@/lib/ai-prompts';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
+import { restoreBackupAction } from './backup-actions';
 
 const SUPPORTED_LOCALES: Locale[] = ['ja', 'en', 'zh'];
 
@@ -275,13 +276,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
     setLoading(true);
     try {
-      let res;
+      const formData = new FormData();
       if (file.name.endsWith('.zip')) {
-        res = await fetch('/api/admin/backup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/zip' },
-          body: file, // File (Blob) を直接送信
-        });
+        formData.append('file', file);
       } else {
         const rawText = await file.text();
         const normalizedText = rawText.replace(/^\uFEFF/, '').trim();
@@ -293,31 +290,21 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         if (normalizedText.startsWith('<!DOCTYPE') || normalizedText.startsWith('<html')) {
           throw new Error('HTML_BACKUP_FILE');
         }
-
-        const content = JSON.parse(normalizedText);
-        const contentWithOptions = content; // ファイルに保存されているoptionsとdataをそのまま使う
-        res = await fetch('/api/admin/backup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(contentWithOptions),
-        });
+        
+        // JSONのバリデーションチェックのみ行う
+        JSON.parse(normalizedText);
+        formData.append('json', normalizedText);
       }
 
-      if (res.ok) {
-        alert('復元が完了しました。ページをリロードします。');
+      const result = await restoreBackupAction(formData);
+
+      if (result.success) {
+        alert(result.message || '復元が完了しました。ページをリロードします。');
         window.location.reload();
         return;
       }
 
-      const errText = await res.text();
-      let errMessage = errText;
-      try {
-        const errJson = JSON.parse(errText);
-        errMessage = errJson.details || errJson.message || JSON.stringify(errJson, null, 2);
-      } catch (e) {
-        // text のまま
-      }
-      setRestoreError(`復元に失敗しました:\n\n${errMessage}`);
+      setRestoreError(`復元に失敗しました:\n\n${result.error || '不明なエラー'}`);
     } catch (error: any) {
       console.error(error);
       if (error?.message === 'EMPTY_BACKUP_FILE') {
