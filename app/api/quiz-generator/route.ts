@@ -483,6 +483,21 @@ Requirements:
 - Make it clear, inviting, and highly readable for study use.`;
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
 function normalizeLanguageSubjectQuizFields(quiz: MultiLangQuiz) {
   if (!quiz || typeof quiz !== 'object' || !quiz.ja || typeof quiz.ja !== 'object') {
     return quiz;
@@ -1107,6 +1122,7 @@ ${finalSystemInstruction}
 
     const imageGenerationFlag = process.env.ENABLE_GEMINI_IMAGE_GENERATION?.trim().toLowerCase();
     const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
+    const imageTimeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 12000);
     
     if (!normalizedProvidedImageUrl && imageGenerationEnabled) {
       console.log('Generating localized educational images with nanobanana...');
@@ -1123,52 +1139,84 @@ ${finalSystemInstruction}
 
       let baseImage;
       try {
-        baseImage = await generateNanobananaImage(ai, basePrompt);
+        baseImage = await withTimeout(
+          generateNanobananaImage(ai, basePrompt),
+          imageTimeoutMs,
+          'Base image generation'
+        );
         if (!baseImage && isProgrammingSubject) {
-          baseImage = await generateNanobananaImage(
-            ai,
-            buildProgrammingImageFallbackPrompt({
-              age: parsedAge,
-              topic: topicForAi,
-              imageStyle: persona.imageStyle,
-              categoryName: categoryName || finalCategoryId || '未指定',
-            })
+          baseImage = await withTimeout(
+            generateNanobananaImage(
+              ai,
+              buildProgrammingImageFallbackPrompt({
+                age: parsedAge,
+                topic: topicForAi,
+                imageStyle: persona.imageStyle,
+                categoryName: categoryName || finalCategoryId || '未指定',
+              })
+            ),
+            Math.max(6000, Math.floor(imageTimeoutMs * 0.8)),
+            'Programming fallback image generation'
           );
         }
         if (baseImage?.data) {
-          const localesToRender: QuizLocale[] = ['ja', 'en', 'zh'];
-          for (const locale of localesToRender) {
-            let localizedImage = baseImage;
-            try {
-              localizedImage = (await editNanobananaImage(ai, baseImage, buildLocalizedImageEditPrompt({
-                age: parsedAge,
-                locale,
-                topic: topicForAi,
-                question: String((multiLangData[locale] || multiLangData.ja).question || multiLangData.ja.question || ''),
-                imageStyle: persona.imageStyle,
-                categoryName: categoryName || finalCategoryId || '未指定',
-                categoryNames,
-                quiz: multiLangData as MultiLangQuiz,
-              }))) || baseImage;
-            } catch (localizedErr) {
-              console.warn(`Localized image generation failed for ${locale}:`, localizedErr);
-            }
+          const baseBuffer = Buffer.from(baseImage.data, 'base64');
+          let baseImageUrl: string;
+          try {
+            const storedBaseImage = await storeImageBuffer(baseBuffer, baseImage.mimeType);
+            baseImageUrl = storedBaseImage.publicPath;
+          } catch (storageError) {
+            console.warn('Managed image storage failed for base image. Keeping inline image data.', storageError);
+            baseImageUrl = createDataUrlFromBuffer(baseBuffer, baseImage.mimeType);
+          }
 
-            const localizedBuffer = Buffer.from(localizedImage.data, 'base64');
+          translationImageUrls = {
+            ja: baseImageUrl,
+            en: baseImageUrl,
+            zh: baseImageUrl,
+          };
+
+          if (finalLocale !== 'ja') {
             try {
-              const storedImage = await storeImageBuffer(
-                localizedBuffer,
-                localizedImage.mimeType
-              );
-              translationImageUrls[locale] = storedImage.publicPath;
-            } catch (storageError) {
-              console.warn(`Managed image storage failed for ${locale}. Keeping inline image data.`, storageError);
-              translationImageUrls[locale] = createDataUrlFromBuffer(
-                localizedBuffer,
-                localizedImage.mimeType
-              );
+              const localizedImage =
+                (await withTimeout(
+                  editNanobananaImage(
+                    ai,
+                    baseImage,
+                    buildLocalizedImageEditPrompt({
+                      age: parsedAge,
+                      locale: finalLocale,
+                      topic: topicForAi,
+                      question: String((multiLangData[finalLocale] || multiLangData.ja).question || multiLangData.ja.question || ''),
+                      imageStyle: persona.imageStyle,
+                      categoryName: categoryName || finalCategoryId || '未指定',
+                      categoryNames,
+                      quiz: multiLangData as MultiLangQuiz,
+                    })
+                  ),
+                  Math.max(6000, Math.floor(imageTimeoutMs * 0.8)),
+                  `${finalLocale} localized image generation`
+                )) || baseImage;
+
+              const localizedBuffer = Buffer.from(localizedImage.data, 'base64');
+              try {
+                const storedImage = await storeImageBuffer(
+                  localizedBuffer,
+                  localizedImage.mimeType
+                );
+                translationImageUrls[finalLocale] = storedImage.publicPath;
+              } catch (storageError) {
+                console.warn(`Managed image storage failed for ${finalLocale}. Keeping inline image data.`, storageError);
+                translationImageUrls[finalLocale] = createDataUrlFromBuffer(
+                  localizedBuffer,
+                  localizedImage.mimeType
+                );
+              }
+            } catch (localizedErr) {
+              console.warn(`Localized image generation failed for ${finalLocale}:`, localizedErr);
             }
           }
+
           imageUrl = translationImageUrls[finalLocale] || translationImageUrls.ja || imageUrl;
         }
       } catch (err) {
