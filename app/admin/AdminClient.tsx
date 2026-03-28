@@ -40,6 +40,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState(initialComments);
   const [importTarget, setImportTarget] = useState<'quizzes'|'translations'>('quizzes');
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const [eduData, setEduData] = useState<any>(null);
   const [eduGroup, setEduGroup] = useState<'小学校' | '中学校' | '高等学校'>('小学校');
@@ -298,8 +299,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         return;
       }
 
-      const err = (await res.json()) as any;
-      alert(`復元に失敗しました: ${err.message || '不明なエラー'}`);
+      const errText = await res.text();
+      let errMessage = errText;
+      try {
+        const errJson = JSON.parse(errText);
+        errMessage = errJson.details || errJson.message || JSON.stringify(errJson, null, 2);
+      } catch (e) {
+        // text のまま
+      }
+      setRestoreError(`復元に失敗しました:\n\n${errMessage}`);
     } catch (error: any) {
       console.error(error);
       if (error?.message === 'EMPTY_BACKUP_FILE') {
@@ -307,9 +315,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       } else if (error?.message === 'HTML_BACKUP_FILE') {
         alert('JSONではなくHTMLファイルが選択されています。バックアップのダウンロードに失敗した可能性があります。');
       } else if (error instanceof SyntaxError || error.message?.includes('JSON')) {
-        alert('バックアップの読み込みに失敗しました（JSON形式が不完全です）。\n\nファイルサイズが非常に大きい場合（10MB超など）、通信の途中でデータが途切れた可能性があります。\n大容量データの移行には、docs/backup_guide.mdに記載の「SQLiteファイル直接コピー」を推奨します。');
+        setRestoreError('バックアップの読み込みに失敗しました（JSON形式が不完全です）。\n\nファイルサイズが非常に大きい場合、通信の途中でデータが途切れた可能性があります。\n大容量データの移行には「SQLiteファイル直接コピー」を推奨します。\n\n詳細:\n' + error.message);
       } else {
-        alert(`エラーが発生しました: ${error.message || '不明なエラー'}`);
+        setRestoreError(`エラーが発生しました:\n${error.stack || error.message || '不明なエラー'}`);
       }
     } finally {
       e.target.value = '';
@@ -2158,6 +2166,35 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
       </div>
       <Footer />
+
+      {/* エラーログ表示用モーダル */}
+      {restoreError && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-3xl p-6 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col max-h-[90vh]">
+            <h3 className="text-xl font-black text-red-600 dark:text-red-400 mb-2 flex items-center gap-2">
+              <span>⚠️</span> 復元エラー
+            </h3>
+            <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400 mb-4">
+              以下のログを選択・コピーして、開発者へ報告してください。
+            </p>
+            <textarea
+              className="w-full flex-1 p-4 text-[11px] font-mono bg-zinc-50 dark:bg-black text-red-700 dark:text-red-400 rounded-xl border-2 border-red-100 dark:border-red-900/30 overflow-auto focus:outline-none focus:ring-2 focus:ring-red-500/50 resize-none min-h-[300px]"
+              readOnly
+              value={restoreError}
+              autoFocus
+            />
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setRestoreError(null)}
+                className="px-8 py-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl font-black transition-all"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

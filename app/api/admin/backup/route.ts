@@ -269,13 +269,13 @@ export async function POST(req: NextRequest) {
     const importableChannels = backupChannels.filter((entry) => !skippedBackupUserIds.has(entry.userId));
 
     const firstPhaseDeletes: Prisma.PrismaPromise<unknown>[] = [];
-    if (hasUserData) {
+    if (hasUserData || hasDbData) {
       firstPhaseDeletes.push(
         prisma.comment.deleteMany({}),
         prisma.quizLike.deleteMany({}),
         prisma.quizHistory.deleteMany({}),
         prisma.bookmark.deleteMany({}),
-        prisma.subscription.deleteMany({})
+        prisma.subscription.deleteMany({}) // これはチャンネルにも依存するが安全のため削除
       );
     }
     if (hasDbData) {
