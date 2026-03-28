@@ -39,7 +39,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState(initialComments);
-  const [importTarget, setImportTarget] = useState<'quizzes'|'translations'>('quizzes');
+  const [importTarget, setImportTarget] = useState<'quizzes' | 'translations'>('quizzes');
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const [eduData, setEduData] = useState<any>(null);
@@ -244,7 +244,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `quiz_backup_${type}_${new Date().toISOString().split('T')[0]}.json`;
+        const extension = type === 'images' ? 'zip' : 'json';
+        a.download = `quiz_backup_${type}_${new Date().toISOString().split('T')[0]}.${extension}`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -401,8 +402,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           }));
         } else {
           // 共通サムネイルをアップロードした場合は、各言語の個別画像指定（AI生成等でセットされたもの）をクリアし、すべて共通画像が表示されるようにする。
-          setFormData((prev) => ({ 
-            ...prev, 
+          setFormData((prev) => ({
+            ...prev,
             imageUrl: data.imageUrl,
             translations: {
               ja: { ...prev.translations.ja, imageUrl: '' },
@@ -499,7 +500,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           deferImageGeneration: true,
         })
       });
-      
+
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
@@ -511,7 +512,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
       if (res.ok) {
         const data = (await res.json()) as any;
-        
+
         // クイズ本体（テキスト）が作成されたら、まず即座にリストを更新する
         fetchQuizzes();
         setAiTopic('');
@@ -527,7 +528,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         } else {
           alert('AIでクイズを生成しました。');
         }
-        
+
         // 画像生成後にもう一度リストを更新して最新の画像を表示
         fetchQuizzes();
       } else {
@@ -1910,7 +1911,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       <span>📥</span> 復元（スマートインポート）
                     </h3>
                     <p className="text-[11px] text-red-600/70 dark:text-red-400/80 leading-relaxed font-medium">
-                      ⚠️ 警告: ファイルをアップロードすると、<br/><strong className="text-red-600 dark:text-red-300">「そのファイルに含まれている種類のデータのみ」</strong>が現在のアプリから削除され、ファイルの内容で完全に上書きされます（例: 画像バックアップを復元した場合は、画像データのみがクリア・復元され、クイズやユーザーはそのまま残ります）。
+                      ⚠️ 警告: ファイルをアップロードすると、<br /><strong className="text-red-600 dark:text-red-300">「そのファイルに含まれている種類のデータのみ」</strong>が現在のアプリから削除され、ファイルの内容で完全に上書きされます（例: 画像バックアップを復元した場合は、画像データのみがクリア・復元され、クイズやユーザーはそのまま残ります）。
                     </p>
                     <div className="relative cursor-pointer mt-4">
                       <input
@@ -2069,11 +2070,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       {eduValidation.map((item: any) => (
                         <span
                           key={item.group}
-                          className={`px-3 py-1 rounded-full text-[11px] font-black ${
-                            item.missingSubjects.length === 0 && item.emptySubjects.length === 0
+                          className={`px-3 py-1 rounded-full text-[11px] font-black ${item.missingSubjects.length === 0 && item.emptySubjects.length === 0
                               ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
                               : 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-                          }`}
+                            }`}
                         >
                           {item.group}: 欠落 {item.missingSubjects.length} / 空欄 {item.emptySubjects.length}
                         </span>
