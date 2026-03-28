@@ -389,7 +389,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             }
           }));
         } else {
-          setFormData((prev) => ({ ...prev, imageUrl: data.imageUrl }));
+          // 共通サムネイルをアップロードした場合は、各言語の個別画像指定（AI生成等でセットされたもの）をクリアし、すべて共通画像が表示されるようにする。
+          setFormData((prev) => ({ 
+            ...prev, 
+            imageUrl: data.imageUrl,
+            translations: {
+              ja: { ...prev.translations.ja, imageUrl: '' },
+              en: { ...prev.translations.en, imageUrl: '' },
+              zh: { ...prev.translations.zh, imageUrl: '' }
+            }
+          }));
         }
       } else {
         alert('画像のアップロードに失敗しました');
@@ -398,6 +407,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       console.error(error);
       alert('エラーが発生しました');
     }
+
+    // 次回も同じファイルが選択できるようにクリア
+    e.target.value = '';
     setUploading(prev => ({ ...prev, [uploadKey]: false }));
   };
 
@@ -488,16 +500,24 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
       if (res.ok) {
         const data = (await res.json()) as any;
+        
+        // クイズ本体（テキスト）が作成されたら、まず即座にリストを更新する
+        fetchQuizzes();
+        setAiTopic('');
+        setCorrectionPrompt('');
+
         if (data?.id) {
           const imageGenerated = await triggerDeferredImageGeneration(data.id, locale);
           if (!imageGenerated) {
-            alert('クイズ本文は作成されましたが、画像生成はまだ完了していません。ログを確認してください。');
+            alert('クイズ本文は作成できましたが、画像生成がまだ完了していないか失敗しました。ログを確認してください。');
+          } else {
+            alert('AIクイズと画像の生成が完了しました！');
           }
+        } else {
+          alert('AIでクイズを生成しました。');
         }
-
-        alert('AIでクイズを生成しました。画像も順次生成します。');
-        setAiTopic('');
-        setCorrectionPrompt('');
+        
+        // 画像生成後にもう一度リストを更新して最新の画像を表示
         fetchQuizzes();
       } else {
         const errorData = (await res.json()) as any;

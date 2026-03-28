@@ -118,31 +118,39 @@ export async function POST(req: NextRequest) {
     const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     const categoryName = quiz.category?.nameJa || quiz.category?.name || quiz.categoryId;
 
-    let baseImageUrl = quiz.imageUrl || jaTranslation.imageUrl || '';
+    let currentImageUrl = targetTranslation.imageUrl || '';
 
-    if (!baseImageUrl || force) {
-      const basePrompt = `Create exactly one premium educational illustration in a wide 16:9 layout for learners around age ${quiz.targetAge || 8}.
-Topic: ${normalizeText(jaTranslation.title) || 'Quiz'}
+    if (!currentImageUrl || force) {
+      const promptTitle = normalizeText(targetTranslation.title || jaTranslation.title) || 'Quiz';
+      const promptQuestion = normalizeText(targetTranslation.question || jaTranslation.question).slice(0, 90);
+      const isJapanese = locale === 'ja';
+
+      const prompt = `Create exactly one premium educational illustration in a wide 16:9 layout for learners around age ${quiz.targetAge || 8}.
+Topic: ${promptTitle}
 Subject area: ${categoryName}
-Question context: ${normalizeText(jaTranslation.question)}
+Question context: ${promptQuestion}
 Visual direction: ${persona.imageStyle}
 
 Requirements:
 - The image must help the learner understand the quiz idea at a glance.
 - Keep the composition clean, exciting, and age-appropriate.
-- Do not include any letters, words, numbers, subtitles, captions, UI, watermark, or logo.
+- IMPORTANT: Include the following two text blocks seamlessly integrated into the image in ${detectLocaleLanguageName(locale)}:
+  Headline: "${promptTitle}"
+  Support text: "${promptQuestion}"
+- Make the headline visually primary and the support text secondary.
+- Do not add any OTHER subtitles, labels, UI, borders, or extra random text.
 - Use polished lighting and textbook-quality clarity.`;
 
-      // リトライ付きベース画像生成（最大2回試行）
-      let generatedBase = null;
+      // 画像生成（最大2回リトライ）
+      let generatedImage = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          generatedBase = await withTimeout(
-            generateNanobananaImage(ai, basePrompt),
+          generatedImage = await withTimeout(
+            generateNanobananaImage(ai, prompt),
             timeoutMs,
-            'Base image generation'
+            `${locale} image generation`
           );
-          if (generatedBase?.data) break;
+          if (generatedImage?.data) break;
           console.warn(`[generate-image] attempt ${attempt + 1} returned no data, retrying...`);
         } catch (retryErr: any) {
           console.warn(`[generate-image] attempt ${attempt + 1} error:`, retryErr.message);
@@ -152,65 +160,43 @@ Requirements:
         }
       }
 
-      if (!generatedBase?.data) {
-        return NextResponse.json({ error: 'Base image generation failed after retries' }, { status: 500 });
+      if (!generatedImage?.data) {
+        return NextResponse.json({ error: 'Image generation failed after retries' }, { status: 500 });
       }
 
-      baseImageUrl = await storeImageWithFallback(
-        Buffer.from(generatedBase.data, 'base64'),
-        generatedBase.mimeType
+      currentImageUrl = await storeImageWithFallback(
+        Buffer.from(generatedImage.data, 'base64'),
+        generatedImage.mimeType
       );
 
-      await prisma.quiz.update({
-        where: { id: quizId },
-        data: { imageUrl: baseImageUrl || '' },
-      });
-
-      // 共通ベース画像を「全てのロケール」に反映する（英語、中国語タブの画像なし問題を解消）
+      // 指定されたロケールの翻訳データに画像をセット
       await prisma.quizTranslation.updateMany({
-        where: { quizId },
-        data: { imageUrl: baseImageUrl },
+        where: { quizId, locale },
+        data: { imageUrl: currentImageUrl },
       });
+
+      // もしクイズ本体の共通画像がまだ空か、今回が日本語生成だった場合は、クイズ本体と、まだ画像がない他ロケールにも共通画像として一旦セットしておく（画像無しを防ぐため）
+      if (!quiz.imageUrl || isJapanese) {
+        await prisma.quiz.update({
+          where: { id: quizId },
+          data: { imageUrl: currentImageUrl },
+        });
+
+        const missingLocales = quiz.translations
+          .filter(t => !t.imageUrl && t.locale !== locale)
+          .map(t => t.locale);
+        
+        if (missingLocales.length > 0) {
+          await prisma.quizTranslation.updateMany({
+            where: { quizId, locale: { in: missingLocales } },
+            data: { imageUrl: currentImageUrl },
+          });
+        }
+      }
     }
-
-    if (locale === 'ja') {
-      console.log(`[generate-image] success quizId=${quizId} locale=ja`);
-      return NextResponse.json({ success: true, imageUrl: baseImageUrl });
-    }
-
-    const sourceImage = await resolveInlineImageData(baseImageUrl);
-    const localizedPrompt = `Use the attached educational quiz image as the visual source.
-
-Keep the composition, characters, objects, background, lighting, colors, and style as consistent as possible.
-Remove the current text and replace it with exactly these two text blocks in ${detectLocaleLanguageName(locale)}:
-Headline: "${normalizeText(targetTranslation.title || jaTranslation.title)}"
-Support text: "${normalizeText(targetTranslation.question || jaTranslation.question).slice(0, 90)}"
-Make the headline visually primary and the support text secondary.
-Do not add subtitles, labels, UI, borders, or any extra text.
-Return one finished localized image.`;
-
-    const localizedImage = await withTimeout(
-      editNanobananaImage(ai, sourceImage, localizedPrompt),
-      Math.max(6000, Math.floor(timeoutMs * 0.8)),
-      `${locale} localized image generation`
-    );
-
-    if (!localizedImage?.data) {
-      return NextResponse.json({ error: 'Localized image generation failed' }, { status: 500 });
-    }
-
-    const localizedImageUrl = await storeImageWithFallback(
-      Buffer.from(localizedImage.data, 'base64'),
-      localizedImage.mimeType
-    );
-
-    await prisma.quizTranslation.updateMany({
-      where: { quizId, locale },
-      data: { imageUrl: localizedImageUrl },
-    });
 
     console.log(`[generate-image] success quizId=${quizId} locale=${locale}`);
-    return NextResponse.json({ success: true, imageUrl: localizedImageUrl });
+    return NextResponse.json({ success: true, imageUrl: currentImageUrl });
   } catch (error: any) {
     console.error('Generate Quiz Image Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
