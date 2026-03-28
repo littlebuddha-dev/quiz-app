@@ -473,6 +473,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           correctionPrompt,
           modelId: getModelById(selectedModel).generatorId,
           locale,
+          deferImageGeneration: true,
         })
       });
       
@@ -486,7 +487,30 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       }
 
       if (res.ok) {
-        alert('AIでクイズを生成しました！');
+        const data = (await res.json()) as any;
+        if (data?.id) {
+          fetch('/api/admin/quiz/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              quizId: data.id,
+              locale,
+            }),
+          })
+            .then(async (imageRes) => {
+              if (!imageRes.ok) {
+                const err = await imageRes.text();
+                console.warn('Deferred image generation failed:', imageRes.status, err);
+                return;
+              }
+              fetchQuizzes();
+            })
+            .catch((imageErr) => {
+              console.warn('Deferred image generation request failed:', imageErr);
+            });
+        }
+
+        alert('AIでクイズを生成しました。画像は続けて作成します。');
         setAiTopic('');
         setCorrectionPrompt('');
         fetchQuizzes();

@@ -862,7 +862,8 @@ export async function POST(req: NextRequest) {
       correctionPrompt,
       excludeTitles,
       modelId,
-      locale: requestedLocale
+      locale: requestedLocale,
+      deferImageGeneration,
     } = body;
     const normalizedProvidedImageUrl =
       typeof providedImageUrl === 'string' && providedImageUrl.startsWith('data:')
@@ -1124,7 +1125,7 @@ ${finalSystemInstruction}
     const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
     const imageTimeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 12000);
     
-    if (!normalizedProvidedImageUrl && imageGenerationEnabled) {
+    if (!deferImageGeneration && !normalizedProvidedImageUrl && imageGenerationEnabled) {
       console.log('Generating localized educational images with nanobanana...');
       const isProgrammingSubject = detectProgrammingSubject(categoryNames);
       const basePrompt = buildBaseIllustrationPrompt({
@@ -1224,7 +1225,7 @@ ${finalSystemInstruction}
       }
     }
 
-    if (!normalizedProvidedImageUrl && imageGenerationEnabled && Object.values(translationImageUrls).every((value) => !value)) {
+    if (!deferImageGeneration && !normalizedProvidedImageUrl && imageGenerationEnabled && Object.values(translationImageUrls).every((value) => !value)) {
       console.warn('Image generation completed without stored images. Falling back to no-image placeholder.');
     }
 
