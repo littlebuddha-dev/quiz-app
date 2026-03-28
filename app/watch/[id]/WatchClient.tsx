@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import LatexRenderer from '../../components/LatexRenderer';
 import QuizVisual from '../../components/QuizVisual';
 
@@ -65,6 +66,7 @@ export default function WatchClient({
   missionProgress,
 }: WatchClientProps) {
   const router = useRouter();
+  const { userId } = useAuth();
   const { locale, setLocale } = usePreferredLocale();
   const isOnline = useOnlineStatus();
   const [showHint, setShowHint] = useState(false);
@@ -135,6 +137,7 @@ export default function WatchClient({
   const normalizeAnswer = (value: string) =>
     value.trim().replace(/\s+/g, '').toLowerCase();
   const missionCompleted = missionProgress ? missionSolvedCount >= missionProgress.totalCount : false;
+  const isAuthenticated = isLoggedIn || Boolean(userId);
 
   const handleAction = async (action: 'bookmark' | 'like') => {
     if (!isOnline) {
@@ -147,7 +150,7 @@ export default function WatchClient({
       );
     }
 
-    if (!isLoggedIn) return alert('ログインが必要です');
+    if (!isAuthenticated) return alert('ログインが必要です');
 
     if (action === 'bookmark') {
       setIsBookmarked(!isBookmarked);
@@ -179,7 +182,7 @@ export default function WatchClient({
       quizVisualRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    if (isLoggedIn) {
+    if (isAuthenticated) {
       if (isCorrect && !isCleared) {
         setIsCleared(true);
       }
@@ -200,7 +203,7 @@ export default function WatchClient({
 
   const submitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !isLoggedIn || !isOnline) return;
+    if (!newComment.trim() || !isAuthenticated || !isOnline) return;
 
     setIsSubmitting(true);
     const res = await fetch('/api/comments', {
@@ -434,13 +437,13 @@ export default function WatchClient({
                       })}
                     </div>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
                         value={textAnswer}
                         onChange={(e) => setTextAnswer(e.target.value)}
                         placeholder={locale === 'ja' ? '答えを入力' : locale === 'en' ? 'Your answer' : '输入答案'}
-                        className="flex-1 border-2 border-zinc-300 p-3 rounded-xl font-bold focus:outline-none focus:border-amber-500"
+                        className="min-w-0 flex-1 border-2 border-zinc-300 p-3 rounded-xl font-bold focus:outline-none focus:border-amber-500"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
@@ -451,7 +454,7 @@ export default function WatchClient({
                       <button
                         type="button"
                         onClick={() => handleAnswerSubmit(normalizeAnswer(textAnswer) === normalizeAnswer(t.answer))}
-                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 rounded-xl transition-colors"
+                        className="w-full shrink-0 whitespace-nowrap bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-3 rounded-xl transition-colors sm:w-auto"
                       >
                         {locale === 'ja' ? '回答する' : locale === 'en' ? 'Submit' : '回答'}
                       </button>
@@ -516,7 +519,7 @@ export default function WatchClient({
             <div>
               <h2 className="text-xl font-semibold mb-6 safari-no-faux-bold">{comments.length} {locale === 'ja' ? '件のコメント' : locale === 'en' ? 'Comments' : '条评论'}</h2>
 
-              {isLoggedIn ? (
+              {isAuthenticated ? (
                 <form onSubmit={submitComment} className="flex gap-4 mb-10">
                   <div className="w-10 h-10 rounded-full bg-[var(--card)] border border-[var(--border)] flex-shrink-0" />
                   <div className="flex-1">

@@ -86,13 +86,13 @@ export default function CoursesClient({ currentCourse, roadmap, userStatus, cour
         </section>
 
         <section className="mb-10">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xl sm:text-2xl font-black">{t.current}</h2>
             <a
               href={CURRICULUM_SOURCE_LINKS[currentCourse.course.sourceLevel]}
               target="_blank"
               rel="noreferrer"
-              className="text-xs font-black text-amber-600 hover:underline"
+              className="max-w-full text-xs font-black text-amber-600 hover:underline break-words [overflow-wrap:anywhere]"
             >
               {t.source}: {getCurriculumSourceLabel(locale, currentCourse.course.sourceLevel)}
             </a>
