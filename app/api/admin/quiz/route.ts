@@ -39,8 +39,13 @@ function normalizeTranslations(translations: Record<string, any>) {
 async function persistManagedImageUrl(imageUrl: string | null | undefined) {
   if (!imageUrl) return '';
   if (!imageUrl.startsWith('data:')) return imageUrl;
-  const stored = await storeDataUrl(imageUrl);
-  return stored.publicPath;
+  try {
+    const stored = await storeDataUrl(imageUrl);
+    return stored.publicPath;
+  } catch (error) {
+    console.warn('Managed image persistence failed. Keeping inline data URL.', error);
+    return imageUrl;
+  }
 }
 
 // 権限チェックのヘルパー

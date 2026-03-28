@@ -3,7 +3,7 @@ import { createPrisma } from '@/lib/prisma';
 import { PrismaClient } from '@prisma/client/edge';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
-import { storeImageBuffer } from '@/lib/image-storage';
+import { createDataUrlFromBuffer, storeImageBuffer } from '@/lib/image-storage';
 
 // import { writeFile } from 'fs/promises';
 // import { join } from 'path';
@@ -50,12 +50,21 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const stored = await storeImageBuffer(buffer, file.type || 'image/png');
+    let imageUrl: string;
+    try {
+      const stored = await storeImageBuffer(buffer, file.type || 'image/png');
+      imageUrl = stored.publicPath;
+    } catch (storageError) {
+      console.warn('Managed image storage failed during upload. Falling back to data URL.', storageError);
+      imageUrl = createDataUrlFromBuffer(buffer, file.type || 'image/png');
+    }
 
     return NextResponse.json({ 
       success: true, 
-      imageUrl: stored.publicPath,
-      message: 'Stored as managed upload file'
+      imageUrl,
+      message: imageUrl.startsWith('data:')
+        ? 'Stored as inline fallback image'
+        : 'Stored as managed upload file'
     });
   } catch (error) {
     console.error('Image Upload Error:', error);

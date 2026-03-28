@@ -23,7 +23,7 @@ import {
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
-import { storeDataUrl, storeImageBuffer } from '@/lib/image-storage';
+import { createDataUrlFromBuffer, storeDataUrl, storeImageBuffer } from '@/lib/image-storage';
 import { editNanobananaImage, generateNanobananaImage } from '@/lib/nanobanana';
 
 type MultiLangQuiz = {
@@ -851,7 +851,14 @@ export async function POST(req: NextRequest) {
     } = body;
     const normalizedProvidedImageUrl =
       typeof providedImageUrl === 'string' && providedImageUrl.startsWith('data:')
-        ? (await storeDataUrl(providedImageUrl)).publicPath
+        ? await (async () => {
+            try {
+              return (await storeDataUrl(providedImageUrl)).publicPath;
+            } catch (error) {
+              console.warn('Managed image persistence failed for provided image. Keeping inline data URL.', error);
+              return providedImageUrl;
+            }
+          })()
         : providedImageUrl;
     const finalLocale = (requestedLocale || 'ja') as 'ja' | 'en' | 'zh';
 
@@ -1147,18 +1154,30 @@ ${finalSystemInstruction}
               console.warn(`Localized image generation failed for ${locale}:`, localizedErr);
             }
 
-            const storedImage = await storeImageBuffer(
-              Buffer.from(localizedImage.data, 'base64'),
-              localizedImage.mimeType
-            );
-            translationImageUrls[locale] = storedImage.publicPath;
+            const localizedBuffer = Buffer.from(localizedImage.data, 'base64');
+            try {
+              const storedImage = await storeImageBuffer(
+                localizedBuffer,
+                localizedImage.mimeType
+              );
+              translationImageUrls[locale] = storedImage.publicPath;
+            } catch (storageError) {
+              console.warn(`Managed image storage failed for ${locale}. Keeping inline image data.`, storageError);
+              translationImageUrls[locale] = createDataUrlFromBuffer(
+                localizedBuffer,
+                localizedImage.mimeType
+              );
+            }
           }
-
           imageUrl = translationImageUrls[finalLocale] || translationImageUrls.ja || imageUrl;
         }
       } catch (err) {
         console.warn('Base image generation failed:', err);
       }
+    }
+
+    if (!normalizedProvidedImageUrl && imageGenerationEnabled && Object.values(translationImageUrls).every((value) => !value)) {
+      console.warn('Image generation completed without stored images. Falling back to no-image placeholder.');
     }
 
     // AIの回答からクイズ形式を決定 (AIが自動で変更した場合に対応)

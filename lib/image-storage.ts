@@ -21,6 +21,10 @@ function normalizeMimeType(value: string | null | undefined) {
   return mimeType === 'image/jpg' ? 'image/jpeg' : mimeType;
 }
 
+export function createDataUrlFromBuffer(buffer: Buffer, mimeType: string | null | undefined) {
+  return `data:${normalizeMimeType(mimeType)};base64,${buffer.toString('base64')}`;
+}
+
 function getExtensionForMimeType(mimeType: string) {
   switch (mimeType) {
     case 'image/jpeg':
