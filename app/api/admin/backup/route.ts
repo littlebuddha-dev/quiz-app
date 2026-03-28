@@ -8,6 +8,9 @@ import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { Prisma } from '@prisma/client';
 import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
+import AdmZip from 'adm-zip';
+import path from 'path';
+import fs from 'fs';
 import {
   buildManagedAssetRecord,
   isUploadPath,
@@ -93,8 +96,6 @@ export async function GET(req: NextRequest) {
     // format=file が指定されている場合はバイナリを直接返す
     const format = req.nextUrl.searchParams.get('format');
     if (format === 'file') {
-      const fs = require('fs');
-      const path = require('path');
       const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
       
       if (fs.existsSync(dbPath)) {
@@ -147,6 +148,38 @@ export async function GET(req: NextRequest) {
       ]);
     }
 
+    // 画像専用バックアップの場合はZIPファイルとして返す
+    if (type === 'images') {
+      const zip = new AdmZip();
+      
+      // 画像ファイルをZIPのローカルパス階層に追加
+      for (const asset of assets) {
+        const fullPath = path.join(process.cwd(), 'public', asset.path); // asset.path is like '/uploads/managed/xx.jpg'
+        if (fs.existsSync(fullPath)) {
+          // ZIP内では uploads/managed/xx.jpg というフォルダ構造にする
+          const internalFilePath = asset.path.replace(/^\/+/, '');
+          const internalDirPath = path.dirname(internalFilePath);
+          zip.addLocalFile(fullPath, internalDirPath);
+        }
+      }
+
+      // メタデータをZIP内に追加（復元時に判定用）
+      zip.addFile('backup_meta.json', Buffer.from(JSON.stringify({
+        version: '1.2',
+        timestamp: new Date().toISOString(),
+        type: 'images',
+        isZip: true,
+      }, null, 2)));
+
+      const zipBuffer = zip.toBuffer();
+      return new NextResponse(zipBuffer, {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="quiz_backup_images_${Date.now()}.zip"`,
+        },
+      });
+    }
+
     const backupData: BackupPayload = {
       version: '1.2',
       timestamp: new Date().toISOString(),
@@ -195,6 +228,43 @@ export async function POST(req: NextRequest) {
     if (!userId) return new NextResponse('Unauthorized', { status: 401 });
     const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
     if (!user || user.role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
+
+    const contentType = req.headers.get('content-type') || '';
+    
+    // ZIPファイル（multipart/form-data）の場合の処理
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      const file = formData.get('file');
+
+      // next/server の File オブジェクト判定
+      if (!file || typeof file !== 'object' || !('arrayBuffer' in file)) {
+        return NextResponse.json({ error: 'INVALID_FILE', message: '有効なファイルがアップロードされていません。' }, { status: 400 });
+      }
+
+      const buffer = Buffer.from(await (file as File).arrayBuffer());
+      const zip = new AdmZip(buffer);
+      const zipEntries = zip.getEntries();
+      
+      let restoredCount = 0;
+      for (const zipEntry of zipEntries) {
+        if (!zipEntry.isDirectory) {
+          // "uploads/managed/xx.jpg" を "public/uploads/managed/xx.jpg" に展開する
+          if (zipEntry.entryName.startsWith('uploads/')) {
+            const destPath = path.join(process.cwd(), 'public', zipEntry.entryName);
+            await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
+            
+            const content = zipEntry.getData();
+            await fs.promises.writeFile(destPath, content);
+            restoredCount++;
+          }
+        }
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        message: `画像データ（${restoredCount}件）の展開と復元が完了しました。`
+      });
+    }
 
     let body;
     try {
@@ -246,16 +316,25 @@ export async function POST(req: NextRequest) {
     const protectedUserClerkIdSet = new Set(protectedUsers.map((entry) => entry.clerkId));
 
     const backupUsers = Array.isArray(data.users) ? (data.users as Prisma.UserCreateManyInput[]) : [];
-    const skippedBackupUserIds = new Set(
-      backupUsers
-        .filter((entry) => {
-          const email = entry.email?.toLowerCase?.() || '';
-          return protectedUserEmailSet.has(email) || protectedUserClerkIdSet.has(entry.clerkId);
-        })
-        .map((entry) => entry.id)
-        .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
-    );
-    const importableUsers = backupUsers.filter((entry) => !skippedBackupUserIds.has(entry.id as string));
+
+    // 重複を厳密に排除するためのセット（既存保護ユーザーも含む）
+    const seenEmails = new Set(protectedUserEmailSet);
+    const seenClerkIds = new Set(protectedUserClerkIdSet);
+
+    // バックアップ内のユーザーのうち、EmailやClerkIDが重複しているもの、または保護ユーザーと衝突するものを除外
+    const importableUsers: Prisma.UserCreateManyInput[] = [];
+    const skippedBackupUserIds = new Set<string>();
+
+    for (const entry of backupUsers) {
+      const email = entry.email?.toLowerCase() || '';
+      if (!email || seenEmails.has(email) || seenClerkIds.has(entry.clerkId)) {
+        skippedBackupUserIds.add(entry.id as string);
+        continue;
+      }
+      seenEmails.add(email);
+      seenClerkIds.add(entry.clerkId);
+      importableUsers.push(entry);
+    }
 
     const backupChannels = Array.isArray(data.channels)
       ? (data.channels as Prisma.ChannelCreateManyInput[])
@@ -297,13 +376,31 @@ export async function POST(req: NextRequest) {
     }
 
     if (includeUsers && importableUsers.length > 0) {
-      await prisma.user.createMany({ data: importableUsers });
+      for (const user of importableUsers) {
+        try {
+          await prisma.user.create({ data: user });
+        } catch (e: any) {
+          if (e.code !== 'P2002') console.error('User import error:', e);
+        }
+      }
     }
     if (data.categories && data.categories.length > 0) {
-      await prisma.category.createMany({ data: data.categories as Prisma.CategoryCreateManyInput[] });
+      for (const cat of data.categories as Prisma.CategoryCreateManyInput[]) {
+        try {
+          await prisma.category.create({ data: cat });
+        } catch (e: any) {
+          if (e.code !== 'P2002') console.error('Category import error:', e);
+        }
+      }
     }
     if (includeUsers && importableChannels.length > 0) {
-      await prisma.channel.createMany({ data: importableChannels });
+      for (const channel of importableChannels) {
+        try {
+          await prisma.channel.create({ data: channel });
+        } catch (e: any) {
+          if (e.code !== 'P2002') console.error('Channel import error:', e);
+        }
+      }
     }
 
     if (hasDbData && data.quizzes && data.quizzes.length > 0) {

@@ -274,24 +274,34 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
     setLoading(true);
     try {
-      const rawText = await file.text();
-      const normalizedText = rawText.replace(/^\uFEFF/, '').trim();
+      let res;
+      if (file.name.endsWith('.zip')) {
+        const formData = new FormData();
+        formData.append('file', file);
+        res = await fetch('/api/admin/backup', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        const rawText = await file.text();
+        const normalizedText = rawText.replace(/^\uFEFF/, '').trim();
 
-      if (!normalizedText) {
-        throw new Error('EMPTY_BACKUP_FILE');
+        if (!normalizedText) {
+          throw new Error('EMPTY_BACKUP_FILE');
+        }
+
+        if (normalizedText.startsWith('<!DOCTYPE') || normalizedText.startsWith('<html')) {
+          throw new Error('HTML_BACKUP_FILE');
+        }
+
+        const content = JSON.parse(normalizedText);
+        const contentWithOptions = content; // ファイルに保存されているoptionsとdataをそのまま使う
+        res = await fetch('/api/admin/backup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contentWithOptions),
+        });
       }
-
-      if (normalizedText.startsWith('<!DOCTYPE') || normalizedText.startsWith('<html')) {
-        throw new Error('HTML_BACKUP_FILE');
-      }
-
-      const content = JSON.parse(normalizedText);
-      const contentWithOptions = content; // ファイルに保存されているoptionsとdataをそのまま使う
-      const res = await fetch('/api/admin/backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(contentWithOptions),
-      });
 
       if (res.ok) {
         alert('復元が完了しました。ページをリロードします。');
@@ -1905,7 +1915,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <div className="relative cursor-pointer mt-4">
                       <input
                         type="file"
-                        accept=".json"
+                        accept=".json,.zip"
                         onChange={handleImportBackup}
                         className="hidden"
                         id="backup-upload"
