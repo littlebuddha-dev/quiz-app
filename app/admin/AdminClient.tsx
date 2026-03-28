@@ -1892,7 +1892,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         disabled={loading}
                         className="w-full bg-purple-600 text-white py-2.5 rounded-xl font-bold shadow-sm hover:bg-purple-700 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                       >
-                        🖼️ 画像データを保存
+                        🖼️ 画像データを保存 (ZIP形式)
                       </button>
                     </div>
                     <button
@@ -1925,7 +1925,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         htmlFor="backup-upload"
                         className="w-full flex items-center justify-center bg-zinc-800 text-white py-3.5 rounded-xl font-black shadow-lg shadow-black/20 hover:bg-black cursor-pointer transition-all"
                       >
-                        {loading ? '処理中...' : 'バックアップファイルを選択して復元 📂'}
+                        {loading ? '処理中...' : 'バックアップファイル (JSON / ZIP) を選択 📂'}
                       </label>
                     </div>
                   </div>
@@ -1934,7 +1934,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                 <div className="mt-8 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl">
                   <h4 className="text-xs font-black text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-2">仕様上の注意</h4>
                   <ul className="text-[10px] text-amber-600 dark:text-amber-500/80 space-y-1 font-medium list-disc list-inside">
-                    <li>エクスポートデータは「DB」「ユーザー」「画像」に分離してダウンロードできます。</li>
+                    <li>エクスポートデータは「DB(JSON)」「ユーザー(JSON)」「画像(ZIP)」に分離してダウンロードできます。</li>
                     <li>ユーザーデータの復元では、Clerk自体のアカウントは復元されず、DB上のユーザー紐付けのみを復元します（ただし現在ログイン中の管理者は保護されます）。</li>
                     <li>復元は、選択したファイルに含まれる種類のデータのみを上書きリセットします。</li>
                   </ul>
