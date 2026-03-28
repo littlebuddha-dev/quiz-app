@@ -39,8 +39,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState(initialComments);
-  const [exportIncludeUsers, setExportIncludeUsers] = useState(false);
-  const [importIncludeUsers, setImportIncludeUsers] = useState(false);
+  const [importTarget, setImportTarget] = useState<'quizzes'|'translations'>('quizzes');
 
   const [eduData, setEduData] = useState<any>(null);
   const [eduGroup, setEduGroup] = useState<'小学校' | '中学校' | '高等学校'>('小学校');
@@ -235,16 +234,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     setLoading(false);
   };
 
-  const handleExportBackup = async () => {
+  const handleExportBackup = async (type: 'db' | 'users' | 'images') => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/backup?includeUsers=${exportIncludeUsers}`);
+      const res = await fetch(`/api/admin/backup?type=${type}`);
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `quiz_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `quiz_backup_${type}_${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -286,13 +285,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       }
 
       const content = JSON.parse(normalizedText);
-      const contentWithOptions = {
-        ...content,
-        options: {
-          ...(content?.options || {}),
-          includeUsers: importIncludeUsers,
-        },
-      };
+      const contentWithOptions = content; // ファイルに保存されているoptionsとdataをそのまま使う
       const res = await fetch('/api/admin/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1853,55 +1846,55 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   {/* Export */}
                   <div className="space-y-4 p-6 border rounded-2xl bg-zinc-50 dark:bg-zinc-900 shadow-inner">
                     <h3 className="font-bold flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                      <span>📤</span> エクスポート
+                      <span>📤</span> 分割エクスポート
                     </h3>
-                    <p className="text-xs text-zinc-500 leading-relaxed">
-                      現在のクイズ、ジャンル、設定、統計データをJSONファイルとしてダウンロードします。ユーザー情報を含めるかどうかを選べます。
+                    <p className="text-[11px] text-zinc-500 leading-relaxed mb-4">
+                      データが大きくなりすぎないよう、種類別にダウンロードできます。
                     </p>
-                    <label className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-xs font-bold text-zinc-600">
-                      <input
-                        type="checkbox"
-                        checked={exportIncludeUsers}
-                        onChange={(e) => setExportIncludeUsers(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span>ユーザー情報・進捗・コメントもバックアップに含める</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleExportBackup}
-                      disabled={loading}
-                      className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-600/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      バックアップをダウンロード 📦
-                    </button>
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => handleExportBackup('db')}
+                        disabled={loading}
+                        className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow-sm hover:bg-blue-700 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        🗄️ クイズ・設定データを保存
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportBackup('users')}
+                        disabled={loading}
+                        className="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-bold shadow-sm hover:bg-emerald-700 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        👤 ユーザー・成績データを保存
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportBackup('images')}
+                        disabled={loading}
+                        className="w-full bg-purple-600 text-white py-2.5 rounded-xl font-bold shadow-sm hover:bg-purple-700 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        🖼️ 画像データを保存
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={handleDirectDbDownload}
-                      className="w-full bg-zinc-100 text-zinc-600 py-2.5 rounded-xl text-[10px] font-black hover:bg-zinc-200 transition-all border border-zinc-200"
+                      className="w-full mt-2 bg-zinc-100 text-zinc-600 py-2 rounded-xl text-[10px] font-black hover:bg-zinc-200 transition-all border border-zinc-200"
                     >
-                      SQLiteファイルを直接ダウンロード（推奨） 🗄️
+                      SQLiteファイルを直接ダウンロード（開発用）
                     </button>
                   </div>
 
                   {/* Import */}
                   <div className="space-y-4 p-6 border rounded-2xl bg-red-50/30 dark:bg-red-900/10 border-red-100 dark:border-red-900/30">
                     <h3 className="font-bold flex items-center gap-2 text-red-700 dark:text-red-400">
-                      <span>📥</span> 復元（インポート）
+                      <span>📥</span> 復元（スマートインポート）
                     </h3>
-                    <p className="text-xs text-red-600/70 dark:text-red-400/70 leading-relaxed font-medium">
-                      ⚠️ 警告: ファイルをアップロードすると現在のデータが上書きされます。ユーザー情報を含めると `clerkId` もバックアップ側に置き換わります。
+                    <p className="text-[11px] text-red-600/70 dark:text-red-400/80 leading-relaxed font-medium">
+                      ⚠️ 警告: ファイルをアップロードすると、<br/><strong className="text-red-600 dark:text-red-300">「そのファイルに含まれている種類のデータのみ」</strong>が現在のアプリから削除され、ファイルの内容で完全に上書きされます（例: 画像バックアップを復元した場合は、画像データのみがクリア・復元され、クイズやユーザーはそのまま残ります）。
                     </p>
-                    <label className="flex items-start gap-3 rounded-xl border border-red-200/70 bg-white/70 px-4 py-3 text-xs font-bold text-red-700 dark:border-red-900/40 dark:bg-zinc-950/30 dark:text-red-300">
-                      <input
-                        type="checkbox"
-                        checked={importIncludeUsers}
-                        onChange={(e) => setImportIncludeUsers(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500"
-                      />
-                      <span>ユーザー情報も復元する（未チェック時は users / channels / comments / 進捗系を除外）</span>
-                    </label>
-                    <div className="relative cursor-pointer">
+                    <div className="relative cursor-pointer mt-4">
                       <input
                         type="file"
                         accept=".json"
@@ -1912,9 +1905,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       />
                       <label
                         htmlFor="backup-upload"
-                        className="w-full flex items-center justify-center bg-zinc-800 text-white py-3 rounded-xl font-black shadow-lg shadow-black/20 hover:bg-black cursor-pointer transition-all"
+                        className="w-full flex items-center justify-center bg-zinc-800 text-white py-3.5 rounded-xl font-black shadow-lg shadow-black/20 hover:bg-black cursor-pointer transition-all"
                       >
-                        {loading ? '処理中...' : 'バックアップファイルを選択 📂'}
+                        {loading ? '処理中...' : 'バックアップファイルを選択して復元 📂'}
                       </label>
                     </div>
                   </div>
@@ -1923,9 +1916,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                 <div className="mt-8 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl">
                   <h4 className="text-xs font-black text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-2">仕様上の注意</h4>
                   <ul className="text-[10px] text-amber-600 dark:text-amber-500/80 space-y-1 font-medium list-disc list-inside">
-                    <li>エクスポートデータには、base64形式で保存された画像データも含まれます。</li>
-                    <li>Clerkのユーザー認証情報は含まれません（管理者のロール設定等は含む）。</li>
-                    <li>復元を実行すると、現在のデータベースは完全にクリアされます。事前にバックアップを取ってから実行してください。</li>
+                    <li>エクスポートデータは「DB」「ユーザー」「画像」に分離してダウンロードできます。</li>
+                    <li>ユーザーデータの復元では、Clerk自体のアカウントは復元されず、DB上のユーザー紐付けのみを復元します（ただし現在ログイン中の管理者は保護されます）。</li>
+                    <li>復元は、選択したファイルに含まれる種類のデータのみを上書きリセットします。</li>
                   </ul>
                 </div>
               </div>

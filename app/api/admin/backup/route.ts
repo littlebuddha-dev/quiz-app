@@ -19,6 +19,7 @@ type BackupPayload = {
   version: string;
   timestamp: string;
   options?: {
+    type?: 'db' | 'users' | 'images' | 'all';
     includeUsers?: boolean;
   };
   data: {
@@ -109,53 +110,71 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fetch all tables
-    const users = await prisma.user.findMany();
-    const categories = await prisma.category.findMany();
-    const channels = await prisma.channel.findMany();
-    const quizzes = await prisma.quiz.findMany();
-    const translations = await prisma.$queryRawUnsafe<unknown[]>(
-      'SELECT * FROM "QuizTranslation"'
-    );
-    const comments = await prisma.comment.findMany();
-    const bookmarks = await prisma.bookmark.findMany();
-    const histories = await prisma.quizHistory.findMany();
-    const likes = await prisma.quizLike.findMany();
-    const subscriptions = await prisma.subscription.findMany();
-    const settings = await prisma.setting.findMany();
-    const apiUsage = await prisma.apiUsage.findMany();
-    const assets = await collectManagedAssets([
-      ...quizzes.map((entry: any) => entry.imageUrl),
-      ...((translations as any[]) || []).map((entry) => entry.imageUrl),
-      ...(includeUsers ? channels.map((entry: any) => entry.avatarUrl) : []),
-    ]);
+    const type = req.nextUrl.searchParams.get('type') || 'all';
+    const isAll = type === 'all';
+    const isDb = isAll || type === 'db';
+    const isUsers = isAll || type === 'users';
+    const isImages = isAll || type === 'images';
+
+    // Fetch DB tables
+    const categories = isDb ? await prisma.category.findMany() : [];
+    const quizzes = isDb ? await prisma.quiz.findMany() : [];
+    const translations = isDb ? await prisma.$queryRawUnsafe<unknown[]>('SELECT * FROM "QuizTranslation"') : [];
+    const settings = isDb ? await prisma.setting.findMany() : [];
+    const apiUsage = isDb ? await prisma.apiUsage.findMany() : [];
+
+    // Fetch User tables
+    const users = isUsers ? await prisma.user.findMany() : [];
+    const channels = isUsers ? await prisma.channel.findMany() : [];
+    const comments = isUsers ? await prisma.comment.findMany() : [];
+    const bookmarks = isUsers ? await prisma.bookmark.findMany() : [];
+    const histories = isUsers ? await prisma.quizHistory.findMany() : [];
+    const likes = isUsers ? await prisma.quizLike.findMany() : [];
+    const subscriptions = isUsers ? await prisma.subscription.findMany() : [];
+
+    // Fetch Assets (images)
+    let assets: StoredImageAsset[] = [];
+    if (isImages || isAll) {
+      // どこかで画像が使われている可能性があるため、該当テーブル全てからURLを抽出
+      const imageSourcesQuizzes = isImages ? await prisma.quiz.findMany({ select: { imageUrl: true } }) : quizzes;
+      const imageSourcesTranslations = isImages ? await prisma.$queryRawUnsafe<{imageUrl: string|null}[]>('SELECT imageUrl FROM "QuizTranslation"') : translations;
+      const imageSourcesChannels = isImages ? await prisma.channel.findMany({ select: { avatarUrl: true } }) : channels;
+
+      assets = await collectManagedAssets([
+        ...imageSourcesQuizzes.map((entry: any) => entry.imageUrl),
+        ...((imageSourcesTranslations as any[]) || []).map((entry) => entry.imageUrl),
+        ...imageSourcesChannels.map((entry: any) => entry.avatarUrl),
+      ]);
+    }
 
     const backupData: BackupPayload = {
-      version: '1.1',
+      version: '1.2',
       timestamp: new Date().toISOString(),
       options: {
-        includeUsers,
+        type: type as any,
+        includeUsers: isUsers, // 互換性のため
       },
       data: {
-        users: includeUsers ? users : [],
+        users,
         categories,
-        channels: includeUsers ? channels : [],
+        channels,
         quizzes,
         translations,
-        comments: includeUsers ? comments : [],
-        bookmarks: includeUsers ? bookmarks : [],
-        histories: includeUsers ? histories : [],
-        likes: includeUsers ? likes : [],
-        subscriptions: includeUsers ? subscriptions : [],
+        comments,
+        bookmarks,
+        histories,
+        likes,
+        subscriptions,
         settings,
         apiUsage,
         assets,
       },
     };
 
+    const fileNameType = isAll ? 'all' : type;
     return NextResponse.json(backupData, {
       headers: {
-        'Content-Disposition': `attachment; filename="quiz_backup_${new Date().toISOString().split('T')[0]}.json"`,
+        'Content-Disposition': `attachment; filename="quiz_backup_${fileNameType}_${new Date().toISOString().split('T')[0]}.json"`,
         'Content-Type': 'application/json'
       }
     });
@@ -191,19 +210,25 @@ export async function POST(req: NextRequest) {
     const data = body.data;
     const includeUsers = body.options?.includeUsers ?? true;
 
-    if (!data || !Array.isArray(data.categories) || !Array.isArray(data.quizzes) || !Array.isArray(data.translations)) {
+    if (!data) {
       return NextResponse.json(
-        { error: 'INVALID_BACKUP_FORMAT', message: 'バックアップファイルの形式が正しくありません。' },
+        { error: 'INVALID_BACKUP_FORMAT', message: 'バックアップデータの形式が正しくありません。' },
         { status: 400 }
       );
     }
-    const backupAssets = Array.isArray(data.assets) ? (data.assets as StoredImageAsset[]) : [];
+
+    // アップロードされたデータに含まれる内容を判定（空配列でなければ復元対象とみなす）
+    const hasDbData = Array.isArray(data.quizzes) && data.quizzes.length > 0;
+    const hasUserData = Array.isArray(data.users) && data.users.length > 0;
+    const hasAssets = Array.isArray(data.assets) && (data.assets as any[]).length > 0;
+
+    const backupAssets = hasAssets ? (data.assets as StoredImageAsset[]) : [];
     for (const asset of backupAssets) {
       await restoreManagedAsset(asset);
     }
 
     const configuredAdminEmails = getConfiguredAdminEmails();
-    const protectedUsers = includeUsers
+    const protectedUsers = hasUserData
       ? await prisma.user.findMany({
           where: {
             OR: [
@@ -243,40 +268,47 @@ export async function POST(req: NextRequest) {
     );
     const importableChannels = backupChannels.filter((entry) => !skippedBackupUserIds.has(entry.userId));
 
-    // Cloudflare D1 does not support interactive transactions (`$transaction(async tx => ...)`).
-    // Run each dependency layer as a batch transaction instead.
-    await prisma.$transaction([
-      prisma.comment.deleteMany({}),
-      prisma.quizLike.deleteMany({}),
-      prisma.quizHistory.deleteMany({}),
-      prisma.bookmark.deleteMany({}),
-      prisma.subscription.deleteMany({}),
-      prisma.quizTranslation.deleteMany({}),
-    ]);
-
-    const secondPhaseDeletes: Prisma.PrismaPromise<unknown>[] = [
-      prisma.quiz.deleteMany({}),
-      prisma.channel.deleteMany({}),
-      prisma.category.deleteMany({}),
-      prisma.apiUsage.deleteMany({}),
-      prisma.setting.deleteMany({}),
-    ];
-
-    if (includeUsers) {
-      secondPhaseDeletes.splice(
-        2,
-        0,
-        protectedUserIdSet.size > 0
-          ? prisma.user.deleteMany({
-              where: {
-                id: { notIn: Array.from(protectedUserIdSet) },
-              },
-            })
-          : prisma.user.deleteMany({})
+    const firstPhaseDeletes: Prisma.PrismaPromise<unknown>[] = [];
+    if (hasUserData) {
+      firstPhaseDeletes.push(
+        prisma.comment.deleteMany({}),
+        prisma.quizLike.deleteMany({}),
+        prisma.quizHistory.deleteMany({}),
+        prisma.bookmark.deleteMany({}),
+        prisma.subscription.deleteMany({})
       );
     }
+    if (hasDbData) {
+      firstPhaseDeletes.push(prisma.quizTranslation.deleteMany({}));
+    }
+    if (firstPhaseDeletes.length > 0) {
+      await prisma.$transaction(firstPhaseDeletes);
+    }
 
-    await prisma.$transaction(secondPhaseDeletes);
+    const secondPhaseDeletes: Prisma.PrismaPromise<unknown>[] = [];
+    if (hasDbData) {
+      secondPhaseDeletes.push(
+        prisma.quiz.deleteMany({}),
+        prisma.category.deleteMany({}),
+        prisma.apiUsage.deleteMany({}),
+        prisma.setting.deleteMany({})
+      );
+    }
+    if (hasUserData) {
+      secondPhaseDeletes.push(prisma.channel.deleteMany({}));
+      if (protectedUserIdSet.size > 0) {
+        secondPhaseDeletes.push(
+          prisma.user.deleteMany({
+            where: { id: { notIn: Array.from(protectedUserIdSet) } },
+          })
+        );
+      } else {
+        secondPhaseDeletes.push(prisma.user.deleteMany({}));
+      }
+    }
+    if (secondPhaseDeletes.length > 0) {
+      await prisma.$transaction(secondPhaseDeletes);
+    }
 
     const phaseOneWrites: Prisma.PrismaPromise<unknown>[] = [];
     if (includeUsers && importableUsers.length > 0) {
@@ -293,8 +325,8 @@ export async function POST(req: NextRequest) {
     }
 
     const phaseTwoWrites: Prisma.PrismaPromise<unknown>[] = [];
-    if (data.quizzes.length > 0) {
-      const quizData = includeUsers
+    if (hasDbData && data.quizzes && data.quizzes.length > 0) {
+      const quizData = hasUserData
         ? (data.quizzes as Prisma.QuizCreateManyInput[]).map((quiz) => ({
             ...quiz,
             channelId: quiz.channelId && skippedBackupChannelIds.has(quiz.channelId) ? null : quiz.channelId,
@@ -309,7 +341,7 @@ export async function POST(req: NextRequest) {
       await prisma.$transaction(phaseTwoWrites);
     }
 
-    if (data.translations.length > 0) {
+    if (hasDbData && data.translations && data.translations.length > 0) {
       // 標準の createMany を使用し、データベースプロバイダーに依存しないようにします。
       // SQLite でも Prisma 5.21+ / 6.x なら createMany が動作します。
       const translationData = (data.translations as any[]).map(row => ({
@@ -335,7 +367,7 @@ export async function POST(req: NextRequest) {
 
 
     const phaseThreeWrites: Prisma.PrismaPromise<unknown>[] = [];
-    if (includeUsers && Array.isArray(data.comments) && data.comments.length > 0) {
+    if (hasUserData && Array.isArray(data.comments) && data.comments.length > 0) {
       const comments = (data.comments as Prisma.CommentCreateManyInput[]).filter(
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
@@ -343,7 +375,7 @@ export async function POST(req: NextRequest) {
         phaseThreeWrites.push(prisma.comment.createMany({ data: comments }));
       }
     }
-    if (includeUsers && Array.isArray(data.bookmarks) && data.bookmarks.length > 0) {
+    if (hasUserData && Array.isArray(data.bookmarks) && data.bookmarks.length > 0) {
       const bookmarks = (data.bookmarks as Prisma.BookmarkCreateManyInput[]).filter(
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
@@ -351,7 +383,7 @@ export async function POST(req: NextRequest) {
         phaseThreeWrites.push(prisma.bookmark.createMany({ data: bookmarks }));
       }
     }
-    if (includeUsers && Array.isArray(data.histories) && data.histories.length > 0) {
+    if (hasUserData && Array.isArray(data.histories) && data.histories.length > 0) {
       const histories = (data.histories as Prisma.QuizHistoryCreateManyInput[]).filter(
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
@@ -359,7 +391,7 @@ export async function POST(req: NextRequest) {
         phaseThreeWrites.push(prisma.quizHistory.createMany({ data: histories }));
       }
     }
-    if (includeUsers && Array.isArray(data.likes) && data.likes.length > 0) {
+    if (hasUserData && Array.isArray(data.likes) && data.likes.length > 0) {
       const likes = (data.likes as Prisma.QuizLikeCreateManyInput[]).filter(
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
@@ -367,7 +399,7 @@ export async function POST(req: NextRequest) {
         phaseThreeWrites.push(prisma.quizLike.createMany({ data: likes }));
       }
     }
-    if (includeUsers && Array.isArray(data.subscriptions) && data.subscriptions.length > 0) {
+    if (hasUserData && Array.isArray(data.subscriptions) && data.subscriptions.length > 0) {
       const subscriptions = (data.subscriptions as Prisma.SubscriptionCreateManyInput[]).filter(
         (entry) => !skippedBackupUserIds.has(entry.userId) && !skippedBackupChannelIds.has(entry.channelId)
       );
@@ -375,10 +407,10 @@ export async function POST(req: NextRequest) {
         phaseThreeWrites.push(prisma.subscription.createMany({ data: subscriptions }));
       }
     }
-    if (data.settings && data.settings.length > 0) {
+    if (hasDbData && Array.isArray(data.settings) && data.settings.length > 0) {
       phaseThreeWrites.push(prisma.setting.createMany({ data: data.settings as Prisma.SettingCreateManyInput[] }));
     }
-    if (data.apiUsage && data.apiUsage.length > 0) {
+    if (hasDbData && Array.isArray(data.apiUsage) && data.apiUsage.length > 0) {
       phaseThreeWrites.push(prisma.apiUsage.createMany({ data: data.apiUsage as Prisma.ApiUsageCreateManyInput[] }));
     }
     if (phaseThreeWrites.length > 0) {
@@ -387,9 +419,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: includeUsers
-        ? `Restore completed successfully (${protectedUsers.length} protected admin users kept)`
-        : 'Restore completed successfully (users were excluded)',
+      message: `Restore completed successfully. (DB updated: ${hasDbData}, Users updated: ${hasUserData}, Images restored: ${hasAssets}) ${hasUserData ? '(' + protectedUsers.length + ' protected admin users kept)' : ''}`,
     });
   } catch (error: unknown) {
     console.error('Import Error:', error);
