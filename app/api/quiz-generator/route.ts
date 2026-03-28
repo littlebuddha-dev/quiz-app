@@ -501,11 +501,50 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
 function extractJsonObjectText(raw: string) {
   const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   const firstBrace = trimmed.indexOf('{');
-  const lastBrace = trimmed.lastIndexOf('}');
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    return trimmed.slice(firstBrace, lastBrace + 1);
+  if (firstBrace < 0) {
+    return trimmed;
   }
-  return trimmed;
+
+  let depth = 0;
+  let inString = false;
+  let escaping = false;
+
+  for (let i = firstBrace; i < trimmed.length; i += 1) {
+    const char = trimmed[i];
+
+    if (escaping) {
+      escaping = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaping = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === '{') {
+      depth += 1;
+      continue;
+    }
+
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return trimmed.slice(firstBrace, i + 1);
+      }
+    }
+  }
+
+  return trimmed.slice(firstBrace);
 }
 
 function escapeJsonLikeControlCharacters(raw: string) {
