@@ -4,8 +4,6 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import AdSenseAdminClient from './AdSenseAdminClient';
 
-export const dynamic = 'force-dynamic';
-
 export default async function AdSenseAdminPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);

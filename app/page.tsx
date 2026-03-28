@@ -33,7 +33,6 @@ export default async function Home({
 
   // ログイン中のユーザーがいればその設定・履歴を取得
   let userBookmarks: string[] = [];
-  let userLikes: string[] = [];
   let userHistories: string[] = [];
   let userTargetAge: number | null = null;
   let userStatus: { xp: number; level: number; role: string } | undefined = undefined;
@@ -47,16 +46,30 @@ export default async function Home({
     // 改めて詳細情報を取得
     const fullUser = await prisma.user.findUnique({
       where: { id: user.id },
-      include: {
-        bookmarks: true,
-        likes: true,
-        histories: true,
+      select: {
+        xp: true,
+        level: true,
+        role: true,
+        birthDate: true,
+        targetAge: true,
+        bookmarks: {
+          select: { quizId: true },
+        },
+        histories: {
+          select: {
+            quizId: true,
+            isCorrect: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+        },
       },
     });
 
     if (fullUser) {
       userBookmarks = fullUser.bookmarks.map((b) => b.quizId);
-      userLikes = fullUser.likes.map((l) => l.quizId);
+      userHistories = fullUser.histories.map((h) => h.quizId);
       userHistoryEntries = fullUser.histories.map((h) => ({
         quizId: h.quizId,
         isCorrect: h.isCorrect,
@@ -302,7 +315,7 @@ export default async function Home({
         .map((quiz) => {
           const attempts = quizAttemptMap.get(quiz.id);
           const isSolved = !!attempts?.correct;
-          const isInReview = reviewQuizIds.includes(quiz.id);
+          const isInReview = seenReview.has(quiz.id);
           let score = 0;
 
           if (!attempts) score += 35;
@@ -336,7 +349,6 @@ export default async function Home({
       initialQuizzes={quizzes}
       categories={displayCategories}
       userBookmarks={userBookmarks}
-      userLikes={userLikes}
       userHistories={userHistories}
       userTargetAge={effectiveAge}
       userStatus={userStatus}

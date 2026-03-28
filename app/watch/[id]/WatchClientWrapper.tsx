@@ -8,7 +8,7 @@ import WatchSkeleton from './WatchSkeleton';
 import type { WatchClientProps } from './WatchClient';
 
 const WatchClient = dynamic(() => import('./WatchClient'), { 
-  ssr: false,
+  ssr: true,
   loading: () => <WatchSkeleton />
 });
 

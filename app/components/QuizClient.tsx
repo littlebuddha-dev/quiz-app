@@ -228,6 +228,7 @@ export default function QuizClient({
   const [cachedQuizzes, setCachedQuizzes] = useState<Quiz[] | null>(null);
   const [cachedCategories, setCachedCategories] = useState<QuizClientWrapperProps['categories'] | null>(null);
   const [cachedStudyRecommendations, setCachedStudyRecommendations] = useState<StudyRecommendations | undefined>(undefined);
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // パーソナライズ用の状態管理（セットを使って高速にO(1)で存在確認）
   const [bookmarks] = useState<Set<string>>(new Set(userBookmarks));
@@ -294,7 +295,13 @@ export default function QuizClient({
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
-    updateQuery({ q: val || null });
+
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      startTransition(() => {
+        updateQuery({ q: val || null });
+      });
+    }, 300);
   };
 
   const handleCategorySelect = (category: string) => {
@@ -304,6 +311,13 @@ export default function QuizClient({
 
   // スライダー操作のデバウンス処理 (URL更新とサーバーフェッチの頻度を抑える)
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
 
   const handleAgeRangeChange = (min: number, max: number) => {
     // クライアント側の状態は即座に反映してUIをサクサク動かす
@@ -332,28 +346,37 @@ export default function QuizClient({
   );
 
   // 表示用クイズ（サーバーサイドで既にフィルタリング済みだが、年齢ソートのみクライアントで適用）
-  const sortedQuizzes = [...sourceQuizzes].sort((a, b) => {
-    // ログインユーザーの対象年齢が設定されている場合、対象年齢に近いクイズを上位に表示
-    if (typeof userTargetAge === 'number') {
-      const diffA = Math.abs(a.targetAge - userTargetAge);
-      const diffB = Math.abs(b.targetAge - userTargetAge);
-      if (diffA !== diffB) return diffA - diffB;
-    }
-    return 0;
-  });
+  const sortedQuizzes = useMemo(() => {
+    return [...sourceQuizzes].sort((a, b) => {
+      if (typeof userTargetAge === 'number') {
+        const diffA = Math.abs(a.targetAge - userTargetAge);
+        const diffB = Math.abs(b.targetAge - userTargetAge);
+        if (diffA !== diffB) return diffA - diffB;
+      }
+      return 0;
+    });
+  }, [sourceQuizzes, userTargetAge]);
 
-  const displayQuizzes = sortedQuizzes.filter((quiz) => {
-    if (studyMode === 'review') {
-      return reviewQuizSet.has(quiz.id);
-    }
-    if (studyMode === 'daily') {
-      return dailyQuizSet.has(quiz.id);
-    }
-    return true;
-  });
+  const displayQuizzes = useMemo(() => {
+    return sortedQuizzes.filter((quiz) => {
+      if (studyMode === 'review') {
+        return reviewQuizSet.has(quiz.id);
+      }
+      if (studyMode === 'daily') {
+        return dailyQuizSet.has(quiz.id);
+      }
+      return true;
+    });
+  }, [dailyQuizSet, reviewQuizSet, sortedQuizzes, studyMode]);
 
-  const dailyQuizzes = sortedQuizzes.filter((quiz) => dailyQuizSet.has(quiz.id));
-  const reviewQuizzes = sortedQuizzes.filter((quiz) => reviewQuizSet.has(quiz.id));
+  const dailyQuizzes = useMemo(
+    () => sortedQuizzes.filter((quiz) => dailyQuizSet.has(quiz.id)),
+    [dailyQuizSet, sortedQuizzes]
+  );
+  const reviewQuizzes = useMemo(
+    () => sortedQuizzes.filter((quiz) => reviewQuizSet.has(quiz.id)),
+    [reviewQuizSet, sortedQuizzes]
+  );
 
   return (
     <div className={hideHeader ? '' : 'min-h-screen bg-[var(--background)] text-[var(--foreground)]'}>
@@ -551,6 +574,7 @@ export default function QuizClient({
                         src={cardImage} 
                         alt={qt.title} 
                         fill 
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1536px) 33vw, 25vw"
                         className="object-cover md:group-hover:scale-105 transition-transform duration-500" 
                         unoptimized={isDataUri}
                       />

@@ -8,7 +8,6 @@ import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import AdminClientWrapper from './AdminClientWrapper';
-import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import { canAccessAdmin } from '@/lib/authz';
 
 type CategoryRow = {
@@ -22,8 +21,6 @@ type CategoryRow = {
   systemPrompt: string | null;
   icon: string | null;
 };
-
-export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
   const { env } = await getCloudflareContext({ async: true });
@@ -47,20 +44,23 @@ export default async function AdminPage() {
     level: activeUser.level || 1,
     role: activeUser.role,
   };
-  await ensureCategoryLocalizationColumns(prisma as any);
 
   // Fetch comments
   const rawComments = await prisma.comment.findMany({
-    include: {
+    select: {
+      id: true,
+      content: true,
+      quizId: true,
+      createdAt: true,
       user: { select: { name: true } },
       quiz: {
-        include: {
+        select: {
           translations: {
             where: { locale: 'ja' },
             select: { title: true }
           }
-        }
-      }
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
   });

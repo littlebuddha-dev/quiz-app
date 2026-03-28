@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import TermsPageClient from './TermsPageClient';
+import TermsContent from './TermsContent';
 
 export const metadata: Metadata = {
   title: 'Terms',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
-  return <TermsPageClient />;
+  return <TermsContent />;
 }

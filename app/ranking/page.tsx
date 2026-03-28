@@ -4,7 +4,7 @@
 
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
 import RankingClientWrapper from './RankingClientWrapper';
 import { Metadata } from 'next';
 
@@ -19,23 +19,21 @@ export default async function RankingPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   const { userId: clerkId } = await auth();
-  const clerkUser = clerkId ? await currentUser() : null;
-  const clerkDisplayName =
-    clerkUser?.fullName ||
-    [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') ||
-    clerkUser?.username ||
-    undefined;
-
-  // 1. 全ユーザーの情報を取得（必要最小限）
-  // 注意: 本来は大規模データの場合、バックグラウンドでの集計やインデックスが必要ですが、
-  // 現時点では Prisma で集計を行います。
   const allUsers = await prisma.user.findMany({
-    include: {
-      histories: true,
-      _count: {
-        select: { histories: true }
-      }
-    }
+    select: {
+      id: true,
+      name: true,
+      clerkId: true,
+      xp: true,
+      level: true,
+      role: true,
+      histories: {
+        select: {
+          quizId: true,
+          isCorrect: true,
+        },
+      },
+    },
   });
 
   // ログインユーザーの情報を特定
@@ -53,10 +51,7 @@ export default async function RankingPage() {
     const solvedQuizzes = new Set(
       user.histories.filter(h => h.isCorrect).map(h => h.quizId)
     );
-    const displayName =
-      user.name ||
-      (clerkDisplayName && clerkId && user.clerkId === clerkId ? clerkDisplayName : undefined) ||
-      'ゲストユーザー';
+    const displayName = user.name || 'ゲストユーザー';
     return {
       id: user.id,
       name: displayName,
@@ -75,10 +70,7 @@ export default async function RankingPage() {
     const correctAnswers = user.histories.filter(h => h.isCorrect).length;
     const accuracy = totalAttempts > 0 ? (correctAnswers / totalAttempts) * 100 : 0;
     
-    const displayName =
-      user.name ||
-      (clerkDisplayName && clerkId && user.clerkId === clerkId ? clerkDisplayName : undefined) ||
-      'ゲストユーザー';
+    const displayName = user.name || 'ゲストユーザー';
     return {
       id: user.id,
       name: displayName,

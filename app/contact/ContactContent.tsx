@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import Footer from '../components/Footer';
 import ContactForm from './ContactForm';

@@ -3,7 +3,7 @@ import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import GameClientWrapper from './GameClientWrapper';
 import { Locale, Quiz, QuizVisualMode } from '../types';
-import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
+import { parseQuizVisualData } from '@/lib/quiz-translation-visual';
 
 export const revalidate = 0; // ゲーム画面は最新の状態が必要なため動的だが、force-dynamicよりは柔軟
 
@@ -51,7 +51,6 @@ function normalizeVisualMode(value: string | null | undefined): QuizVisualMode {
 export default async function GamePage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
-  await ensureQuizTranslationVisualColumns(prisma);
 
   const selectedIds = (
     await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM Quiz ORDER BY RANDOM() LIMIT 10`
@@ -72,6 +71,16 @@ export default async function GamePage() {
     ...selectedIds
   );
 
+  const translationsByQuizId = new Map<string, RawQuizTranslation[]>();
+  for (const translation of rawTranslations) {
+    const existing = translationsByQuizId.get(translation.quizId);
+    if (existing) {
+      existing.push(translation);
+    } else {
+      translationsByQuizId.set(translation.quizId, [translation]);
+    }
+  }
+
   // Preserve random order
   const orderedRawQuizzes = selectedIds
     .map((id) => rawQuizzes.find((quiz) => quiz.id === id))
@@ -81,7 +90,7 @@ export default async function GamePage() {
 
   const quizzes: Quiz[] = orderedRawQuizzes.map((q) => {
     const translationsMap = {} as Record<Locale, QuizTranslationView>;
-    const quizTranslations = rawTranslations.filter((t) => t.quizId === q.id);
+    const quizTranslations = translationsByQuizId.get(q.id) || [];
     const jaT: RawQuizTranslation = quizTranslations.find((t) => t.locale === 'ja') || {
       quizId: q.id,
       locale: 'ja',

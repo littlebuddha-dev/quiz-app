@@ -62,7 +62,7 @@ export default function Header({
 
   // クライアントサイドでの最新ステータス取得 (同期漏れ対策)
   useEffect(() => {
-    if (!mounted || !userId) return;
+    if (!mounted || !userId || userStatus) return;
 
     const fetchStatus = async () => {
       try {
@@ -79,7 +79,7 @@ export default function Header({
     };
 
     fetchStatus();
-  }, [userId, mounted]);
+  }, [userId, mounted, userStatus]);
 
   useEffect(() => {
     setMounted(true);

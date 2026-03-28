@@ -5,6 +5,8 @@
 
 import { PrismaClient } from "@prisma/client";
 import { ensureCategoryLocalizationColumns } from "./category-localization";
+import { ensureQuizTranslationExplanationColumn } from "./quiz-translation-explanation";
+import { ensureQuizTranslationVisualColumns } from "./quiz-translation-visual";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -22,6 +24,12 @@ if (process.env.NODE_ENV !== "production") {
 // 起動時に一度だけスキーマの整合性を確認
 ensureCategoryLocalizationColumns(prisma as any).catch(err => {
   console.error('Failed to ensure category localization columns:', err);
+});
+ensureQuizTranslationExplanationColumn(prisma as any).catch(err => {
+  console.error('Failed to ensure quiz translation explanation column:', err);
+});
+ensureQuizTranslationVisualColumns(prisma as any).catch(err => {
+  console.error('Failed to ensure quiz translation visual columns:', err);
 });
 
 /**

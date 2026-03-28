@@ -16,6 +16,7 @@ interface QuizVisualProps {
   imageClassName?: string;
   containerClassName?: string;
   plain?: boolean;
+  sizes?: string;
 }
 
 export default function QuizVisual({
@@ -25,6 +26,7 @@ export default function QuizVisual({
   imageClassName,
   containerClassName,
   plain = false,
+  sizes = '100vw',
 }: QuizVisualProps) {
   const isDataUri = imageUrl.startsWith('data:');
   const baseContainerClassName = plain
@@ -38,6 +40,7 @@ export default function QuizVisual({
         alt={alt}
         fill
         priority={priority}
+        sizes={sizes}
         className={`${imageClassName || 'object-cover'} transition-transform duration-700 group-hover:scale-105`}
         unoptimized={isDataUri}
       />

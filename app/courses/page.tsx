@@ -1,7 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
-import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import CoursesClient from './CoursesClient';
 import {
   buildCourseProgress,
@@ -14,7 +13,6 @@ export const revalidate = 3600; // 1時間
 export default async function CoursesPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
-  await ensureCategoryLocalizationColumns(prisma as Parameters<typeof ensureCategoryLocalizationColumns>[0]);
   const { userId: clerkId, redirectToSignIn } = await auth();
 
   if (!clerkId) {

@@ -3,7 +3,7 @@
 // Purpose: Handles the interactive quiz interface, results, comments, and related recommendations on the client side.
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -75,16 +75,22 @@ export default function WatchClient({
   const [lastResult, setLastResult] = useState<'correct' | 'incorrect' | null>(null);
   const [explanationMode, setExplanationMode] = useState<'gentle' | 'full'>('gentle');
   const quizVisualRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
-    if (val) {
-      router.push(`/?q=${encodeURIComponent(val)}`);
-    } else {
-      router.push('/');
-    }
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      router.replace(val ? `/?q=${encodeURIComponent(val)}` : '/');
+    }, 300);
   };
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
 
   // 現在の言語の翻訳を取得。なければ日本語、それもなければ最初の翻訳をフォールバックに。
   const t = quiz.translations[locale] || quiz.translations['ja'] || Object.values(quiz.translations)[0];
@@ -250,6 +256,7 @@ export default function WatchClient({
                   priority={true}
                   plain={true}
                   containerClassName="h-full rounded-3xl"
+                  sizes="(max-width: 1024px) 100vw, 70vw"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">

@@ -3,9 +3,8 @@
 // Purpose: Safely renders LaTeX mathematical formulas using KaTeX on the client side.
 'use client';
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import katex from 'katex';
-import 'katex/dist/katex.min.css';
 
 interface LatexRendererProps {
   text: string;
@@ -38,8 +37,6 @@ function normalizeLatexText(value: string) {
 }
 
 export default function LatexRenderer({ text, className = "" }: LatexRendererProps) {
-  const containerRef = useRef<HTMLSpanElement>(null);
-
   const escapeHtml = (unsafe: string) => {
     return unsafe
       .replace(/&/g, "&amp;")

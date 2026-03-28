@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import PrivacyPageClient from './PrivacyPageClient';
+import PrivacyContent from './PrivacyContent';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
-  return <PrivacyPageClient />;
+  return <PrivacyContent />;
 }

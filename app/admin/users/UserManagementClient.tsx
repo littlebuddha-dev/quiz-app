@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { usePreferredLocale } from '../../hooks/usePreferredLocale';
@@ -16,11 +16,14 @@ export default function UserManagementClient({ initialUsers, userStatus, current
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const filteredUsers = users.filter((u: any) => 
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.clerkId?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return users.filter((u: any) =>
+      u.name?.toLowerCase().includes(query) ||
+      u.email?.toLowerCase().includes(query) ||
+      u.clerkId?.toLowerCase().includes(query)
+    );
+  }, [searchQuery, users]);
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
     setLoadingId(userId);

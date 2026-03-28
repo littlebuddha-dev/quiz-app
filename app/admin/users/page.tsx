@@ -8,8 +8,6 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import UserManagementClient from './UserManagementClient';
 
-export const dynamic = 'force-dynamic';
-
 export default async function UserManagementPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
@@ -32,11 +30,18 @@ export default async function UserManagementPage() {
   // 全ユーザーの初期データを取得
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'desc' },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      clerkId: true,
+      role: true,
+      level: true,
+      xp: true,
       _count: {
         select: { histories: true, likes: true, bookmarks: true }
-      }
-    }
+      },
+    },
   });
 
   const userStatus = { xp: activeUser.xp, level: activeUser.level, role: activeUser.role };

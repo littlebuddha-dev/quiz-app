@@ -182,6 +182,7 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
                   visualMode={t?.visualMode}
                   visualData={t?.visualData}
                   imageClassName="object-cover"
+                  sizes="(max-width: 1280px) 100vw, 1024px"
                 />
               </div>
             )}

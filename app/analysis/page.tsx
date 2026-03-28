@@ -1,17 +1,13 @@
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
-import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import AnalysisClient from './AnalysisClient';
 import { buildAbilityDomainScores, countActiveDays } from '@/lib/learning';
 import { ensureLocalUser } from '@/lib/clerk-sync';
 
-export const dynamic = 'force-dynamic';
-
 export default async function AnalysisPage() {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
-  await ensureCategoryLocalizationColumns(prisma as Parameters<typeof ensureCategoryLocalizationColumns>[0]);
   const { userId: clerkId, redirectToSignIn } = await auth();
 
   if (!clerkId) {
@@ -21,8 +17,16 @@ export default async function AnalysisPage() {
   const localUser = await ensureLocalUser(clerkId, prisma);
   const user = await prisma.user.findUnique({
     where: { id: localUser.id },
-    include: {
+    select: {
+      xp: true,
+      level: true,
+      role: true,
       histories: {
+        select: {
+          quizId: true,
+          isCorrect: true,
+          createdAt: true,
+        },
         orderBy: { createdAt: 'desc' },
       },
     },

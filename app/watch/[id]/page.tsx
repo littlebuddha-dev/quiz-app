@@ -8,12 +8,8 @@ import { notFound } from 'next/navigation';
 import WatchClientWrapper from './WatchClientWrapper';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
-import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
-import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
-import { getSiteUrl } from '@/lib/site-config';
+import { parseQuizVisualData } from '@/lib/quiz-translation-visual';
 import { getServerLocale } from '@/lib/locale-server';
-
-import React, { Suspense } from 'react';
 
 import { Metadata } from 'next';
 
@@ -86,8 +82,6 @@ export async function generateMetadata({
 export default async function WatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
-  await ensureQuizTranslationExplanationColumn(prisma as any);
-  await ensureQuizTranslationVisualColumns(prisma as any);
   const { id } = await params;
   const { userId: clerkId } = await auth();
 

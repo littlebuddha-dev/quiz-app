@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import type { AdminClientProps } from './AdminClient';
 
 const AdminClient = dynamic(() => import('./AdminClient'), {
-  ssr: false,
+  ssr: true,
   loading: () => <div className="p-10 text-zinc-500 font-bold">読み込み中...</div>
 });
 
