@@ -96,10 +96,20 @@ export async function restoreBackupAction(formData: FormData) {
       };
     }
 
-    // Case 2: JSON Restoration (passed as a string in formData if necessary, or handled separately)
-    const jsonStr = formData.get('json');
-    if (jsonStr && typeof jsonStr === 'string') {
-      const body = JSON.parse(jsonStr) as Partial<BackupPayload>;
+    // Case 2: JSON Restoration
+    const jsonInput = formData.get('json');
+    if (jsonInput) {
+      let jsonStr = '';
+      if (typeof jsonInput === 'string') {
+        jsonStr = jsonInput;
+      } else if (typeof jsonInput === 'object' && 'arrayBuffer' in jsonInput) {
+        // Blob/File として送られてきた場合
+        const buffer = Buffer.from(await (jsonInput as File).arrayBuffer());
+        jsonStr = buffer.toString('utf-8');
+      }
+
+      if (jsonStr) {
+        const body = JSON.parse(jsonStr) as Partial<BackupPayload>;
       const data = body.data;
       const includeUsers = body.options?.includeUsers ?? true;
 
@@ -234,6 +244,7 @@ export async function restoreBackupAction(formData: FormData) {
         message: `Restore completed successfully. (Images: ${hasAssets}, Users: ${hasUserData}, DB: ${hasDbData})`,
       };
     }
+  }
 
     throw new Error('有効なバックアップデータが見つかりませんでした。');
   } catch (error: any) {

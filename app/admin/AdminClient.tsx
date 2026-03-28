@@ -293,18 +293,20 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         
         // JSONのバリデーションチェックのみ行う
         JSON.parse(normalizedText);
-        formData.append('json', normalizedText);
+        // 巨大なデータを単一フィールドの文字列として送ると不安定になるため、Blob (ファイル) として添付
+        const jsonBlob = new Blob([normalizedText], { type: 'application/json' });
+        formData.append('json', jsonBlob);
       }
 
       const result = await restoreBackupAction(formData);
 
-      if (result.success) {
+      if (result && result.success) {
         alert(result.message || '復元が完了しました。ページをリロードします。');
         window.location.reload();
         return;
       }
 
-      setRestoreError(`復元に失敗しました:\n\n${result.error || '不明なエラー'}`);
+      setRestoreError(`復元に失敗しました:\n\n${(result && 'error' in result ? result.error : undefined) || '不明なエラー'}`);
     } catch (error: any) {
       console.error(error);
       if (error?.message === 'EMPTY_BACKUP_FILE') {
