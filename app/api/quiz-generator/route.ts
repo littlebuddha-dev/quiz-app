@@ -498,6 +498,87 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   }
 }
 
+function extractJsonObjectText(raw: string) {
+  const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+  return trimmed;
+}
+
+function escapeJsonLikeControlCharacters(raw: string) {
+  let result = '';
+  let inString = false;
+  let escaping = false;
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i];
+
+    if (escaping) {
+      result += char;
+      escaping = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      const next = raw[i + 1];
+      if (next && /["\\/bfnrtu]/.test(next)) {
+        result += char;
+        escaping = true;
+      } else {
+        result += '\\\\';
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+
+    if (inString) {
+      switch (char) {
+        case '\n':
+          result += '\\n';
+          continue;
+        case '\r':
+          result += '\\r';
+          continue;
+        case '\t':
+          result += '\\t';
+          continue;
+        default: {
+          const code = char.charCodeAt(0);
+          if (code <= 0x1f) {
+            result += `\\u${code.toString(16).padStart(4, '0')}`;
+            continue;
+          }
+        }
+      }
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+function parseAiJsonResponse(raw: string) {
+  const extracted = extractJsonObjectText(raw || '{}');
+  try {
+    return JSON.parse(extracted);
+  } catch (parseError) {
+    console.error('Initial JSON parse failed. Attempting to sanitize...', parseError);
+    const sanitized = escapeJsonLikeControlCharacters(extracted);
+    const parsed = JSON.parse(sanitized);
+    console.log('Sanitization successful.');
+    return parsed;
+  }
+}
+
 function normalizeLanguageSubjectQuizFields(quiz: MultiLangQuiz) {
   if (!quiz || typeof quiz !== 'object' || !quiz.ja || typeof quiz.ja !== 'object') {
     return quiz;
@@ -1009,23 +1090,14 @@ ${finalSystemInstruction}
     const resultText = textResponse.text;
     let multiLangData: any;
     try {
-      multiLangData = JSON.parse(resultText || '{}');
-    } catch (parseError) {
-      console.error('Initial JSON parse failed. Attempting to sanitize...', parseError);
-      try {
-        // AIがバックスラッシュのエスケープを忘れることがあるため、補正を試みる（特にLaTeXなどで発生しやすい）
-        // JSONで不正なエスケープ（\ の後に特定の文字がない）を検知して補正
-        const sanitized = (resultText || '{}').replace(/\\(?![/"\\bfnrtu])/g, '\\\\');
-        multiLangData = JSON.parse(sanitized);
-        console.log('Sanitization successful.');
-      } catch (retryError: any) {
-        console.error('Sanitization also failed:', retryError);
-        return NextResponse.json({
-          error: 'INVALID_JSON',
-          message: `AIの回答形式が正しくありませんでした。もう一度お試しください。(${retryError.message})`,
-          rawResponse: resultText
-        }, { status: 500 });
-      }
+      multiLangData = parseAiJsonResponse(resultText || '{}');
+    } catch (retryError: any) {
+      console.error('Sanitization also failed:', retryError);
+      return NextResponse.json({
+        error: 'INVALID_JSON',
+        message: `AIの回答形式が正しくありませんでした。もう一度お試しください。(${retryError.message})`,
+        rawResponse: resultText
+      }, { status: 500 });
     }
 
     // AIの回答構造を再帰的に検索して標準化 (ネストされている場合の対応)
@@ -1096,10 +1168,9 @@ ${finalSystemInstruction}
       selectedModel = retryGeneration.model;
       const retryText = retryGeneration.response.text || '{}';
       try {
-        multiLangData = JSON.parse(retryText);
+        multiLangData = parseAiJsonResponse(retryText);
       } catch {
-        const sanitized = retryText.replace(/\\(?![/"\\bfnrtu])/g, '\\\\');
-        multiLangData = JSON.parse(sanitized);
+        multiLangData = parseAiJsonResponse(retryText);
       }
       multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
       if (multiLangData && !multiLangData.ja) {
