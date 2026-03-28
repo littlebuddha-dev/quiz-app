@@ -104,3 +104,30 @@ a, button, [role="button"], input[type="button"], input[type="submit"], input[ty
 button:disabled, input:disabled {
   cursor: not-allowed;
 }
+
+@media (hover: none) and (pointer: coarse) {
+  a,
+  button,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      transform 0.14s ease,
+      opacity 0.14s ease,
+      filter 0.14s ease;
+    transform-origin: center;
+  }
+
+  a:active,
+  button:active,
+  [role="button"]:active,
+  input[type="button"]:active,
+  input[type="submit"]:active,
+  input[type="reset"]:active {
+    transform: scale(0.97);
+    opacity: 0.88;
+    filter: brightness(0.98);
+  }
+}

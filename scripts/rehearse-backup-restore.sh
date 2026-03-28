@@ -8,6 +8,27 @@ REHEARSAL_ROOT="$TMP_ROOT/rehearsal"
 ARCHIVE_TMP="$TMP_ROOT/archive"
 KEEP_REHEARSAL="${KEEP_REHEARSAL:-false}"
 
+resolve_db_path() {
+  local project_root="$1"
+  local env_file="$project_root/.env"
+  local db_path="$project_root/prisma/dev.db"
+
+  if [[ -f "$env_file" ]]; then
+    local database_url_line
+    database_url_line="$(grep '^DATABASE_URL=' "$env_file" || true)"
+    if [[ "$database_url_line" == DATABASE_URL=file:* ]]; then
+      db_path="${database_url_line#DATABASE_URL=file:}"
+      db_path="${db_path%\"}"
+      db_path="${db_path#\"}"
+      if [[ "$db_path" != /* ]]; then
+        db_path="$project_root/$db_path"
+      fi
+    fi
+  fi
+
+  printf '%s\n' "$db_path"
+}
+
 cleanup() {
   if [[ "$KEEP_REHEARSAL" == "true" ]]; then
     echo "[rehearsal] Preserved temp workspace: $TMP_ROOT"
@@ -61,18 +82,7 @@ if [[ -f "$ARCHIVE_TMP/.env" ]]; then
   cp "$ARCHIVE_TMP/.env" "$REHEARSAL_ROOT/.env"
 fi
 
-DB_PATH="$REHEARSAL_ROOT/prisma/dev.db"
-if [[ -f "$REHEARSAL_ROOT/.env" ]]; then
-  DATABASE_URL_LINE="$(grep '^DATABASE_URL=' "$REHEARSAL_ROOT/.env" || true)"
-  if [[ "$DATABASE_URL_LINE" == DATABASE_URL=file:* ]]; then
-    DB_PATH="${DATABASE_URL_LINE#DATABASE_URL=file:}"
-    DB_PATH="${DB_PATH%\"}"
-    DB_PATH="${DB_PATH#\"}"
-    if [[ "$DB_PATH" != /* ]]; then
-      DB_PATH="$REHEARSAL_ROOT/$DB_PATH"
-    fi
-  fi
-fi
+DB_PATH="$(resolve_db_path "$REHEARSAL_ROOT")"
 
 mkdir -p "$(dirname "$DB_PATH")"
 
@@ -81,6 +91,11 @@ if [[ ! -f "$ARCHIVE_TMP/dev.db" ]]; then
   exit 1
 fi
 cp "$ARCHIVE_TMP/dev.db" "$DB_PATH"
+
+if [[ ! -f "$DB_PATH" ]]; then
+  echo "[rehearsal] Database file is missing after restore: $DB_PATH" >&2
+  exit 1
+fi
 
 if [[ -d "$ARCHIVE_TMP/public/uploads" ]]; then
   mkdir -p "$REHEARSAL_ROOT/public"

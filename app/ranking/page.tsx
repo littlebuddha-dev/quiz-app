@@ -7,13 +7,28 @@ import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
 import RankingClientWrapper from './RankingClientWrapper';
 import { Metadata } from 'next';
+import { getServerLocale } from '@/lib/locale-server';
+import { getLocalizedPageMetadata } from '@/lib/metadata';
 
 export const revalidate = 300; // 5分
 
-export const metadata: Metadata = {
-  title: 'ランキング | Cue',
-  description: 'みんなの頑張りを見てみよう！解答数と正解率のトップリーダーボード。',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getServerLocale();
+  return getLocalizedPageMetadata(locale, {
+    ja: {
+      title: 'ランキング',
+      description: 'みんなの頑張りを見てみよう。解答数と正解率のトップリーダーボードです。',
+    },
+    en: {
+      title: 'Rankings',
+      description: 'See the top learners by solved quizzes and accuracy.',
+    },
+    zh: {
+      title: '排行榜',
+      description: '查看答题数量和正确率最高的学习者。',
+    },
+  });
+}
 
 export default async function RankingPage() {
   const { env } = await getCloudflareContext({ async: true });

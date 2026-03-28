@@ -12,6 +12,7 @@ import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-e
 import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
 import {
   buildAgePromptBlock,
+  buildCurriculumTopicPlan,
   buildEducationalContextPrompt,
   buildLanguageSubjectPromptBlock,
   detectLanguageSubjectRule,
@@ -244,46 +245,112 @@ function replaceExerciseText(question: string, nextExerciseText: string) {
   return question;
 }
 
-function buildLocaleSvgDataUri(base64Image: string, title: string, question: string) {
-  const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, c => {
-    switch (c) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case '\'': return '&apos;';
-      case '"': return '&quot;';
-      default: return c;
-    }
-  });
+function clampText(value: string, maxLength: number) {
+  const trimmed = normalizeText(value);
+  if (!trimmed) return '';
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+}
 
-  const safeTitle = escapeXml(title);
-
-  const qLines = [];
-  let currentLine = '';
-  // Japanese/Chinese appropriate line break (max 38 chars roughly)
-  for (const char of question) {
-    if (currentLine.length >= 38 && !/[、。，．\]）}]/.test(char)) {
-      qLines.push(currentLine);
-      currentLine = char;
-    } else {
-      currentLine += char;
-    }
+function detectLocaleLanguageName(locale: 'ja' | 'en' | 'zh') {
+  switch (locale) {
+    case 'ja':
+      return 'Japanese';
+    case 'en':
+      return 'English';
+    case 'zh':
+      return 'Simplified Chinese';
+    default:
+      return 'the target language';
   }
-  if (currentLine) qLines.push(currentLine);
+}
 
-  let tspans = '';
-  qLines.slice(0, 3).forEach((line, i) => {
-    tspans += `<text x="640" y="${600 + (i * 45)}" fill="white" font-family="sans-serif" font-size="32" font-weight="bold" text-anchor="middle" stroke="rgba(0,0,0,0.8)" stroke-width="6" stroke-linejoin="round" paint-order="stroke fill">${escapeXml(line)}</text>`;
-  });
+function buildLocalizedImageCopy(params: {
+  locale: 'ja' | 'en' | 'zh';
+  quiz: MultiLangQuiz;
+  categoryNames: Array<string | null | undefined>;
+}) {
+  const { locale, quiz, categoryNames } = params;
+  const languageSubjectRule = detectLanguageSubjectRule(categoryNames);
+  const localeEntry = locale === 'ja' ? quiz.ja : (locale === 'en' ? quiz.en : quiz.zh);
+  const localeQuestion = normalizeText(String(localeEntry.question || ''));
+  const sharedExerciseText = extractExerciseText(normalizeText(quiz.ja.question));
+  const localeInstructionBase = sharedExerciseText
+    ? normalizeText(localeQuestion.replace(sharedExerciseText, ''))
+    : localeQuestion;
+  const localeInstruction = clampText(localeInstructionBase || String(localeEntry.hint || localeEntry.explanation || ''), locale === 'en' ? 120 : 72);
+  const headlineText = languageSubjectRule
+    ? clampText(sharedExerciseText || normalizeText(String(quiz.ja.title || '')), 80)
+    : clampText(normalizeText(String(localeEntry.title || localeQuestion || quiz.ja.title || '')), locale === 'en' ? 64 : 36);
 
-  const svg = `<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-    <image href="data:image/jpeg;base64,${base64Image}" width="1280" height="720" preserveAspectRatio="xMidYMid slice"/>
-    <rect x="0" y="440" width="1280" height="280" fill="black" fill-opacity="0.5"/>
-    <text x="640" y="520" fill="#FFEAA7" font-family="sans-serif" font-size="46" font-weight="900" text-anchor="middle" stroke="black" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill">${safeTitle}</text>
-    ${tspans}
-  </svg>`;
+  return {
+    headlineText,
+    instructionText: localeInstruction,
+    headlineLanguage: languageSubjectRule
+      ? detectLocaleLanguageName(languageSubjectRule.subjectLocale)
+      : detectLocaleLanguageName(locale),
+    instructionLanguage: detectLocaleLanguageName(locale),
+    subjectLocale: languageSubjectRule?.subjectLocale || locale,
+    isLanguageSubject: Boolean(languageSubjectRule),
+  };
+}
 
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+function buildBaseIllustrationPrompt(params: {
+  age: number;
+  topic: string;
+  question: string;
+  imageStyle: string;
+  categoryName: string;
+  curriculumGuidance: string;
+}) {
+  const { age, topic, question, imageStyle, categoryName, curriculumGuidance } = params;
+  return `Create exactly one premium educational illustration in a wide 16:9 layout for learners around age ${age}.
+Topic: ${topic}
+Subject area: ${categoryName}
+Question context: ${question}
+Curriculum guidance: ${curriculumGuidance}
+Visual direction: ${imageStyle}
+
+Requirements:
+- The image must teach or support the quiz concept at a glance.
+- Show concrete objects, relationships, counts, labels, or cause-and-effect cues that help solve the quiz.
+- Match the age level precisely: neither babyish nor too advanced.
+- Keep composition clean, readable, and focused on one clear learning idea.
+- Do not include any letters, words, numbers, subtitles, captions, speech bubbles, UI, watermark, or logo.
+- Use polished lighting, intentional composition, and textbook-quality clarity.`;
+}
+
+function buildLocalizedImageEditPrompt(params: {
+  age: number;
+  locale: 'ja' | 'en' | 'zh';
+  topic: string;
+  question: string;
+  imageStyle: string;
+  categoryName: string;
+  categoryNames: Array<string | null | undefined>;
+  quiz: MultiLangQuiz;
+}) {
+  const { age, locale, topic, question, imageStyle, categoryName, categoryNames, quiz } = params;
+  const copy = buildLocalizedImageCopy({ locale, quiz, categoryNames });
+  const localeRule = copy.isLanguageSubject
+    ? `The top headline must stay strictly in ${copy.headlineLanguage}. The supporting problem explanation must stay strictly in ${copy.instructionLanguage}. Do not translate the headline into any other language. Do not mix scripts inside each text block.`
+    : `All visible text must stay strictly in ${copy.instructionLanguage}. Do not mix scripts or add text from other languages.`;
+
+  return `Edit this educational illustration into a polished localized quiz image for ${detectLocaleLanguageName(locale)} learners around age ${age}.
+Topic: ${topic}
+Subject area: ${categoryName}
+Question context: ${question}
+Visual direction: ${imageStyle}
+
+Visible text rules:
+- Add exactly two text blocks and no others.
+- Headline text (${copy.headlineLanguage} only): "${copy.headlineText}"
+- Supporting problem text (${copy.instructionLanguage} only): "${copy.instructionText}"
+- ${localeRule}
+- Keep the visible text exactly as written, with the same wording and punctuation.
+- The headline should be visually primary. The supporting text should be shorter and secondary.
+- Integrate the typography naturally into the scene while preserving legibility.
+- No extra text, no subtitles, no fake app chrome, no watermark, no logo.`;
 }
 
 function normalizeLanguageSubjectQuizFields(quiz: MultiLangQuiz) {
@@ -444,6 +511,14 @@ function buildQualityFeedback(params: {
     issues.push('中高生以上向けとして解説が浅すぎます。根拠や考え方を補ってください。');
   }
 
+  if (normalizeText(ja.hint) === normalizeText(ja.answer)) {
+    issues.push('hint が answer の言い換えや丸写しになっています。考える手がかりへ修正してください。');
+  }
+
+  if (normalizeText(ja.explanation) && !normalizeText(ja.explanation).includes(normalizeText(ja.answer).slice(0, Math.min(6, normalizeText(ja.answer).length)))) {
+    issues.push('explanation に正答とのつながりが弱いです。答えが正しい理由を明示してください。');
+  }
+
   if ((ja.type || requestedQuizType) === 'TEXT' && normalizeText(ja.answer).length > 28) {
     issues.push('記述式の answer が長すぎます。短い語句にするか、選択式へ切り替えてください。');
   }
@@ -511,6 +586,18 @@ function buildQualityFeedback(params: {
 
     if (localeAnswers.ja && [localeAnswers.en, localeAnswers.zh].some((answer) => answer !== localeAnswers.ja)) {
       issues.push(`言語学習ジャンルでは answer は翻訳せず、${languageSubjectRule.subjectNames.ja}の正答を ja / en / zh で共通にしてください。`);
+    }
+
+    const localeInstructionTail = {
+      ja: localeQuestions.ja.replace(extractExerciseText(localeQuestions.ja), '').trim(),
+      en: localeQuestions.en.replace(extractExerciseText(localeQuestions.en), '').trim(),
+      zh: localeQuestions.zh.replace(extractExerciseText(localeQuestions.zh), '').trim(),
+    };
+    if (localeInstructionTail.en && /[ぁ-んァ-ヶ]/.test(localeInstructionTail.en)) {
+      issues.push('英語ロケールの指示文に日本語が混ざっています。英語の自然な説明文にしてください。');
+    }
+    if (localeInstructionTail.zh && /[ぁ-んァ-ヶ]/.test(localeInstructionTail.zh)) {
+      issues.push('中国語ロケールの指示文に日本語が混ざっています。簡体字の自然な説明文にしてください。');
     }
 
     if ((ja.type || requestedQuizType) === 'CHOICE') {
@@ -684,6 +771,7 @@ export async function POST(req: NextRequest) {
       topicForAi = getRandomTopicFromCurriculum(parsedAge, categoryNames, guidelines);
       console.log(`Selected random topic: ${topicForAi}`);
     }
+    const curriculumTopicPlan = buildCurriculumTopicPlan(parsedAge, categoryNames, guidelines);
 
     const agePersonaInstruction = buildAgePromptBlock(parsedAge);
 
@@ -706,11 +794,16 @@ ${excludeTitles && Array.isArray(excludeTitles) && excludeTitles.length > 0 ? `\
 - まず最初に「この年齢がどこで面白いと感じるか」を踏まえて題材を設計してください。
 - タイトル・問題文・ヒント・解説の難易度を必ずそろえてください。タイトルだけ幼い/本文だけ難しい、のような不一致は禁止です。
 - 問題文は、単なる知識の丸暗記より「考える楽しさ」「気づき」「驚き」のいずれかが入るようにしてください。
+- 問題文は、読めば「何を答えるのか」「何を手がかりに考えるのか」が明確に分かる構造にしてください。
+- 正答は1つに定まり、ひっかけや解釈ブレで複数正解にならないようにしてください。
+- answer は結論だけを短く返し、explanation では「なぜそれが正解で、他が違うのか」を学習者目線で説明してください。
 - ヒントは、その年齢が自力で一歩進める内容にしてください。答えの言い換えは禁止です。
 - 解説は、その年齢にとって「わかった！」という納得感が出るようにしてください。
 - 日本語(ja)を基準に品質を最優先し、en/zh は内容を忠実に自然翻訳してください。
 - 選択式の場合、誤答はその年齢が本当に迷いそうなものにしてください。ただし理不尽なひっかけにはしないでください。
 - 幼児〜小学生では楽しい語り口と具体例を優先し、中高生以上では知的満足感と根拠を優先してください。
+- トピック未指定時は、教育課程を参考にしつつ、偏った定番だけでなく、その年齢の学習範囲から幅広い分野を扱ってください。
+- 今回の教育課程ベース案: ${curriculumTopicPlan.summary}
 
 ${finalSystemInstruction}
 `;
@@ -879,49 +972,50 @@ ${finalSystemInstruction}
     const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
     
     if (!normalizedProvidedImageUrl && imageGenerationEnabled) {
-      console.log('Generating Japanese base image with nanobanana...');
-      const jaPrompt = `Create exactly one polished educational illustration in a wide 16:9 layout for learners around age ${parsedAge}.
-Theme: ${topicForAi}
-Question context: ${multiLangData.ja.question}
-Visual direction: ${persona.imageStyle}
+      console.log('Generating localized educational images with nanobanana...');
+      const basePrompt = buildBaseIllustrationPrompt({
+        age: parsedAge,
+        topic: topicForAi,
+        question: multiLangData.ja.question,
+        imageStyle: persona.imageStyle,
+        categoryName: categoryName || finalCategoryId || '未指定',
+        curriculumGuidance: curriculumTopicPlan.summary,
+      });
 
-Requirements:
-- Render a single complete Japanese version as one image.
-- Include only this Japanese title text in the artwork: "${multiLangData.ja.title}".
-- Integrate the text naturally into the scene itself, not as a UI overlay.
-- No extra text, no subtitles, no fake app chrome, no HUD.
-- Keep the scene vivid, clean, and suitable for quiz learning content.`;
-
-      let jaImage;
+      let baseImage;
       try {
-        jaImage = await generateNanobananaImage(ai, jaPrompt);
-        if (jaImage?.data) {
-          const storedImage = await storeImageBuffer(
-            Buffer.from(jaImage.data, 'base64'),
-            jaImage.mimeType
-          );
-          translationImageUrls.ja = storedImage.publicPath;
-          imageUrl = translationImageUrls.ja;
+        baseImage = await generateNanobananaImage(ai, basePrompt);
+        if (baseImage?.data) {
+          const localesToRender: QuizLocale[] = ['ja', 'en', 'zh'];
+          for (const locale of localesToRender) {
+            let localizedImage = baseImage;
+            try {
+              localizedImage = (await editNanobananaImage(ai, baseImage, buildLocalizedImageEditPrompt({
+                age: parsedAge,
+                locale,
+                topic: topicForAi,
+                question: String((multiLangData[locale] || multiLangData.ja).question || multiLangData.ja.question || ''),
+                imageStyle: persona.imageStyle,
+                categoryName: categoryName || finalCategoryId || '未指定',
+                categoryNames,
+                quiz: multiLangData as MultiLangQuiz,
+              }))) || baseImage;
+            } catch (localizedErr) {
+              console.warn(`Localized image generation failed for ${locale}:`, localizedErr);
+            }
+
+            const storedImage = await storeImageBuffer(
+              Buffer.from(localizedImage.data, 'base64'),
+              localizedImage.mimeType
+            );
+            translationImageUrls[locale] = storedImage.publicPath;
+          }
+
+          imageUrl = translationImageUrls[finalLocale] || translationImageUrls.ja || imageUrl;
         }
       } catch (err) {
-        console.warn('Japanese image generation failed:', err);
+        console.warn('Base image generation failed:', err);
       }
-
-      // タイムアウトを防ぐため、他言語への画像加工（Imagen Edit）はデフォルトでスキップし、
-      // オリジナル（ja用）の画像を全言語で使い回すように変更
-      translationImageUrls.en = translationImageUrls.ja;
-      translationImageUrls.zh = translationImageUrls.ja;
-      
-      /* 
-      // もし将来的に非同期などで実行したい場合の参考用にコメントアウトで残します
-      if (jaImage?.data) {
-        const targetLocales: { code: 'en' | 'zh'; langName: string; text: string }[] = [
-          { code: 'en', langName: 'English', text: multiLangData.en.title },
-          { code: 'zh', langName: 'Chinese', text: multiLangData.zh.title },
-        ];
-        // ...Promise.all(targetLocales.map(...))
-      }
-      */
     }
 
     // AIの回答からクイズ形式を決定 (AIが自動で変更した場合に対応)
@@ -998,7 +1092,7 @@ Requirements:
       ...(multiLangData[finalLocale] || multiLangData.ja),
       options: finalLocale === 'ja' ? jaOptions : (finalLocale === 'en' ? enOptions : zhOptions),
       id: savedQuiz.id,
-      imageUrl,
+      imageUrl: translationImageUrls[finalLocale] || imageUrl,
       // デバッグ用に利用したトピック（自動選択された場合など）を返す
       generatedTopic: topicForAi
     };

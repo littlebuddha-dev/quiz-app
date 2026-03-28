@@ -20,7 +20,13 @@ export interface StudyRecommendations {
   todayLabel: string;
   dailyQuizIds: string[];
   reviewQuizIds: string[];
+  missionQuizIds: string[];
   weakCategories: WeakCategoryInsight[];
+  solvedTodayCount: number;
+  dailyGoalTarget: number;
+  currentStreak: number;
+  bestStreak: number;
+  hasStudiedToday: boolean;
 }
 
 export interface Quiz {

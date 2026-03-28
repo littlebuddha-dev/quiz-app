@@ -2,6 +2,8 @@
 // Title: AI Quiz Prompts & Personas
 // Purpose: Centralized repository for educational guidelines and system instructions for AI quiz generation.
 
+import { CURRICULUM_COURSES } from './learning';
+
 export interface AgePersona {
   minAge: number;
   maxAge: number;
@@ -17,6 +19,18 @@ export interface AgePersona {
 }
 
 export type QuizLocaleCode = 'ja' | 'en' | 'zh';
+export type EducationalGroupKey = '小学校' | '中学校' | '高等学校';
+export type EducationalGuidelinesGroup = {
+  ageRange: string;
+  content: Record<string, string>;
+};
+export type EducationalGuidelines = Record<EducationalGroupKey, EducationalGuidelinesGroup>;
+
+type EducationalGuidelineValidation = {
+  group: EducationalGroupKey;
+  missingSubjects: string[];
+  emptySubjects: string[];
+};
 
 type LanguageSubjectRule = {
   subjectLocale: QuizLocaleCode;
@@ -336,7 +350,7 @@ ${existingTitles.length > 0 ? existingTitles.slice(0, 50).join(', ') : 'なし'}
 `;
 }
 
-export const EDUCATIONAL_DATA: Record<string, { ageRange: string, content: Record<string, string> }> = {
+export const EDUCATIONAL_DATA: EducationalGuidelines = {
   "小学校": {
     "ageRange": "6歳〜12歳",
     "content": {
@@ -392,17 +406,114 @@ export const EDUCATIONAL_DATA: Record<string, { ageRange: string, content: Recor
   }
 };
 
+const REQUIRED_SUBJECTS_BY_GROUP: Record<EducationalGroupKey, string[]> = {
+  小学校: ['国語', '社会', '算数', '理科', '生活', '音楽', '図画工作', '家庭', '体育', '外国語活動・外国語', '道徳', '総合的な学習の時間', '特別活動'],
+  中学校: ['国語', '社会', '数学', '理科', '音楽', '美術', '保健体育', '技術・家庭', '外国語', '道徳', '総合的な学習の時間', '特別活動'],
+  高等学校: ['国語', '地理歴史', '公民', '数学', '理科', '保健体育', '芸術', '外国語', '家庭', '情報', '理数', '総合的な探究の時間', '特別活動'],
+};
+
+export function getDefaultEducationalGuidelines(): EducationalGuidelines {
+  return JSON.parse(JSON.stringify(EDUCATIONAL_DATA)) as EducationalGuidelines;
+}
+
+export function normalizeEducationalGuidelines(input?: unknown): EducationalGuidelines {
+  const base = getDefaultEducationalGuidelines();
+  if (!input || typeof input !== 'object') {
+    return base;
+  }
+
+  const candidate = input as Partial<Record<EducationalGroupKey, { ageRange?: unknown; content?: Record<string, unknown> }>>;
+  const normalized = getDefaultEducationalGuidelines();
+
+  (Object.keys(base) as EducationalGroupKey[]).forEach((group) => {
+    const incomingGroup = candidate[group];
+    if (!incomingGroup || typeof incomingGroup !== 'object') {
+      return;
+    }
+
+    if (typeof incomingGroup.ageRange === 'string' && incomingGroup.ageRange.trim()) {
+      normalized[group].ageRange = incomingGroup.ageRange.trim();
+    }
+
+    const mergedContent: Record<string, string> = {};
+    const incomingContent = incomingGroup.content && typeof incomingGroup.content === 'object'
+      ? incomingGroup.content
+      : {};
+
+    const orderedSubjects = [
+      ...Object.keys(base[group].content),
+      ...Object.keys(incomingContent).filter((subject) => !Object.prototype.hasOwnProperty.call(base[group].content, subject)),
+    ];
+
+    orderedSubjects.forEach((subject) => {
+      const incomingValue = incomingContent[subject];
+      const fallback = base[group].content[subject] || '';
+      const normalizedValue = typeof incomingValue === 'string' && incomingValue.trim()
+        ? incomingValue.trim()
+        : fallback;
+      if (normalizedValue) {
+        mergedContent[subject] = normalizedValue;
+      }
+    });
+
+    normalized[group].content = mergedContent;
+  });
+
+  return normalized;
+}
+
+export function getEducationalGuidelinesValidation(input?: unknown): EducationalGuidelineValidation[] {
+  const base = getDefaultEducationalGuidelines();
+  const candidate = (input && typeof input === 'object' ? input : {}) as Partial<Record<EducationalGroupKey, { content?: Record<string, unknown> }>>;
+
+  return (Object.keys(base) as EducationalGroupKey[]).map((group) => {
+    const rawContent = candidate[group]?.content && typeof candidate[group]?.content === 'object'
+      ? candidate[group]?.content as Record<string, unknown>
+      : {};
+    const missingSubjects = REQUIRED_SUBJECTS_BY_GROUP[group].filter((subject) => !(subject in rawContent));
+    const emptySubjects = Object.entries(rawContent)
+      .filter(([, value]) => typeof value !== 'string' || value.trim() === '')
+      .map(([subject]) => subject);
+
+    return {
+      group,
+      missingSubjects,
+      emptySubjects,
+    };
+  });
+}
+
+function buildCourseReferenceLines(age: number, categoryNames: Array<string | null | undefined>) {
+  const normalizedCategoryNames = categoryNames
+    .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+    .map((value) => value.toLowerCase().replace(/\s+/g, ''));
+
+  const activeCourses = CURRICULUM_COURSES.filter((course) => age >= course.ageMin && age <= course.ageMax);
+  const subjects = activeCourses.flatMap((course) => course.subjects);
+
+  const matchedSubjects = subjects.filter((subject) =>
+    subject.aliases.some((alias) => normalizedCategoryNames.some((category) => category.includes(alias.toLowerCase().replace(/\s+/g, ''))))
+  );
+
+  const selectedSubjects = (matchedSubjects.length > 0 ? matchedSubjects : subjects)
+    .slice(0, 3)
+    .map((subject) => `- ${subject.label}: ${subject.officialFocus} / 主な観点: ${subject.strands.slice(0, 4).join('、')}`);
+
+  return selectedSubjects.join('\n');
+}
+
 export function buildEducationalContextPrompt(age: number, categoryNames: Array<string | null | undefined>, guidelines?: any) {
   if (age > 18 || age < 6) return '';
 
-  let group = "";
+  let group: EducationalGroupKey | null = null;
   if (age >= 6 && age <= 12) group = "小学校";
   else if (age > 12 && age <= 15) group = "中学校";
   else if (age > 15 && age <= 18) group = "高等学校";
 
   if (!group) return '';
 
-  const data = (guidelines && guidelines[group]) ? guidelines[group] : EDUCATIONAL_DATA[group];
+  const normalizedGuidelines = normalizeEducationalGuidelines(guidelines);
+  const data = normalizedGuidelines[group];
   const normalizedCategoryNames = categoryNames
     .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
     .map(v => v.toLowerCase().replace(/\s+/g, ''));
@@ -419,60 +530,103 @@ export function buildEducationalContextPrompt(age: number, categoryNames: Array<
   // 合致するものがなければ、その学年層の主要な教育内容を提示
   if (!matchedContent) {
     matchedContent = Object.entries(contentMap)
-      .slice(0, 5) // 代表的な5件
+      .slice(0, 6)
       .map(([subject, content]) => `- ${subject}: ${content}`)
       .join('\n');
   }
+
+  const courseReferenceLines = buildCourseReferenceLines(age, categoryNames);
 
   return `
 
 ## ${group}教育課程の背景知識 (参考)
 この年齢層の学習者は、学校で以下のような内容を学んでいます。これらを参考に、知識の定着を助けたり、興味を広げたりする問題を設計してください。
 ${matchedContent}
+
+## 学習指導要領ベースの観点補足
+${courseReferenceLines || '- 年齢相応の教科横断的な基礎力を意識してください。'}
 `;
+}
+
+type CurriculumTopicPlan = {
+  group: '小学校' | '中学校' | '高等学校';
+  subject: string;
+  topic: string;
+  hook: string;
+  summary: string;
+};
+
+function pickDeterministicIndex(itemsLength: number, seedSource: string) {
+  if (itemsLength <= 0) return 0;
+  let hash = 0;
+  for (const char of seedSource) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash % itemsLength;
+}
+
+function splitCurriculumTopics(content: string) {
+  return content
+    .split(/[、。]|を学びます|について学びます|を通して|などを学びます|などの/g)
+    .map((s: string) => s.trim())
+    .filter((s: string) => s.length >= 2 && s.length <= 28);
+}
+
+export function buildCurriculumTopicPlan(age: number, categoryNames: Array<string | null | undefined>, guidelines?: any): CurriculumTopicPlan {
+  let group: '小学校' | '中学校' | '高等学校' = '小学校';
+  if (age >= 6 && age <= 12) group = '小学校';
+  else if (age > 12 && age <= 15) group = '中学校';
+  else if (age > 15) group = '高等学校';
+
+  const data = normalizeEducationalGuidelines(guidelines)[group];
+  const contentMap = data.content || {};
+  const subjects = Object.keys(contentMap);
+  const persona = getPersonaByAge(age);
+
+  if (subjects.length === 0) {
+    return {
+      group,
+      subject: '総合',
+      topic: '身近な学び',
+      hook: persona.topicHooks[0] || '気づき',
+      summary: `${group}の学習内容を参考に、年齢に合う身近な気づきの問題`,
+    };
+  }
+
+  const normalizedCategoryNames = categoryNames
+    .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+    .map(v => v.toLowerCase().replace(/\s+/g, ''));
+
+  let targetSubjects = subjects.filter(subject =>
+    normalizedCategoryNames.some(cat => subject.toLowerCase().includes(cat) || cat.includes(subject.toLowerCase()))
+  );
+
+  if (targetSubjects.length === 0) {
+    targetSubjects = subjects;
+  }
+
+  const seed = `${age}|${normalizedCategoryNames.join('|')}|${subjects.join('|')}|${Date.now()}`;
+  const selectedSubject = targetSubjects[pickDeterministicIndex(targetSubjects.length, `${seed}|subject`)];
+  const subjectContent = String(contentMap[selectedSubject] || '');
+  const topics = splitCurriculumTopics(subjectContent);
+  const selectedTopic = topics.length > 0
+    ? topics[pickDeterministicIndex(topics.length, `${seed}|${selectedSubject}|topic`)]
+    : selectedSubject;
+  const selectedHook = persona.topicHooks[pickDeterministicIndex(persona.topicHooks.length, `${seed}|hook`)] || '発見';
+
+  return {
+    group,
+    subject: selectedSubject,
+    topic: selectedTopic,
+    hook: selectedHook,
+    summary: `${group}の「${selectedSubject}」で扱う「${selectedTopic}」を軸に、${selectedHook} が感じられる問題`,
+  };
 }
 
 /**
  * 教育課程データから、対象年齢とカテゴリに基づいてランダムなトピックを抽出します。
  */
 export function getRandomTopicFromCurriculum(age: number, categoryNames: Array<string | null | undefined>, guidelines?: any): string {
-  let group: '小学校' | '中学校' | '高等学校' = "小学校";
-  if (age >= 6 && age <= 12) group = "小学校";
-  else if (age > 12 && age <= 15) group = "中学校";
-  else if (age > 15) group = "高等学校";
-
-  const data = (guidelines && guidelines[group]) ? guidelines[group] : EDUCATIONAL_DATA[group];
-  const contentMap = data.content || {};
-  const subjects = Object.keys(contentMap);
-
-  if (subjects.length === 0) return "自由なテーマ";
-
-  // カテゴリに合致する科目があるか探す
-  const normalizedCategoryNames = categoryNames
-    .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
-    .map(v => v.toLowerCase().replace(/\s+/g, ''));
-
-  let targetSubjects = subjects.filter(subject => 
-    normalizedCategoryNames.some(cat => subject.toLowerCase().includes(cat) || cat.includes(subject.toLowerCase()))
-  );
-
-  // 合致する科目がなければ、全科目からランダムに選択
-  if (targetSubjects.length === 0) {
-    targetSubjects = subjects;
-  }
-
-  const selectedSubject = targetSubjects[Math.floor(Math.random() * targetSubjects.length)];
-  const subjectContent = contentMap[selectedSubject];
-
-  // 句点や読点で区切って、ランダムに1つの要素（トピック候補）を抽出
-  const topics = subjectContent
-    .split(/[、。]|を学びます|について学びます/)
-    .map((s: string) => s.trim())
-    .filter((s: string) => s.length >= 2 && s.length <= 20);
-
-  if (topics.length > 0) {
-    return topics[Math.floor(Math.random() * topics.length)];
-  }
-
-  return selectedSubject;
+  const plan = buildCurriculumTopicPlan(age, categoryNames, guidelines);
+  return `${plan.group}の${plan.subject}で学ぶ「${plan.topic}」を中心に、${plan.hook}がある教育クイズ`;
 }

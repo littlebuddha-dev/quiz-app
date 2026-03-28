@@ -2,8 +2,9 @@ import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import AnalysisClient from './AnalysisClient';
-import { buildAbilityDomainScores, countActiveDays } from '@/lib/learning';
+import { buildAbilityDomainScores, buildAnalysisInsights, countActiveDays } from '@/lib/learning';
 import { ensureLocalUser } from '@/lib/clerk-sync';
+import { calculateStreak } from '@/lib/streak';
 
 export default async function AnalysisPage() {
   const { env } = await getCloudflareContext({ async: true });
@@ -109,7 +110,17 @@ export default async function AnalysisPage() {
   const uniqueSolved = new Set(histories.filter((history) => history.isCorrect).map((history) => history.quizId)).size;
   const correctCount = histories.filter((history) => history.isCorrect).length;
   const overallAccuracy = totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0;
+  const streakInfo = calculateStreak(histories.map((history) => history.createdAt));
   const activeDays14 = countActiveDays(histories, 14);
+  const activeDays7 = countActiveDays(histories, 7);
+  const insights = buildAnalysisInsights({
+    domainScores,
+    weakCategories,
+    totalAttempts,
+    activeDays14,
+    currentStreak: streakInfo.currentStreak,
+    overallAccuracy,
+  });
   const userStatus = { xp: user.xp || 0, level: user.level || 1, role: user.role };
 
   return (
@@ -118,9 +129,13 @@ export default async function AnalysisPage() {
       totalAttempts={totalAttempts}
       uniqueSolved={uniqueSolved}
       overallAccuracy={overallAccuracy}
+      activeDays7={activeDays7}
       activeDays14={activeDays14}
+      currentStreak={streakInfo.currentStreak}
+      bestStreak={streakInfo.bestStreak}
       domainScores={domainScores}
       weakCategories={weakCategories}
+      insights={insights}
     />
   );
 }

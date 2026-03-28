@@ -8,9 +8,9 @@ import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-import { getSiteUrl } from "@/lib/site-config";
 import { getStoredPublicAdSenseSettings } from "@/lib/adsense-server";
 import { getServerLocale } from "@/lib/locale-server";
+import { getRootMetadata } from "@/lib/metadata";
 import ServiceWorkerRegistrar from "./components/ServiceWorkerRegistrar";
 import MultisessionAppSupport from "./components/MultisessionAppSupport";
 
@@ -53,46 +53,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
 };
-
-
-
-export const metadata: Metadata = {
-  metadataBase: new URL(getSiteUrl()),
-  manifest: '/manifest.webmanifest',
-  title: {
-    default: "Cue | すべての人に学ぶことの楽しさを",
-    template: "%s | Cue"
-  },
-  description: "Cueは「すべての人に学ぶことの楽しさを伝えたい」という想いから生まれた、直感的なクイズプラットフォームです。論理的パズルや多言語クイズを通じて、知的好奇心を刺激する新しい学習体験を提供します。",
-  keywords: ["クイズ", "学習", "論理的思考", "知育", "学びの楽しさ", "多言語学習", "パズル", "Cue"],
-  authors: [{ name: "Cue Team" }],
-  openGraph: {
-    type: "website",
-    locale: "ja_JP",
-    url: getSiteUrl(),
-    siteName: "Cue",
-    title: "Cue | すべての人に学ぶことの楽しさを",
-    description: "直感的なクイズで知的好奇心を刺激。学ぶことの楽しさを、すべての人へ。",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Cue - Learn with Fun",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Cue | すべての人に学ぶことの楽しさを",
-    description: "直感的なクイズで知的好奇心を刺激。学ぶことの楽しさを、すべての人へ。",
-    images: ["/og-image.png"],
-  },
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getServerLocale();
+  return getRootMetadata(locale);
+}
 
 export default async function RootLayout({
   children,

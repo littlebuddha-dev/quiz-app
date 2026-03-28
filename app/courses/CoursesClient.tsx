@@ -4,13 +4,14 @@ import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
-import type { CourseProgress } from '@/lib/learning';
-import { CURRICULUM_SOURCE_LINKS, getCourseLabel, getCurriculumSourceLabel, getSubjectLabel } from '@/lib/learning';
+import type { CourseActionPlan, CourseProgress } from '@/lib/learning';
+import { CURRICULUM_SOURCE_LINKS, buildCourseActionPlan, getCourseLabel, getCurriculumSourceLabel, getSubjectLabel } from '@/lib/learning';
 
 type CoursesClientProps = {
   currentCourse: CourseProgress;
   roadmap: CourseProgress[];
   userStatus?: { xp: number; level: number; role: string };
+  courseActionPlan: CourseActionPlan;
 };
 
 const COPY = {
@@ -23,6 +24,9 @@ const COPY = {
     available: '挑戦できる問題',
     solved: 'クリア済み',
     curriculum: '学習指導要領ベースの到達テーマ',
+    actionPlan: '今週の進め方',
+    support: '先に取り組む',
+    bridge: '並行して伸ばす',
     start: 'この分野に挑戦',
     source: '参照',
     noQuiz: 'この分野の問題はまだ少なめです。AI自動生成で増やしていく前提の土台として表示しています。',
@@ -36,6 +40,9 @@ const COPY = {
     available: 'Available quizzes',
     solved: 'Solved',
     curriculum: 'Curriculum-aligned themes',
+    actionPlan: 'How to approach this week',
+    support: 'Start with',
+    bridge: 'Then support with',
     start: 'Start this subject',
     source: 'Source',
     noQuiz: 'There are still only a few quizzes in this subject. The course map is ready as the foundation for further auto-generation.',
@@ -49,15 +56,21 @@ const COPY = {
     available: '可挑战题目',
     solved: '已完成',
     curriculum: '基于课程标准的学习主题',
+    actionPlan: '本周学习建议',
+    support: '优先开始',
+    bridge: '再配合练习',
     start: '开始这个领域',
     source: '参考',
     noQuiz: '这个领域的题目还不多，当前页面先作为后续自动生成扩充的课程骨架。',
   },
 } as const;
 
-export default function CoursesClient({ currentCourse, roadmap, userStatus }: CoursesClientProps) {
+export default function CoursesClient({ currentCourse, roadmap, userStatus, courseActionPlan }: CoursesClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const t = COPY[locale];
+  const localizedActionPlan = buildCourseActionPlan(currentCourse, locale);
+  const primarySubject = currentCourse.subjects.find((subject) => subject.subject.id === courseActionPlan.primarySubjectId);
+  const supportSubject = currentCourse.subjects.find((subject) => subject.subject.id === courseActionPlan.supportSubjectId);
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -86,6 +99,23 @@ export default function CoursesClient({ currentCourse, roadmap, userStatus }: Co
           </div>
 
           <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
+            <div className="mb-6 rounded-3xl border border-blue-200/70 bg-blue-50/60 p-5">
+              <div className="text-[11px] font-black uppercase tracking-[0.25em] text-blue-500 mb-2">{t.actionPlan}</div>
+              <p className="text-sm font-semibold text-zinc-600 mb-3">{localizedActionPlan.recommendation[locale]}</p>
+              <div className="flex flex-wrap gap-3 text-xs font-black">
+                {primarySubject && (
+                  <span className="rounded-full bg-white px-3 py-1.5 border border-blue-200 text-blue-700">
+                    {t.support}: {getSubjectLabel(locale, primarySubject.subject.id, primarySubject.subject.label)}
+                  </span>
+                )}
+                {supportSubject && (
+                  <span className="rounded-full bg-white px-3 py-1.5 border border-emerald-200 text-emerald-700">
+                    {t.bridge}: {getSubjectLabel(locale, supportSubject.subject.id, supportSubject.subject.label)}
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
               <div>
                 <div className="text-[11px] font-black uppercase tracking-[0.25em] text-amber-500 mb-2">

@@ -31,9 +31,20 @@ const STUDY_COPY: Record<
     allMode: string;
     reviewMode: string;
     dailyMode: string;
+    missionMode: string;
     dailyTitle: string;
     reviewTitle: string;
     weaknessTitle: string;
+    missionTitle: string;
+    momentumTitle: string;
+    streakLabel: string;
+    bestLabel: string;
+    todayGoal: string;
+    goalDone: string;
+    goalLeft: string;
+    quickStart: string;
+    noMission: string;
+    missionStart: string;
     noDaily: string;
     noReview: string;
     noWeakness: string;
@@ -48,9 +59,20 @@ const STUDY_COPY: Record<
     allMode: 'いつもの一覧',
     reviewMode: '間違い直しモード',
     dailyMode: '1日3分おすすめ',
+    missionMode: '弱点克服ミッション',
     dailyTitle: '1日3分の自動おすすめ',
     reviewTitle: '間違い直しモード',
     weaknessTitle: '弱点の見える化',
+    missionTitle: '弱点克服ミッション 5問',
+    momentumTitle: '今日の勢い',
+    streakLabel: '連続学習',
+    bestLabel: 'ベスト',
+    todayGoal: '今日の目標',
+    goalDone: '達成しました！',
+    goalLeft: 'あと',
+    quickStart: 'おすすめから始める',
+    noMission: '復習データがもう少したまると、弱点克服ミッションがここに出ます。',
+    missionStart: 'この5問に挑戦',
     noDaily: '今日のおすすめは準備中です。まずは気になる1問から始めましょう。',
     noReview: 'まだ復習が必要な問題はありません。この調子です。',
     noWeakness: 'まだ弱点データは十分ではありません。数問解くと見えてきます。',
@@ -64,9 +86,20 @@ const STUDY_COPY: Record<
     allMode: 'All quizzes',
     reviewMode: 'Retry mode',
     dailyMode: '3-minute daily picks',
+    missionMode: 'Weakness mission',
     dailyTitle: 'Your 3-minute daily picks',
     reviewTitle: 'Retry your mistakes',
     weaknessTitle: 'Weakness insights',
+    missionTitle: '5-question weakness mission',
+    momentumTitle: 'Momentum',
+    streakLabel: 'Streak',
+    bestLabel: 'Best',
+    todayGoal: 'Daily goal',
+    goalDone: 'Goal complete!',
+    goalLeft: 'Left',
+    quickStart: 'Start today\'s pick',
+    noMission: 'Your weakness mission will appear after a bit more practice history.',
+    missionStart: 'Take these 5 now',
     noDaily: 'Your daily picks are getting ready. Start with any quiz you like.',
     noReview: 'No retry items right now. Nice work.',
     noWeakness: 'Not enough answer history yet. Solve a few more quizzes to see trends.',
@@ -80,9 +113,20 @@ const STUDY_COPY: Record<
     allMode: '全部题目',
     reviewMode: '错题复习',
     dailyMode: '每日3分钟推荐',
+    missionMode: '薄弱攻克任务',
     dailyTitle: '每日3分钟自动推荐',
     reviewTitle: '错题复习模式',
     weaknessTitle: '薄弱点可视化',
+    missionTitle: '薄弱攻克5题任务',
+    momentumTitle: '今日状态',
+    streakLabel: '连续学习',
+    bestLabel: '最佳纪录',
+    todayGoal: '今日目标',
+    goalDone: '已达成！',
+    goalLeft: '还差',
+    quickStart: '从今日推荐开始',
+    noMission: '再积累一些作答记录后，这里会出现你的薄弱攻克任务。',
+    missionStart: '马上做这5题',
     noDaily: '今日推荐正在准备中，先从你感兴趣的题目开始吧。',
     noReview: '目前没有需要复习的错题，继续保持。',
     noWeakness: '目前答题数据还不够，先多做几题再来看趋势。',
@@ -223,7 +267,7 @@ export default function QuizClient({
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [minAge, setMinAge] = useState(initialMinAge);
   const [maxAge, setMaxAge] = useState(initialMaxAge);
-  const [studyMode, setStudyMode] = useState<'all' | 'review' | 'daily'>('all');
+  const [studyMode, setStudyMode] = useState<'all' | 'review' | 'daily' | 'mission'>('all');
   const [isStudyDashboardOpen, setIsStudyDashboardOpen] = useState(false);
   const [cachedQuizzes, setCachedQuizzes] = useState<Quiz[] | null>(null);
   const [cachedCategories, setCachedCategories] = useState<QuizClientWrapperProps['categories'] | null>(null);
@@ -344,6 +388,10 @@ export default function QuizClient({
     () => new Set(activeStudyRecommendations?.dailyQuizIds || []),
     [activeStudyRecommendations]
   );
+  const missionQuizSet = useMemo(
+    () => new Set(activeStudyRecommendations?.missionQuizIds || []),
+    [activeStudyRecommendations]
+  );
 
   // 表示用クイズ（サーバーサイドで既にフィルタリング済みだが、年齢ソートのみクライアントで適用）
   const sortedQuizzes = useMemo(() => {
@@ -365,9 +413,12 @@ export default function QuizClient({
       if (studyMode === 'daily') {
         return dailyQuizSet.has(quiz.id);
       }
+      if (studyMode === 'mission') {
+        return missionQuizSet.has(quiz.id);
+      }
       return true;
     });
-  }, [dailyQuizSet, reviewQuizSet, sortedQuizzes, studyMode]);
+  }, [dailyQuizSet, missionQuizSet, reviewQuizSet, sortedQuizzes, studyMode]);
 
   const dailyQuizzes = useMemo(
     () => sortedQuizzes.filter((quiz) => dailyQuizSet.has(quiz.id)),
@@ -377,6 +428,14 @@ export default function QuizClient({
     () => sortedQuizzes.filter((quiz) => reviewQuizSet.has(quiz.id)),
     [reviewQuizSet, sortedQuizzes]
   );
+  const missionQuizzes = useMemo(
+    () => sortedQuizzes.filter((quiz) => missionQuizSet.has(quiz.id)),
+    [missionQuizSet, sortedQuizzes]
+  );
+  const dailyGoalProgress = activeStudyRecommendations
+    ? Math.min(activeStudyRecommendations.solvedTodayCount / Math.max(activeStudyRecommendations.dailyGoalTarget, 1), 1)
+    : 0;
+  const primaryDailyQuiz = dailyQuizzes[0];
 
   return (
     <div className={hideHeader ? '' : 'min-h-screen bg-[var(--background)] text-[var(--foreground)]'}>
@@ -469,6 +528,59 @@ export default function QuizClient({
               {isStudyDashboardOpen && (
                 <>
                   <p className="text-xs sm:text-sm font-semibold text-zinc-500 break-words [overflow-wrap:anywhere]">{studyText.panelBody}</p>
+                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-4">
+                  <div className="rounded-[1.75rem] border border-emerald-200/70 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.1))] p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-emerald-600 mb-1 safari-no-faux-bold">{studyText.momentumTitle}</div>
+                        <h3 className="text-xl font-semibold safari-no-faux-bold text-zinc-900 dark:text-zinc-100">
+                          {activeStudyRecommendations.currentStreak}
+                          <span className="ml-2 text-sm font-semibold text-zinc-500">
+                            {studyText.streakLabel}
+                          </span>
+                        </h3>
+                        <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-600">
+                          {studyText.bestLabel}: {activeStudyRecommendations.bestStreak}
+                          {locale === 'ja' ? '日' : locale === 'en' ? ' days' : '天'}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-blue-500">{studyText.todayGoal}</div>
+                        <div className="mt-1 text-lg font-semibold text-zinc-900 safari-no-faux-bold">
+                          {activeStudyRecommendations.solvedTodayCount} / {activeStudyRecommendations.dailyGoalTarget}
+                        </div>
+                        <div className="mt-1 text-xs font-semibold text-zinc-500">
+                          {activeStudyRecommendations.solvedTodayCount >= activeStudyRecommendations.dailyGoalTarget
+                            ? studyText.goalDone
+                            : `${studyText.goalLeft} ${activeStudyRecommendations.dailyGoalTarget - activeStudyRecommendations.solvedTodayCount}${locale === 'ja' ? '問' : locale === 'en' ? '' : '题'}`}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 h-3 rounded-full bg-white/70 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-blue-500 transition-all duration-500"
+                        style={{ width: `${dailyGoalProgress * 100}%` }}
+                      />
+                    </div>
+                    {primaryDailyQuiz && (
+                      <Link
+                        href={`/watch/${primaryDailyQuiz.id}`}
+                        className="mt-4 inline-flex items-center rounded-full bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-700 transition-colors"
+                      >
+                        {studyText.quickStart}
+                      </Link>
+                    )}
+                    {missionQuizzes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setStudyMode('mission')}
+                        className="mt-3 ml-3 inline-flex items-center rounded-full border border-zinc-300 bg-white/70 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-white transition-colors"
+                      >
+                        {studyText.missionStart}
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div className="rounded-3xl border border-blue-200/60 bg-blue-50/60 p-4">
                     <div className="text-xs sm:text-sm font-black text-blue-600 mb-2">{studyText.dailyTitle}</div>
@@ -537,6 +649,39 @@ export default function QuizClient({
                       <div className="text-xs sm:text-sm font-semibold text-zinc-500">{studyText.noWeakness}</div>
                     )}
                   </div>
+                </div>
+                <div className="rounded-3xl border border-fuchsia-200/60 bg-fuchsia-50/60 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="text-xs sm:text-sm font-black text-fuchsia-600">{studyText.missionTitle}</div>
+                    {missionQuizzes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setStudyMode('mission')}
+                        className="text-[11px] font-black text-fuchsia-700 hover:underline"
+                      >
+                        {studyText.missionMode}
+                      </button>
+                    )}
+                  </div>
+                  {missionQuizzes.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                      {missionQuizzes.slice(0, 5).map((quiz, index) => {
+                        const qt = quiz.translations[locale] || quiz.translations['ja'];
+                        return (
+                          <Link
+                            key={quiz.id}
+                            href={`/watch/${quiz.id}`}
+                            className="block rounded-2xl bg-white/80 px-3 py-3 font-bold hover:bg-white transition-colors"
+                          >
+                            <div className="text-[10px] font-black text-fuchsia-500 mb-1">MISSION {index + 1}</div>
+                            <div className="line-clamp-3 text-sm"><LatexRenderer text={qt.title} /></div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-xs sm:text-sm font-semibold text-zinc-500">{studyText.noMission}</div>
+                  )}
                 </div>
                 </>
               )}

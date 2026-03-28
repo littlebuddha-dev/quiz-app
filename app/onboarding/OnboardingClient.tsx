@@ -7,15 +7,35 @@
 
 import { useState, useEffect } from 'react';
 
-export default function OnboardingClient({ initialData, categories }: any) {
+type OnboardingCategory = {
+  id: string;
+  name: string;
+};
+
+type OnboardingInitialData = {
+  name: string;
+  email?: string;
+  birthDate: string;
+  preferredCategories: string[];
+  hasCompletedProfile: boolean;
+};
+
+type OnboardingClientProps = {
+  initialData: OnboardingInitialData;
+  categories: OnboardingCategory[];
+};
+
+export default function OnboardingClient({ initialData, categories }: OnboardingClientProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: initialData.name || '',
-    birthDate: '',
-    preferredCategories: [] as string[],
+    birthDate: initialData.birthDate || '',
+    preferredCategories: initialData.preferredCategories || ([] as string[]),
   });
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [hasCompletedProfile, setHasCompletedProfile] = useState(initialData.hasCompletedProfile);
 
   useEffect(() => {
     setMounted(true);
@@ -46,7 +66,8 @@ export default function OnboardingClient({ initialData, categories }: any) {
         body: JSON.stringify(formData),
       });
       if (res.ok) {
-        window.location.href = '/';
+        setHasCompletedProfile(true);
+        setSaveMessage('プロフィールを保存しました。あとからこのページを開いても、同じ設定を確認できます。');
       } else {
         alert('保存に失敗しました');
       }
@@ -73,9 +94,40 @@ export default function OnboardingClient({ initialData, categories }: any) {
           <div className="relative z-10">
             <div className="flex flex-col items-center mb-8">
               <div className="w-16 h-16 bg-amber-500 rounded-2xl flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-amber-500/20 mb-4 animate-bounce">Q</div>
-              <h1 className="text-2xl font-black tracking-tight text-center">Cueへようこそ！</h1>
-              <p className="text-zinc-500 text-sm font-bold mt-2">あなたにぴったりのクイズをお届けします</p>
+              <h1 className="text-2xl font-black tracking-tight text-center">
+                {hasCompletedProfile ? 'プロフィール設定' : 'Cueへようこそ！'}
+              </h1>
+              <p className="text-zinc-500 text-sm font-bold mt-2 text-center">
+                {hasCompletedProfile
+                  ? '保存済みのプロフィールを確認しながら、いつでも内容を更新できます。'
+                  : 'あなたにぴったりのクイズをお届けします'}
+              </p>
             </div>
+
+            {hasCompletedProfile && (
+              <div className="mb-6 rounded-3xl border border-emerald-200 bg-emerald-50/80 p-5">
+                <div className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-600">Current Profile</div>
+                <div className="mt-3 space-y-2 text-sm font-bold text-emerald-950">
+                  <div>ニックネーム: {formData.name || '未設定'}</div>
+                  <div>生年月日: {formData.birthDate || '未設定'}</div>
+                  <div>
+                    興味のあるジャンル:{' '}
+                    {formData.preferredCategories.length > 0
+                      ? categories
+                          .filter((cat) => formData.preferredCategories.includes(cat.id))
+                          .map((cat) => cat.name)
+                          .join(' / ')
+                      : '未設定'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {saveMessage && (
+              <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-900">
+                {saveMessage}
+              </div>
+            )}
 
             {/* ステップ 1: 基本情報 */}
             {step === 1 && (
@@ -116,7 +168,7 @@ export default function OnboardingClient({ initialData, categories }: any) {
                 <div className="space-y-2">
                   <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">興味のあるジャンル（複数選択可）</label>
                   <div className="grid grid-cols-2 gap-3 py-2">
-                    {categories.map((cat: any) => (
+                    {categories.map((cat) => (
                       <button
                         key={cat.id}
                         onClick={() => toggleCategory(cat.id)}
@@ -142,7 +194,7 @@ export default function OnboardingClient({ initialData, categories }: any) {
                     disabled={loading}
                     className="flex-[2] bg-amber-500 hover:bg-amber-600 disabled:bg-zinc-200 text-white font-black py-4 rounded-2xl shadow-xl shadow-amber-500/20 transition-all hover:scale-[1.02] active:scale-95"
                   >
-                    {loading ? '保存中...' : 'はじめる！'}
+                    {loading ? '保存中...' : hasCompletedProfile ? 'プロフィールを更新' : 'はじめる！'}
                   </button>
                 </div>
               </div>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
-import type { AbilityDomainScore } from '@/lib/learning';
+import type { AbilityDomainScore, AnalysisInsight } from '@/lib/learning';
 import { getAbilityDomainText } from '@/lib/learning';
 
 type WeakCategory = {
@@ -23,9 +23,13 @@ type AnalysisClientProps = {
   totalAttempts: number;
   uniqueSolved: number;
   overallAccuracy: number;
+  activeDays7: number;
   activeDays14: number;
+  currentStreak: number;
+  bestStreak: number;
   domainScores: AbilityDomainScore[];
   weakCategories: WeakCategory[];
+  insights: AnalysisInsight[];
 };
 
 const COPY = {
@@ -35,9 +39,13 @@ const COPY = {
     attempts: '総挑戦数',
     solved: 'クリアした問題',
     accuracy: '全体正答率',
+    days7: '直近7日の学習日数',
     days: '直近14日の学習日数',
+    streak: '現在の連続学習',
+    best: 'ベスト連続日数',
     strengths: '能力ドメイン',
     weaknesses: '重点復習カテゴリ',
+    coaching: '学習コーチの提案',
     attemptsLabel: '挑戦',
     suggest: 'この分野を復習',
     noHistory: 'まだ十分な履歴がありません。数問解くと、苦手なカテゴリがここに表示されます。',
@@ -48,9 +56,13 @@ const COPY = {
     attempts: 'Total attempts',
     solved: 'Unique clears',
     accuracy: 'Overall accuracy',
+    days7: 'Active days in last 7 days',
     days: 'Active days in last 14 days',
+    streak: 'Current streak',
+    best: 'Best streak',
     strengths: 'Ability domains',
     weaknesses: 'Priority review categories',
+    coaching: 'Coach suggestions',
     attemptsLabel: 'Attempts',
     suggest: 'Review this topic',
     noHistory: 'There is not enough history yet. Solve a few more quizzes and your weaker categories will appear here.',
@@ -61,9 +73,13 @@ const COPY = {
     attempts: '总作答数',
     solved: '已完成题目',
     accuracy: '整体正确率',
+    days7: '最近7天学习天数',
     days: '最近14天学习天数',
+    streak: '当前连续学习',
+    best: '最佳连续天数',
     strengths: '能力维度',
     weaknesses: '重点复习分类',
+    coaching: '学习建议',
     attemptsLabel: '作答',
     suggest: '复习这个领域',
     noHistory: '目前还没有足够的记录。先多做几道题，这里就会显示你的薄弱分类。',
@@ -75,9 +91,13 @@ export default function AnalysisClient({
   totalAttempts,
   uniqueSolved,
   overallAccuracy,
+  activeDays7,
   activeDays14,
+  currentStreak,
+  bestStreak,
   domainScores,
   weakCategories,
+  insights,
 }: AnalysisClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const t = COPY[locale];
@@ -102,13 +122,37 @@ export default function AnalysisClient({
             { label: t.attempts, value: totalAttempts },
             { label: t.solved, value: uniqueSolved },
             { label: t.accuracy, value: `${overallAccuracy}%` },
+            { label: t.days7, value: activeDays7 },
             { label: t.days, value: activeDays14 },
+            { label: t.streak, value: currentStreak },
+            { label: t.best, value: bestStreak },
           ].map((item) => (
             <div key={item.label} className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5">
               <div className="text-xs font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">{item.label}</div>
               <div className="text-2xl sm:text-3xl font-black">{item.value}</div>
             </div>
           ))}
+        </section>
+
+        <section className="mb-6 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6">
+          <h2 className="text-xl sm:text-2xl font-black mb-5">{t.coaching}</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {insights.map((insight) => (
+              <div
+                key={insight.id}
+                className={`rounded-3xl border p-4 ${
+                  insight.priority === 'high'
+                    ? 'border-red-200 bg-red-50/60'
+                    : insight.priority === 'positive'
+                      ? 'border-emerald-200 bg-emerald-50/60'
+                      : 'border-blue-200 bg-blue-50/60'
+                }`}
+              >
+                <div className="font-black mb-2">{insight.title[locale]}</div>
+                <p className="text-sm font-semibold text-zinc-600">{insight.body[locale]}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="grid grid-cols-1 xl:grid-cols-[1.35fr_0.95fr] gap-6">

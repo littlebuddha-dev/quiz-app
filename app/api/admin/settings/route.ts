@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
+import { getDefaultEducationalGuidelines, normalizeEducationalGuidelines } from '@/lib/ai-prompts';
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Internal Server Error';
@@ -29,10 +30,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing key or value' }, { status: 400 });
     }
 
+    let normalizedValue = String(value);
+    if (key === 'educational_guidelines') {
+      let parsedValue: unknown = value;
+      if (typeof value === 'string') {
+        try {
+          parsedValue = JSON.parse(value);
+        } catch {
+          parsedValue = null;
+        }
+      }
+      normalizedValue = JSON.stringify(normalizeEducationalGuidelines(parsedValue));
+    }
+
     const setting = await prisma.setting.upsert({
       where: { key },
-      update: { value: String(value) },
-      create: { key, value: String(value) }
+      update: { value: normalizedValue },
+      create: { key, value: normalizedValue }
     });
 
     return NextResponse.json({ success: true, setting });
@@ -61,6 +75,24 @@ export async function GET(req: NextRequest) {
     
     if (key) {
       const setting = await prisma.setting.findUnique({ where: { key } });
+      if (!setting && key === 'educational_guidelines') {
+        return NextResponse.json({
+          key,
+          value: JSON.stringify(getDefaultEducationalGuidelines()),
+        });
+      }
+      if (setting && key === 'educational_guidelines') {
+        let parsedValue: unknown = null;
+        try {
+          parsedValue = JSON.parse(setting.value);
+        } catch {
+          parsedValue = null;
+        }
+        return NextResponse.json({
+          ...setting,
+          value: JSON.stringify(normalizeEducationalGuidelines(parsedValue)),
+        });
+      }
       return NextResponse.json(setting);
     }
 

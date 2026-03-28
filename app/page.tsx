@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import { ensureLocalUser } from '@/lib/clerk-sync';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz, StudyRecommendations, WeakCategoryInsight } from './types';
+import { calculateStreak } from '@/lib/streak';
 
 
 
@@ -335,11 +336,52 @@ export default async function Home({
         .slice(0, 3)
         .map((quiz) => quiz.id);
 
+      const missionQuizIds = rawQuizzes
+        .map((quiz) => {
+          const attempts = quizAttemptMap.get(quiz.id);
+          const wrongCount = attempts?.wrong || 0;
+          const correctCount = attempts?.correct || 0;
+          const weakBoost = weakCategoryBoost.get(quiz.categoryId) || 0;
+          let score = weakBoost + wrongCount * 18 - correctCount * 6;
+
+          if (!attempts) score -= 20;
+          if (seenReview.has(quiz.id)) score += 12;
+          if (typeof effectiveAge === 'number') {
+            score -= Math.abs(quiz.targetAge - effectiveAge);
+          }
+
+          return { id: quiz.id, score };
+        })
+        .filter((quiz) => quiz.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map((quiz) => quiz.id);
+
+      const todayLabel = getTodayLabel();
+      const todaySolvedQuizIds = new Set(
+        sortedHistoryEntries
+          .filter((history) => history.isCorrect && history.createdAt.toISOString().slice(0, 10) === todayLabel)
+          .map((history) => history.quizId)
+      );
+      const streakInfo = calculateStreak(sortedHistoryEntries.map((history) => history.createdAt));
+      const dailyGoalTarget =
+        effectiveAge !== null && effectiveAge <= 9
+          ? 3
+          : effectiveAge !== null && effectiveAge <= 15
+            ? 5
+            : 7;
+
       return {
-        todayLabel: getTodayLabel(),
+        todayLabel,
         dailyQuizIds,
         reviewQuizIds: reviewQuizIds.slice(0, 12),
+        missionQuizIds,
         weakCategories,
+        solvedTodayCount: todaySolvedQuizIds.size,
+        dailyGoalTarget,
+        currentStreak: streakInfo.currentStreak,
+        bestStreak: streakInfo.bestStreak,
+        hasStudiedToday: streakInfo.hasStudiedToday,
       };
     })()
     : undefined;

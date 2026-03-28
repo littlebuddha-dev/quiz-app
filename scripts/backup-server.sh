@@ -44,7 +44,7 @@ if [[ -d "$PROJECT_ROOT/public/uploads" ]]; then
 fi
 
 ARCHIVE_PATH="$BACKUP_DIR/quiz-app-backup-${STAMP}.tar.gz"
-tar -czf "$ARCHIVE_PATH" -C "$TMP_DIR" .
+COPYFILE_DISABLE=1 tar -czf "$ARCHIVE_PATH" -C "$TMP_DIR" .
 rm -rf "$TMP_DIR"
 
 echo "[backup] Created: $ARCHIVE_PATH"

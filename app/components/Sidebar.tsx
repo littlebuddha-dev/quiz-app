@@ -20,8 +20,8 @@ interface SidebarProps {
   categories: SidebarCategory[];
   activeCategory: string;
   onSelectCategory: (category: string) => void;
-  studyMode?: 'all' | 'review' | 'daily';
-  onSelectStudyMode?: (mode: 'all' | 'review' | 'daily') => void;
+  studyMode?: 'all' | 'review' | 'daily' | 'mission';
+  onSelectStudyMode?: (mode: 'all' | 'review' | 'daily' | 'mission') => void;
   minAge?: number;
   maxAge?: number;
   onAgeRangeChange?: (min: number, max: number) => void;
@@ -32,29 +32,32 @@ interface SidebarContentsProps {
   categories: SidebarCategory[];
   activeCategory: string;
   onSelectCategory: (category: string) => void;
-  studyMode?: 'all' | 'review' | 'daily';
-  onSelectStudyMode?: (mode: 'all' | 'review' | 'daily') => void;
+  studyMode?: 'all' | 'review' | 'daily' | 'mission';
+  onSelectStudyMode?: (mode: 'all' | 'review' | 'daily' | 'mission') => void;
   isMobile?: boolean;
   minAge?: number;
   maxAge?: number;
   onAgeRangeChange?: (min: number, max: number) => void;
 }
 
-const STUDY_MODE_LABELS: Record<Locale, Record<'all' | 'review' | 'daily', string>> = {
+const STUDY_MODE_LABELS: Record<Locale, Record<'all' | 'review' | 'daily' | 'mission', string>> = {
   ja: {
     all: '一覧',
     review: '復習',
     daily: '3分',
+    mission: '克服',
   },
   en: {
     all: 'All',
     review: 'Retry',
     daily: 'Daily',
+    mission: 'Mission',
   },
   zh: {
     all: '全部',
     review: '复习',
     daily: '每日',
+    mission: '攻克',
   },
 };
 
@@ -139,7 +142,7 @@ export function SidebarContents({
 
   const studyModeButtons = onSelectStudyMode && studyMode ? (
     <div className={`${isMobile ? 'flex gap-2 overflow-x-auto no-scrollbar pb-1' : 'grid grid-cols-3 gap-2 mb-3 px-1'}`}>
-      {(['all', 'review', 'daily'] as const).map((mode) => {
+      {(['all', 'review', 'daily', 'mission'] as const).map((mode) => {
         const isActive = studyMode === mode;
         return (
           <button
@@ -152,7 +155,7 @@ export function SidebarContents({
             }`}
           >
             <img 
-              src={`/icons/${mode === 'all' ? 'list' : mode === 'review' ? 'review' : 'daily'}.svg`} 
+              src={`/icons/${mode === 'all' ? 'list' : mode === 'review' ? 'review' : mode === 'daily' ? 'daily' : 'target'}.svg`} 
               alt="" 
               className={`w-3.5 h-3.5 transition-colors ${isActive ? 'brightness-0 invert' : 'opacity-60 grayscale'}`} 
             />

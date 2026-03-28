@@ -45,6 +45,12 @@ export interface WatchClientProps {
   isLoggedIn: boolean;
   relatedQuizzes: RelatedQuiz[];
   userStatus?: { xp: number; level: number; role: string };
+  missionProgress?: {
+    missionQuizIds: string[];
+    solvedCount: number;
+    totalCount: number;
+    includesCurrentQuiz: boolean;
+  };
 }
 
 export default function WatchClient({
@@ -55,7 +61,8 @@ export default function WatchClient({
   initialCleared,
   isLoggedIn,
   relatedQuizzes,
-  userStatus
+  userStatus,
+  missionProgress,
 }: WatchClientProps) {
   const router = useRouter();
   const { locale, setLocale } = usePreferredLocale();
@@ -74,6 +81,7 @@ export default function WatchClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<'correct' | 'incorrect' | null>(null);
   const [explanationMode, setExplanationMode] = useState<'gentle' | 'full'>('gentle');
+  const [missionSolvedCount, setMissionSolvedCount] = useState(missionProgress?.solvedCount || 0);
   const quizVisualRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -126,6 +134,7 @@ export default function WatchClient({
 
   const normalizeAnswer = (value: string) =>
     value.trim().replace(/\s+/g, '').toLowerCase();
+  const missionCompleted = missionProgress ? missionSolvedCount >= missionProgress.totalCount : false;
 
   const handleAction = async (action: 'bookmark' | 'like') => {
     if (!isOnline) {
@@ -173,6 +182,13 @@ export default function WatchClient({
     if (isLoggedIn) {
       if (isCorrect && !isCleared) {
         setIsCleared(true);
+      }
+      if (
+        isCorrect &&
+        missionProgress?.includesCurrentQuiz &&
+        !initialCleared
+      ) {
+        setMissionSolvedCount((count) => Math.min(count + 1, missionProgress.totalCount));
       }
       await fetch('/api/user/actions', {
         method: 'POST',
@@ -242,6 +258,34 @@ export default function WatchClient({
                     : locale === 'en'
                       ? 'You are in offline light mode. You can solve quizzes, but comments, likes, and saves need a connection.'
                       : '当前为离线轻量模式。你可以做题，但评论、点赞和收藏需要联网后使用。'}
+                </div>
+              </div>
+            )}
+            {missionProgress?.includesCurrentQuiz && (
+              <div className={`mb-4 rounded-3xl border px-4 py-4 ${missionCompleted ? 'border-fuchsia-300 bg-fuchsia-50/80' : 'border-fuchsia-200/70 bg-fuchsia-50/70'}`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.25em] text-fuchsia-600">
+                      {locale === 'ja' ? '弱点克服ミッション' : locale === 'en' ? 'Weakness Mission' : '薄弱攻克任务'}
+                    </div>
+                    <div className="mt-1 text-sm sm:text-base font-black text-zinc-900">
+                      {missionCompleted
+                        ? (locale === 'ja' ? '5問ミッション達成！この調子で次の分野へ進みましょう。' : locale === 'en' ? 'Mission complete! Great job pushing through your weak area.' : '5题任务已完成！继续保持这个节奏。')
+                        : (locale === 'ja' ? 'この問題は、いま取り組むべき5問ミッションの1つです。' : locale === 'en' ? 'This quiz is part of your current 5-question improvement mission.' : '这道题属于你当前的5题攻克任务。')}
+                    </div>
+                  </div>
+                  <div className="min-w-[180px]">
+                    <div className="flex items-center justify-between text-xs font-black text-fuchsia-600 mb-2">
+                      <span>{locale === 'ja' ? '進捗' : locale === 'en' ? 'Progress' : '进度'}</span>
+                      <span>{missionSolvedCount} / {missionProgress.totalCount}</span>
+                    </div>
+                    <div className="h-3 rounded-full bg-white/80 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-fuchsia-400 to-pink-500 transition-all duration-500"
+                        style={{ width: `${(missionSolvedCount / Math.max(missionProgress.totalCount, 1)) * 100}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

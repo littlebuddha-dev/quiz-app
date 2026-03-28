@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import { Locale } from '../types';
 import LatexRenderer from '../components/LatexRenderer';
 import { AI_MODELS, DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import { getDefaultEducationalGuidelines, getEducationalGuidelinesValidation, normalizeEducationalGuidelines } from '@/lib/ai-prompts';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 
 const SUPPORTED_LOCALES: Locale[] = ['ja', 'en', 'zh'];
@@ -89,6 +90,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   };
 
   const [formData, setFormData] = useState(initialForm);
+
+  const formatAdminTimestamp = (value: string | number | Date) =>
+    new Intl.DateTimeFormat('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
 
 
   // クイズのフィルタリングとソート
@@ -461,6 +472,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           systemPrompt,
           correctionPrompt,
           modelId: getModelById(selectedModel).generatorId,
+          locale,
         })
       });
       
@@ -790,11 +802,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         const data = await res.json();
         if (data && (data as any).value) {
-          setEduData(JSON.parse((data as any).value));
+          setEduData(normalizeEducationalGuidelines(JSON.parse((data as any).value)));
+        } else {
+          setEduData(getDefaultEducationalGuidelines());
         }
+      } else {
+        setEduData(getDefaultEducationalGuidelines());
       }
     } catch (err) {
       console.error(err);
+      setEduData(getDefaultEducationalGuidelines());
     }
     setLoading(false);
   };
@@ -809,10 +826,12 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     if (!eduData) return;
     setLoading(true);
     try {
+      const normalizedEduData = normalizeEducationalGuidelines(eduData);
+      setEduData(normalizedEduData);
       const res = await fetchWithRetry('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'educational_guidelines', value: JSON.stringify(eduData) })
+        body: JSON.stringify({ key: 'educational_guidelines', value: JSON.stringify(normalizedEduData) })
       });
       if (res.ok) {
         alert('教育内容設定を更新しました');
@@ -827,6 +846,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   };
 
   const currentTranslation = formData.translations[activeTab];
+  const eduValidation = useMemo(() => (eduData ? getEducationalGuidelinesValidation(eduData) : []), [eduData]);
+  const activeEduValidation = eduValidation.find((item: any) => item.group === eduGroup);
 
   return (
     <div className="pt-20 text-[var(--foreground)] min-h-screen">
@@ -1100,7 +1121,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <div className="mt-3 space-y-3 text-indigo-100 font-medium">
                       <p>Cloudflare Workers Cron Triggers等を利用して、以下のURLにアクセスすることで定期生成が可能です：</p>
                       <code className="block bg-black/30 p-2.5 rounded text-[10px] text-white break-all border border-white/5">
-                        {typeof window !== 'undefined' ? window.location.origin : ''}/api/admin/cron?secret=YOUR_SECRET
+                        /api/admin/cron?secret=YOUR_SECRET
                       </code>
                       <p className="opacity-70 leading-relaxed font-bold">
                         1. 環境変数 <code>CRON_SECRET</code> を定義してください。<br />
@@ -1899,7 +1920,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                             {comment.userName}
                           </span>
                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                            {new Date(comment.createdAt).toLocaleString()}
+                            {formatAdminTimestamp(comment.createdAt)}
                           </span>
                         </div>
                         <p className="text-sm font-bold leading-relaxed break-words whitespace-pre-wrap text-zinc-700 dark:text-zinc-200">
@@ -1957,38 +1978,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   <p className="text-zinc-400 font-bold mb-4">設定データがまだありません。</p>
                   <button
                     onClick={() => {
-                      const initial = {
-                        "小学校": {
-                          "ageRange": "6歳〜12歳",
-                          "content": {
-                            "国語": "漢字の読み書き、古典の世界に親しむこと、ローマ字、読書を通した情報の扱い方、話の構成を考える能力を学びます。",
-                            "社会": "身近な地域や市区町村の様子、47都道府県の名称と位置、我が国の歴史上の主な事象、グローバル化する世界と日本の役割、憲法の基本原則などを学びます。",
-                            "算数": "分数の計算（加法や減法）、小数の計算、図形の面積や体積の求め方、データの活用（グラフの読解）、プログラミング的思考の基礎を学びます。",
-                            "理科": "空気と水の性質、燃焼の仕組み、物の溶け方、振り子の運動、電流の働き、月や星、気象現象、生物の観察（プログラミング活用を含む）を学びます。",
-                            "生活": "身近な動植物への親しみ、四季の変化、遊びの工夫、公共施設の利用、自分自身の成長への気づきを学びます。"
-                          }
-                        },
-                        "中学校": {
-                          "ageRange": "12歳〜15歳",
-                          "content": {
-                            "国語": "話すこと・聞くこと、書くこと、読むことに加え、古典（文語のきまり、漢文の訓読など）、情報の信頼性の吟味を学びます。",
-                            "社会": "地理的分野（世界の地域構成）、歴史的分野（古代文明から近現代まで）、公民的分野（日本国憲法、民主政治、市場経済、持続可能な社会）を学びます。",
-                            "数学": "正の数・負の数、方程式、一次関数、関数y=ax^2、図形の相似、三平方の定理、確率、標本の特性とデータの傾向を学びます。",
-                            "理科": "光と音、力の働き、化学変化と物質の質量、水溶液とイオン、生物の細胞と遺伝、気象、自然災害と科学技術を学びます。"
-                          }
-                        },
-                        "高等学校": {
-                          "ageRange": "15歳〜18歳",
-                          "content": {
-                            "国語": "「現代の国語」「言語文化」を共通必履修とし、論理思考を養います。",
-                            "地理歴史": "「地理総合」「歴史総合」が必履修。グローバルな視点を学びます。",
-                            "公民": "「公共」を必履修とし、自立した主体として社会に参画する力を養います。",
-                            "数学": "二次関数、微分・積分、ベクトル、データの分析を学びます。",
-                            "理科": "物理、化学、生物、地学を深く理解し、科学的な探究方法を学びます。"
-                          }
-                        }
-                      };
-                      setEduData(initial);
+                      setEduData(getDefaultEducationalGuidelines());
                     }}
                     className="text-blue-500 font-black hover:underline"
                   >
@@ -1997,6 +1987,33 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                 </div>
               ) : (
                 <div className="space-y-8">
+                  <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/30">
+                    <p className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest mb-2">学習指導要領の充足チェック</p>
+                    <p className="text-sm font-bold text-zinc-700 dark:text-zinc-200 leading-relaxed">
+                      AI はこのデータを題材選定と教育文脈の参照に使います。科目が欠けていたり説明が薄いと、生成される問題の幅と精度が落ちやすくなります。
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {eduValidation.map((item: any) => (
+                        <span
+                          key={item.group}
+                          className={`px-3 py-1 rounded-full text-[11px] font-black ${
+                            item.missingSubjects.length === 0 && item.emptySubjects.length === 0
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                          }`}
+                        >
+                          {item.group}: 欠落 {item.missingSubjects.length} / 空欄 {item.emptySubjects.length}
+                        </span>
+                      ))}
+                    </div>
+                    {activeEduValidation && (activeEduValidation.missingSubjects.length > 0 || activeEduValidation.emptySubjects.length > 0) && (
+                      <div className="mt-3 text-xs font-bold text-amber-800 dark:text-amber-300 space-y-1">
+                        {activeEduValidation.missingSubjects.length > 0 && <p>未登録科目: {activeEduValidation.missingSubjects.join('、')}</p>}
+                        {activeEduValidation.emptySubjects.length > 0 && <p>内容未入力: {activeEduValidation.emptySubjects.join('、')}</p>}
+                      </div>
+                    )}
+                  </div>
+
                   {/* 学年層の切り替え */}
                   <div className="flex gap-2 bg-[var(--background)] p-1.5 rounded-2xl border border-[var(--border)] overflow-x-auto no-scrollbar">
                     {(['小学校', '中学校', '高等学校'] as const).map((group) => (
@@ -2011,6 +2028,23 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   </div>
 
                   <div className="space-y-6">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEduData(normalizeEducationalGuidelines(eduData))}
+                        className="px-4 py-2 bg-white dark:bg-zinc-800 border border-blue-200 dark:border-blue-900/50 rounded-lg text-xs font-black text-blue-600 hover:bg-blue-50 transition-all"
+                      >
+                        不足科目を既定値で補完
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEduData(getDefaultEducationalGuidelines())}
+                        className="px-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-black text-zinc-600 hover:bg-zinc-50 transition-all"
+                      >
+                        既定の教育課程データに戻す
+                      </button>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-6">
                       {Object.entries(eduData[eduGroup]?.content || {}).map(([subject, content]: [string, any]) => (
                         <div key={subject} className="space-y-2">

@@ -131,6 +131,14 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   let isLiked = false;
   let isCleared = false;
   let userStatus: { xp: number; level: number; role: string } | undefined = undefined;
+  let missionProgress:
+    | {
+        missionQuizIds: string[];
+        solvedCount: number;
+        totalCount: number;
+        includesCurrentQuiz: boolean;
+      }
+    | undefined = undefined;
 
   if (clerkId) {
     const userDb = await prisma.user.findUnique({
@@ -147,6 +155,92 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       isBookmarked = userDb.bookmarks.length > 0;
       isLiked = userDb.likes.length > 0;
       isCleared = userDb.histories.length > 0;
+    }
+
+    if (userDb) {
+      const [allQuizSummaries, allHistories] = await Promise.all([
+        prisma.quiz.findMany({
+          select: {
+            id: true,
+            categoryId: true,
+            targetAge: true,
+          },
+        }),
+        prisma.quizHistory.findMany({
+          where: { userId: userDb.id },
+          select: {
+            quizId: true,
+            isCorrect: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 300,
+        }),
+      ]);
+
+      const sortedHistoryEntries = [...allHistories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      const reviewSeen = new Set<string>();
+      const quizAttemptMap = new Map<string, { correct: number; wrong: number }>();
+      const categoryAttemptMap = new Map<string, { accuracyBase: number; wrong: number }>();
+      const quizById = new Map(allQuizSummaries.map((quiz) => [quiz.id, quiz]));
+
+      for (const history of sortedHistoryEntries) {
+        const relatedQuiz = quizById.get(history.quizId);
+        if (!relatedQuiz) continue;
+
+        const quizStats = quizAttemptMap.get(history.quizId) || { correct: 0, wrong: 0 };
+        quizStats.correct += history.isCorrect ? 1 : 0;
+        quizStats.wrong += history.isCorrect ? 0 : 1;
+        quizAttemptMap.set(history.quizId, quizStats);
+
+        const categoryStats = categoryAttemptMap.get(relatedQuiz.categoryId) || { accuracyBase: 0, wrong: 0 };
+        categoryStats.accuracyBase += history.isCorrect ? 1 : 0;
+        categoryStats.wrong += history.isCorrect ? 0 : 1;
+        categoryAttemptMap.set(relatedQuiz.categoryId, categoryStats);
+
+        if (!history.isCorrect) {
+          reviewSeen.add(history.quizId);
+        }
+      }
+
+      const weakCategoryBoost = new Map(
+        Array.from(categoryAttemptMap.entries())
+          .sort((a, b) => b[1].wrong - a[1].wrong)
+          .map(([categoryId], index, list) => [categoryId, (list.length - index) * 15])
+      );
+
+      const ageCenter = rawQuiz.targetAge;
+      const missionQuizIds = allQuizSummaries
+        .map((quiz) => {
+          const attempts = quizAttemptMap.get(quiz.id);
+          const wrongCount = attempts?.wrong || 0;
+          const correctCount = attempts?.correct || 0;
+          const weakBoost = weakCategoryBoost.get(quiz.categoryId) || 0;
+          let score = weakBoost + wrongCount * 18 - correctCount * 6;
+
+          if (!attempts) score -= 20;
+          if (reviewSeen.has(quiz.id)) score += 12;
+          score -= Math.abs(quiz.targetAge - ageCenter);
+
+          return { id: quiz.id, score };
+        })
+        .filter((quiz) => quiz.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map((quiz) => quiz.id);
+
+      const solvedMissionSet = new Set(
+        sortedHistoryEntries
+          .filter((history) => history.isCorrect && missionQuizIds.includes(history.quizId))
+          .map((history) => history.quizId)
+      );
+
+      missionProgress = {
+        missionQuizIds,
+        solvedCount: solvedMissionSet.size,
+        totalCount: missionQuizIds.length,
+        includesCurrentQuiz: missionQuizIds.includes(id),
+      };
     }
   }
 
@@ -242,6 +336,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       isLoggedIn={!!clerkId}
       relatedQuizzes={relatedQuizzes}
       userStatus={userStatus}
+      missionProgress={missionProgress}
     />
   );
 }

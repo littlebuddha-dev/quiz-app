@@ -75,6 +75,20 @@ export type AbilityDomainScore = {
   accuracy: number;
 };
 
+export type AnalysisInsight = {
+  id: string;
+  priority: 'high' | 'medium' | 'positive';
+  title: Record<Locale, string>;
+  body: Record<Locale, string>;
+};
+
+export type CourseActionPlan = {
+  primarySubjectId: string | null;
+  primaryCategoryId: string | null;
+  supportSubjectId: string | null;
+  recommendation: Record<Locale, string>;
+};
+
 export const CURRICULUM_SOURCE_LINKS: Record<CurriculumSourceLevel, string> = {
   elementary: 'https://www.mext.go.jp/a_menu/shotou/new-cs/youryou/syo/',
   juniorHigh: 'https://www.mext.go.jp/a_menu/shotou/new-cs/youryou/chu/',
@@ -675,4 +689,134 @@ export function countActiveDays(histories: HistoryLike[], recentDays: number) {
       .filter((history) => history.createdAt >= cutoff)
       .map((history) => history.createdAt.toISOString().slice(0, 10))
   ).size;
+}
+
+export function buildAnalysisInsights(params: {
+  domainScores: AbilityDomainScore[];
+  weakCategories: Array<{ label: string; accuracy: number; totalAttempts: number }>;
+  totalAttempts: number;
+  activeDays14: number;
+  currentStreak: number;
+  overallAccuracy: number;
+}): AnalysisInsight[] {
+  const { domainScores, weakCategories, totalAttempts, activeDays14, currentStreak, overallAccuracy } = params;
+  const strongest = [...domainScores].sort((a, b) => b.accuracy - a.accuracy)[0];
+  const weakest = [...domainScores].sort((a, b) => a.accuracy - b.accuracy)[0];
+  const topWeakCategory = weakCategories[0];
+  const insights: AnalysisInsight[] = [];
+
+  if (topWeakCategory) {
+    insights.push({
+      id: 'focus-weak-category',
+      priority: 'high',
+      title: {
+        ja: `最優先は「${topWeakCategory.label}」`,
+        en: `Focus on ${topWeakCategory.label} next`,
+        zh: `优先攻克「${topWeakCategory.label}」`,
+      },
+      body: {
+        ja: `この分野は正答率 ${topWeakCategory.accuracy}% で、挑戦回数も ${topWeakCategory.totalAttempts} 回あります。まずは同じカテゴリを5問まとめて復習すると効率的です。`,
+        en: `This topic is at ${topWeakCategory.accuracy}% accuracy across ${topWeakCategory.totalAttempts} attempts. A focused set of five retry questions will give the biggest return.`,
+        zh: `这个领域的正确率为 ${topWeakCategory.accuracy}%，且已作答 ${topWeakCategory.totalAttempts} 次。先集中复习同类 5 题最有效。`,
+      },
+    });
+  }
+
+  if (activeDays14 <= 4) {
+    insights.push({
+      id: 'habit',
+      priority: 'medium',
+      title: {
+        ja: 'まずは学習頻度を上げる',
+        en: 'Raise your study frequency first',
+        zh: '先提高学习频率',
+      },
+      body: {
+        ja: `直近14日で学習したのは ${activeDays14} 日です。長時間よりも、1日3分のおすすめを毎日1セット続ける方が伸びやすい状態です。`,
+        en: `You studied on ${activeDays14} of the last 14 days. Short daily sessions will help more than occasional long ones right now.`,
+        zh: `最近14天里你学习了 ${activeDays14} 天。现阶段比起偶尔长时间学习，更适合每天完成一组短练习。`,
+      },
+    });
+  } else if (currentStreak >= 3) {
+    insights.push({
+      id: 'streak-positive',
+      priority: 'positive',
+      title: {
+        ja: '学習習慣はいい流れです',
+        en: 'Your study habit is in a good rhythm',
+        zh: '你的学习节奏不错',
+      },
+      body: {
+        ja: `${currentStreak}日連続で学習できています。この勢いのまま、苦手カテゴリを先に1セット、そのあと得意分野を1問入れる順番がおすすめです。`,
+        en: `You are on a ${currentStreak}-day streak. Keep the rhythm by doing one weakness set first, then one confidence-building quiz.`,
+        zh: `你已经连续学习 ${currentStreak} 天。建议先做一组薄弱点题目，再做一题擅长领域来保持动力。`,
+      },
+    });
+  }
+
+  if (strongest && weakest && strongest.domain.id !== weakest.domain.id) {
+    insights.push({
+      id: 'bridge-strength',
+      priority: 'medium',
+      title: {
+        ja: `得意な「${strongest.domain.label}」を橋にする`,
+        en: `Use ${strongest.domain.label} as your bridge`,
+        zh: `把「${strongest.domain.label}」当作你的桥梁`,
+      },
+      body: {
+        ja: `全体正答率は ${overallAccuracy}% です。得意な力を使って苦手分野に入ると続きやすいので、${strongest.domain.label} に近い切り口で ${weakest.domain.label} の問題へ入るのが有効です。`,
+        en: `Your overall accuracy is ${overallAccuracy}%. It often helps to enter weaker topics through the lens of your strongest skill.`,
+        zh: `你的整体正确率为 ${overallAccuracy}%。从自己最擅长的能力切入薄弱领域，通常更容易坚持并提升。`,
+      },
+    });
+  }
+
+  if (totalAttempts < 15) {
+    insights.push({
+      id: 'sample-size',
+      priority: 'medium',
+      title: {
+        ja: '分析精度はこれから上がります',
+        en: 'Your analysis will sharpen with more data',
+        zh: '再多做一些题，分析会更准确',
+      },
+      body: {
+        ja: `まだ挑戦数は ${totalAttempts} 回です。まずは20問を目安に解くと、苦手判定とおすすめの精度が安定します。`,
+        en: `You have ${totalAttempts} attempts so far. Once you reach about 20, your weak-point analysis and recommendations become more reliable.`,
+        zh: `你目前一共作答 ${totalAttempts} 次。先做到约 20 题，薄弱点分析和推荐会更稳定。`,
+      },
+    });
+  }
+
+  return insights.slice(0, 4);
+}
+
+export function buildCourseActionPlan(course: CourseProgress, locale: Locale): CourseActionPlan {
+  const sortedSubjects = [...course.subjects].sort((a, b) => {
+    if (a.progress !== b.progress) return a.progress - b.progress;
+    return b.availableQuizCount - a.availableQuizCount;
+  });
+  const primary = sortedSubjects.find((subject) => subject.availableQuizCount > 0) || sortedSubjects[0] || null;
+  const support = [...course.subjects]
+    .sort((a, b) => b.progress - a.progress)
+    .find((subject) => subject.availableQuizCount > 0 && subject.subject.id !== primary?.subject.id) || null;
+
+  const recommendation = primary
+    ? {
+        ja: `今週は「${primary.subject.label}」を優先し、${primary.subject.strands.slice(0, 2).join('・')} を中心に進めましょう。`,
+        en: `Prioritize ${primary.subject.label} this week, especially ${primary.subject.strands.slice(0, 2).join(' and ')}.`,
+        zh: `本周优先学习「${primary.subject.label}」，重点放在 ${primary.subject.strands.slice(0, 2).join('、')}。`,
+      }
+    : {
+        ja: '利用できる問題が増えたら、ここに優先学習の提案が表示されます。',
+        en: 'Priority study guidance will appear here once more quizzes are available.',
+        zh: '可用题目更多后，这里会显示优先学习建议。',
+      };
+
+  return {
+    primarySubjectId: primary?.subject.id || null,
+    primaryCategoryId: primary?.categoryIds[0] || null,
+    supportSubjectId: support?.subject.id || null,
+    recommendation: recommendation[locale] ? recommendation : recommendation,
+  };
 }
