@@ -1097,9 +1097,8 @@ export async function POST(req: NextRequest) {
     // If modelId is already a raw Gemini model name (passed from auto-generator), use it.
     // Otherwise use the generatorId from the hybrid config.
     selectedModel = (modelId && !modelId.startsWith('hybrid-')) ? modelId : hybridModel.generatorId;
-    if (isDeferredAdminGeneration) {
-      selectedModel = 'gemini-2.5-flash-lite';
-    }
+    // deferred admin生成でもユーザー選択モデルを優先（lite モデルは構造不正リスクあり）
+    // selectedModel は hybridModel.generatorId をそのまま使用
 
     const persona = getPersonaByAge(parsedAge);
 
@@ -1184,11 +1183,11 @@ ${finalSystemInstruction}
     const modelCandidates = isDeferredAdminGeneration
       ? Array.from(
           new Set([
-            'gemini-2.5-flash-lite',
-            'gemini-2.5-flash',
-            'gemini-flash-latest',
             selectedModel,
             hybridModel.generatorId,
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
+            'gemini-flash-latest',
           ])
         )
       : Array.from(
@@ -1258,12 +1257,43 @@ ${finalSystemInstruction}
 
     // 必須データの存在チェック
     if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
-      console.error('Invalid structure in AI response:', multiLangData);
-      return NextResponse.json({
-        error: 'INVALID_STRUCTURE',
-        message: 'AIの回答データの構造が不完全でした。もう一度お試しください。',
-        rawResponse: multiLangData
-      }, { status: 500 });
+      console.error('Invalid structure in AI response:', JSON.stringify(multiLangData).slice(0, 500));
+
+      // 構造不正時の自動リトライ（1回のみ）
+      console.log('[quiz-generator] retrying text generation due to invalid structure...');
+      try {
+        const retryGeneration = await generateQuizPayload({
+          ai,
+          modelsToTry: modelCandidates.filter(m => m !== 'gemini-2.5-flash-lite'),
+          prompt: textPrompt + '\n\n## 再生成指示\n必ず {"ja": {...}, "en": {...}, "zh": {...}} の構造でJSONを返してください。各ロケールには title, question, hint, answer, explanation フィールドを含めてください。',
+          categoryName: categoryName || categoryId || '未指定',
+        });
+        const retryText = retryGeneration.response.text || '{}';
+        selectedModel = retryGeneration.model;
+        multiLangData = parseAiJsonResponse(retryText);
+        multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
+        if (multiLangData && !multiLangData.ja) {
+          const root = findQuizRoot(multiLangData);
+          if (root) multiLangData = root;
+        }
+        multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
+        multiLangData = normalizeJapaneseQuizFields(multiLangData as MultiLangQuiz);
+        if (detectLanguageSubjectRule(categoryNames)) {
+          multiLangData = normalizeLanguageSubjectQuizFields(multiLangData as MultiLangQuiz);
+        }
+      } catch (structureRetryErr: any) {
+        console.error('Structure retry also failed:', structureRetryErr.message);
+      }
+
+      // リトライ後も不正なら最終エラー
+      if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
+        return NextResponse.json({
+          error: 'INVALID_STRUCTURE',
+          message: 'AIの回答データの構造が不完全でした。もう一度お試しください。',
+          rawResponse: multiLangData
+        }, { status: 500 });
+      }
+      console.log('[quiz-generator] structure retry succeeded');
     }
 
     // トークン履歴などの保存用のデータ準備
