@@ -166,8 +166,9 @@ Requirements:
         data: { imageUrl: baseImageUrl || '' },
       });
 
+      // 共通ベース画像を「全てのロケール」に反映する（英語、中国語タブの画像なし問題を解消）
       await prisma.quizTranslation.updateMany({
-        where: { quizId, locale: 'ja' },
+        where: { quizId },
         data: { imageUrl: baseImageUrl },
       });
     }
