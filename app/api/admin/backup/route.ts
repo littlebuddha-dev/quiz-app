@@ -268,63 +268,44 @@ export async function POST(req: NextRequest) {
     );
     const importableChannels = backupChannels.filter((entry) => !skippedBackupUserIds.has(entry.userId));
 
-    const firstPhaseDeletes: Prisma.PrismaPromise<unknown>[] = [];
     if (hasUserData || hasDbData) {
-      firstPhaseDeletes.push(
-        prisma.comment.deleteMany({}),
-        prisma.quizLike.deleteMany({}),
-        prisma.quizHistory.deleteMany({}),
-        prisma.bookmark.deleteMany({}),
-        prisma.subscription.deleteMany({}) // これはチャンネルにも依存するが安全のため削除
-      );
+      await prisma.comment.deleteMany({});
+      await prisma.quizLike.deleteMany({});
+      await prisma.quizHistory.deleteMany({});
+      await prisma.bookmark.deleteMany({});
+      await prisma.subscription.deleteMany({});
     }
     if (hasDbData) {
-      firstPhaseDeletes.push(prisma.quizTranslation.deleteMany({}));
-    }
-    if (firstPhaseDeletes.length > 0) {
-      await prisma.$transaction(firstPhaseDeletes);
+      await prisma.quizTranslation.deleteMany({});
     }
 
-    const secondPhaseDeletes: Prisma.PrismaPromise<unknown>[] = [];
     if (hasDbData) {
-      secondPhaseDeletes.push(
-        prisma.quiz.deleteMany({}),
-        prisma.category.deleteMany({}),
-        prisma.apiUsage.deleteMany({}),
-        prisma.setting.deleteMany({})
-      );
+      await prisma.quiz.deleteMany({});
+      await prisma.category.deleteMany({});
+      await prisma.apiUsage.deleteMany({});
+      await prisma.setting.deleteMany({});
     }
     if (hasUserData) {
-      secondPhaseDeletes.push(prisma.channel.deleteMany({}));
+      await prisma.channel.deleteMany({});
       if (protectedUserIdSet.size > 0) {
-        secondPhaseDeletes.push(
-          prisma.user.deleteMany({
-            where: { id: { notIn: Array.from(protectedUserIdSet) } },
-          })
-        );
+        await prisma.user.deleteMany({
+          where: { id: { notIn: Array.from(protectedUserIdSet) } },
+        });
       } else {
-        secondPhaseDeletes.push(prisma.user.deleteMany({}));
+        await prisma.user.deleteMany({});
       }
     }
-    if (secondPhaseDeletes.length > 0) {
-      await prisma.$transaction(secondPhaseDeletes);
-    }
 
-    const phaseOneWrites: Prisma.PrismaPromise<unknown>[] = [];
     if (includeUsers && importableUsers.length > 0) {
-      phaseOneWrites.push(prisma.user.createMany({ data: importableUsers }));
+      await prisma.user.createMany({ data: importableUsers });
     }
-    if (data.categories.length > 0) {
-      phaseOneWrites.push(prisma.category.createMany({ data: data.categories as Prisma.CategoryCreateManyInput[] }));
+    if (data.categories && data.categories.length > 0) {
+      await prisma.category.createMany({ data: data.categories as Prisma.CategoryCreateManyInput[] });
     }
     if (includeUsers && importableChannels.length > 0) {
-      phaseOneWrites.push(prisma.channel.createMany({ data: importableChannels }));
-    }
-    if (phaseOneWrites.length > 0) {
-      await prisma.$transaction(phaseOneWrites);
+      await prisma.channel.createMany({ data: importableChannels });
     }
 
-    const phaseTwoWrites: Prisma.PrismaPromise<unknown>[] = [];
     if (hasDbData && data.quizzes && data.quizzes.length > 0) {
       const quizData = hasUserData
         ? (data.quizzes as Prisma.QuizCreateManyInput[]).map((quiz) => ({
@@ -335,10 +316,7 @@ export async function POST(req: NextRequest) {
             ...quiz,
             channelId: null,
           }));
-      phaseTwoWrites.push(prisma.quiz.createMany({ data: quizData }));
-    }
-    if (phaseTwoWrites.length > 0) {
-      await prisma.$transaction(phaseTwoWrites);
+      await prisma.quiz.createMany({ data: quizData });
     }
 
     if (hasDbData && data.translations && data.translations.length > 0) {
@@ -366,13 +344,12 @@ export async function POST(req: NextRequest) {
     }
 
 
-    const phaseThreeWrites: Prisma.PrismaPromise<unknown>[] = [];
     if (hasUserData && Array.isArray(data.comments) && data.comments.length > 0) {
       const comments = (data.comments as Prisma.CommentCreateManyInput[]).filter(
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
       if (comments.length > 0) {
-        phaseThreeWrites.push(prisma.comment.createMany({ data: comments }));
+        await prisma.comment.createMany({ data: comments });
       }
     }
     if (hasUserData && Array.isArray(data.bookmarks) && data.bookmarks.length > 0) {
@@ -380,7 +357,7 @@ export async function POST(req: NextRequest) {
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
       if (bookmarks.length > 0) {
-        phaseThreeWrites.push(prisma.bookmark.createMany({ data: bookmarks }));
+        await prisma.bookmark.createMany({ data: bookmarks });
       }
     }
     if (hasUserData && Array.isArray(data.histories) && data.histories.length > 0) {
@@ -388,7 +365,7 @@ export async function POST(req: NextRequest) {
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
       if (histories.length > 0) {
-        phaseThreeWrites.push(prisma.quizHistory.createMany({ data: histories }));
+        await prisma.quizHistory.createMany({ data: histories });
       }
     }
     if (hasUserData && Array.isArray(data.likes) && data.likes.length > 0) {
@@ -396,7 +373,7 @@ export async function POST(req: NextRequest) {
         (entry) => !skippedBackupUserIds.has(entry.userId)
       );
       if (likes.length > 0) {
-        phaseThreeWrites.push(prisma.quizLike.createMany({ data: likes }));
+        await prisma.quizLike.createMany({ data: likes });
       }
     }
     if (hasUserData && Array.isArray(data.subscriptions) && data.subscriptions.length > 0) {
@@ -404,17 +381,14 @@ export async function POST(req: NextRequest) {
         (entry) => !skippedBackupUserIds.has(entry.userId) && !skippedBackupChannelIds.has(entry.channelId)
       );
       if (subscriptions.length > 0) {
-        phaseThreeWrites.push(prisma.subscription.createMany({ data: subscriptions }));
+        await prisma.subscription.createMany({ data: subscriptions });
       }
     }
     if (hasDbData && Array.isArray(data.settings) && data.settings.length > 0) {
-      phaseThreeWrites.push(prisma.setting.createMany({ data: data.settings as Prisma.SettingCreateManyInput[] }));
+      await prisma.setting.createMany({ data: data.settings as Prisma.SettingCreateManyInput[] });
     }
     if (hasDbData && Array.isArray(data.apiUsage) && data.apiUsage.length > 0) {
-      phaseThreeWrites.push(prisma.apiUsage.createMany({ data: data.apiUsage as Prisma.ApiUsageCreateManyInput[] }));
-    }
-    if (phaseThreeWrites.length > 0) {
-      await prisma.$transaction(phaseThreeWrites);
+      await prisma.apiUsage.createMany({ data: data.apiUsage as Prisma.ApiUsageCreateManyInput[] });
     }
 
     return NextResponse.json({
