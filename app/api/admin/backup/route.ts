@@ -231,17 +231,10 @@ export async function POST(req: NextRequest) {
 
     const contentType = req.headers.get('content-type') || '';
     
-    // ZIPファイル（multipart/form-data）の場合の処理
-    if (contentType.includes('multipart/form-data')) {
-      const formData = await req.formData();
-      const file = formData.get('file');
-
-      // next/server の File オブジェクト判定
-      if (!file || typeof file !== 'object' || !('arrayBuffer' in file)) {
-        return NextResponse.json({ error: 'INVALID_FILE', message: '有効なファイルがアップロードされていません。' }, { status: 400 });
-      }
-
-      const buffer = Buffer.from(await (file as File).arrayBuffer());
+    // ZIPファイル（生のバイナリデータ送信）の場合の処理
+    // FormData（multipart/form-data）よりも解析エラーが起きにくく、大容量に強い
+    if (contentType.includes('application/zip')) {
+      const buffer = Buffer.from(await req.arrayBuffer());
       const zip = new AdmZip(buffer);
       const zipEntries = zip.getEntries();
       

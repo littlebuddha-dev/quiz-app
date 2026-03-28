@@ -277,11 +277,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     try {
       let res;
       if (file.name.endsWith('.zip')) {
-        const formData = new FormData();
-        formData.append('file', file);
         res = await fetch('/api/admin/backup', {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/zip' },
+          body: file, // File (Blob) を直接送信
         });
       } else {
         const rawText = await file.text();
