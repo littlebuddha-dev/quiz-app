@@ -887,7 +887,7 @@ export async function POST(req: NextRequest) {
     // Otherwise use the generatorId from the hybrid config.
     selectedModel = (modelId && !modelId.startsWith('hybrid-')) ? modelId : hybridModel.generatorId;
     if (isDeferredAdminGeneration) {
-      selectedModel = 'gemini-2.0-flash';
+      selectedModel = 'gemini-2.5-flash-lite';
     }
 
     const persona = getPersonaByAge(parsedAge);
@@ -973,7 +973,8 @@ ${finalSystemInstruction}
     const modelCandidates = isDeferredAdminGeneration
       ? Array.from(
           new Set([
-            'gemini-2.0-flash',
+            'gemini-2.5-flash-lite',
+            'gemini-2.5-flash',
             'gemini-flash-latest',
             selectedModel,
             hybridModel.generatorId,
@@ -983,7 +984,8 @@ ${finalSystemInstruction}
           new Set([
             selectedModel,
             hybridModel.generatorId,
-            'gemini-2.0-flash',
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
             'gemini-flash-latest',
           ])
         );
