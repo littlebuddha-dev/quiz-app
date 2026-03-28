@@ -63,6 +63,22 @@ type LocaleQuizEntry = {
   options?: string[] | string | null;
 };
 
+const LOCALE_KEY_ALIASES: Record<'ja' | 'en' | 'zh', string[]> = {
+  ja: ['ja', 'jp', 'japanese', 'japan', '日本語', '日本'],
+  en: ['en', 'english', '英語', '英'],
+  zh: ['zh', 'cn', 'chinese', 'simplifiedchinese', 'mandarin', '中国語', '中文', '简体中文', '簡体中文'],
+};
+
+const ENTRY_FIELD_ALIASES: Record<keyof LocaleQuizEntry, string[]> = {
+  title: ['title', 'name', 'headline'],
+  question: ['question', 'problem', 'prompt', 'body'],
+  hint: ['hint', 'clue', 'tip'],
+  answer: ['answer', 'correctAnswer', 'solution', 'correct_answer'],
+  explanation: ['explanation', 'reason', 'description', '解説'],
+  type: ['type', 'quizType', 'format'],
+  options: ['options', 'choices', 'selectOptions', 'items'],
+};
+
 const PROGRAMMING_SUBJECT_ALIASES = [
   'プログラミング',
   'programming',
@@ -677,6 +693,73 @@ function inferLocaleFromEntry(entry: LocaleQuizEntry) {
   return 'zh' as const;
 }
 
+function normalizeLocaleKey(value: string) {
+  return value.toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function detectLocaleKey(value: string): 'ja' | 'en' | 'zh' | null {
+  const normalized = normalizeLocaleKey(value);
+  for (const locale of ['ja', 'en', 'zh'] as const) {
+    if (LOCALE_KEY_ALIASES[locale].some((alias) => normalizeLocaleKey(alias) === normalized)) {
+      return locale;
+    }
+  }
+  return null;
+}
+
+function pickAliasedField(source: Record<string, unknown>, field: keyof LocaleQuizEntry) {
+  for (const alias of ENTRY_FIELD_ALIASES[field]) {
+    if (alias in source) {
+      return source[alias];
+    }
+  }
+  return undefined;
+}
+
+function normalizeLocaleEntry(value: unknown): LocaleQuizEntry | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const question = pickAliasedField(record, 'question');
+  const answer = pickAliasedField(record, 'answer');
+  const title = pickAliasedField(record, 'title');
+  const hint = pickAliasedField(record, 'hint');
+  const explanation = pickAliasedField(record, 'explanation');
+  const type = pickAliasedField(record, 'type');
+  const options = pickAliasedField(record, 'options');
+
+  if (![question, answer, title, hint, explanation].some((field) => typeof field === 'string' && field.trim() !== '')) {
+    return null;
+  }
+
+  return {
+    title: typeof title === 'string' ? title : undefined,
+    question: typeof question === 'string' ? question : undefined,
+    hint: typeof hint === 'string' ? hint : undefined,
+    answer: typeof answer === 'string' ? answer : undefined,
+    explanation: typeof explanation === 'string' ? explanation : null,
+    type: type === 'CHOICE' || type === 'TEXT' ? type : undefined,
+    options: Array.isArray(options) || typeof options === 'string' ? options : null,
+  };
+}
+
+function extractLocaleEntriesFromObject(candidate: Record<string, unknown>) {
+  const result: Partial<Record<'ja' | 'en' | 'zh', LocaleQuizEntry>> = {};
+
+  for (const [key, value] of Object.entries(candidate)) {
+    const locale = detectLocaleKey(key);
+    if (!locale) continue;
+    const normalized = normalizeLocaleEntry(value);
+    if (normalized) {
+      result[locale] = normalized;
+    }
+  }
+
+  return result;
+}
+
 function coerceMultiLangQuizResponse(value: unknown): MultiLangQuiz | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -684,6 +767,11 @@ function coerceMultiLangQuizResponse(value: unknown): MultiLangQuiz | null {
 
   if (!Array.isArray(value)) {
     const candidate = value as Record<string, unknown>;
+    const localeEntries = extractLocaleEntriesFromObject(candidate);
+    if (localeEntries.ja && localeEntries.en && localeEntries.zh) {
+      return localeEntries as MultiLangQuiz;
+    }
+
     if (candidate.ja && candidate.en && candidate.zh) {
       return candidate as unknown as MultiLangQuiz;
     }
@@ -699,8 +787,7 @@ function coerceMultiLangQuizResponse(value: unknown): MultiLangQuiz | null {
   }
 
   const localeEntries = value.filter(
-    (entry): entry is LocaleQuizEntry =>
-      !!entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).question === 'string'
+    (entry): entry is LocaleQuizEntry => Boolean(normalizeLocaleEntry(entry))
   );
 
   if (localeEntries.length < 3) {
@@ -709,15 +796,19 @@ function coerceMultiLangQuizResponse(value: unknown): MultiLangQuiz | null {
 
   const result: Partial<Record<'ja' | 'en' | 'zh', LocaleQuizEntry>> = {};
   for (const entry of localeEntries) {
-    const locale = inferLocaleFromEntry(entry);
+    const normalizedEntry = normalizeLocaleEntry(entry);
+    if (!normalizedEntry) continue;
+    const locale = inferLocaleFromEntry(normalizedEntry);
     if (!result[locale]) {
-      result[locale] = entry;
+      result[locale] = normalizedEntry;
     }
   }
 
   const fallbackOrder: Array<'ja' | 'en' | 'zh'> = ['ja', 'en', 'zh'];
   let fallbackIndex = 0;
   for (const entry of localeEntries) {
+    const normalizedEntry = normalizeLocaleEntry(entry);
+    if (!normalizedEntry) continue;
     while (fallbackIndex < fallbackOrder.length && result[fallbackOrder[fallbackIndex]]) {
       fallbackIndex += 1;
     }
@@ -726,7 +817,7 @@ function coerceMultiLangQuizResponse(value: unknown): MultiLangQuiz | null {
     }
     const locale = fallbackOrder[fallbackIndex];
     if (!result[locale]) {
-      result[locale] = entry;
+      result[locale] = normalizedEntry;
     }
   }
 
