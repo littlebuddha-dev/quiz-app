@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
                     },
                     body: JSON.stringify({
                       quizId: quizData.id,
-                      locale: 'ja',
+                      locale: 'all',
                       force: true,
                     }),
                   });

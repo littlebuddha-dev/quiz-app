@@ -795,7 +795,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quizId,
-          locale: targetLocale,
+          locale: 'all',
           force: true,
         }),
       });
@@ -805,9 +805,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         throw new Error(`Status ${imageRes.status}: ${errText}`);
       }
 
-      const imageData = (await imageRes.json()) as { imageUrl?: string };
-      if (imageData.imageUrl) {
-        setAiImageUrl(imageData.imageUrl);
+      const imageData = (await imageRes.json()) as {
+        imageUrl?: string;
+        imageUrls?: Partial<Record<Locale, string>>;
+      };
+      const localizedImageUrl = imageData.imageUrls?.[targetLocale] || imageData.imageUrl;
+      if (localizedImageUrl) {
+        setAiImageUrl(localizedImageUrl);
       }
       fetchQuizzes();
       return true;
