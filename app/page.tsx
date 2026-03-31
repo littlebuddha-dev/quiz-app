@@ -155,15 +155,6 @@ export default async function Home({
       where: {
         AND: [
           { targetAge: { gte: currentMinAge, lte: currentMaxAge } },
-          // カテゴリーの年齢範囲フィルタを結合条件で記述
-          {
-            category: {
-              AND: [
-                { minAge: { lte: currentMaxAge } },
-                { OR: [{ maxAge: null }, { maxAge: { gte: currentMinAge } }] }
-              ]
-            }
-          },
           activeCategory && activeCategory !== 'すべて'
             ? { categoryId: activeCategory }
             : {},

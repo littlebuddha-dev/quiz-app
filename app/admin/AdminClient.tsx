@@ -20,6 +20,22 @@ export type AdminClientProps = {
   initialComments?: any[]; // コメント管理用
 };
 
+type AutoGenerationSchedule = {
+  enabled: boolean;
+  time: string;
+  quantity: number;
+  quizType: 'TEXT' | 'CHOICE';
+  modelId: string;
+};
+
+const DEFAULT_AUTO_GENERATION_SCHEDULE: AutoGenerationSchedule = {
+  enabled: false,
+  time: '03:00',
+  quantity: 1,
+  quizType: 'TEXT',
+  modelId: DEFAULT_MODEL_ID,
+};
+
 export default function AdminClient({ initialQuizzes, categories, userStatus, initialComments = [] }: AdminClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
@@ -739,6 +755,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [bulkQuantity, setBulkQuantity] = useState(3);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [autoBalance, setAutoBalance] = useState(false);
+  const [autoGenerationSchedule, setAutoGenerationSchedule] = useState<AutoGenerationSchedule>(DEFAULT_AUTO_GENERATION_SCHEDULE);
+  const [autoGenerationLastRunAt, setAutoGenerationLastRunAt] = useState<string | null>(null);
+  const [autoGenerationSettingsLoading, setAutoGenerationSettingsLoading] = useState(false);
 
   const handleBulkGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -785,9 +804,55 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     }
   };
 
+  const fetchAutoGenerationSettings = async () => {
+    setAutoGenerationSettingsLoading(true);
+    try {
+      const [scheduleRes, lastRunRes] = await Promise.all([
+        fetch('/api/admin/settings?key=auto_generation_schedule'),
+        fetch('/api/admin/settings?key=auto_generation_last_run_at'),
+      ]);
+
+      if (scheduleRes.ok) {
+        const scheduleData = (await scheduleRes.json()) as { value?: string } | null;
+        if (scheduleData?.value) {
+          try {
+            const parsed = JSON.parse(scheduleData.value) as Partial<AutoGenerationSchedule>;
+            setAutoGenerationSchedule({
+              enabled: parsed.enabled ?? DEFAULT_AUTO_GENERATION_SCHEDULE.enabled,
+              time: parsed.time || DEFAULT_AUTO_GENERATION_SCHEDULE.time,
+              quantity: Math.max(1, Math.min(Number(parsed.quantity) || DEFAULT_AUTO_GENERATION_SCHEDULE.quantity, 10)),
+              quizType: parsed.quizType === 'CHOICE' ? 'CHOICE' : 'TEXT',
+              modelId: parsed.modelId || DEFAULT_AUTO_GENERATION_SCHEDULE.modelId,
+            });
+          } catch (error) {
+            console.error('Failed to parse auto generation schedule:', error);
+            setAutoGenerationSchedule(DEFAULT_AUTO_GENERATION_SCHEDULE);
+          }
+        } else {
+          setAutoGenerationSchedule(DEFAULT_AUTO_GENERATION_SCHEDULE);
+        }
+      }
+
+      if (lastRunRes.ok) {
+        const lastRunData = (await lastRunRes.json()) as { value?: string } | null;
+        setAutoGenerationLastRunAt(lastRunData?.value || null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch auto generation settings:', error);
+    } finally {
+      setAutoGenerationSettingsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (mainTab === 'usage') {
       fetchUsage();
+    }
+  }, [mainTab]);
+
+  useEffect(() => {
+    if (mainTab === 'ai') {
+      fetchAutoGenerationSettings();
     }
   }, [mainTab]);
 
@@ -808,6 +873,35 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     } catch (err) {
       console.error(err);
       alert('エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
+  const handleSaveAutoGenerationSchedule = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchWithRetry('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'auto_generation_schedule',
+          value: JSON.stringify({
+            ...autoGenerationSchedule,
+            quantity: Math.max(1, Math.min(autoGenerationSchedule.quantity, 10)),
+          }),
+        }),
+      });
+
+      if (res.ok) {
+        alert('自動生成の定期実行設定を保存しました');
+        fetchAutoGenerationSettings();
+      } else {
+        const err = (await res.json()) as any;
+        alert(err.error || '保存に失敗しました');
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert(`エラーが発生しました：\n${error.message || ''}`);
     }
     setLoading(false);
   };
@@ -1172,7 +1266,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
               </div>
 
               {/* 🚀 フルオート自動生成セクション */}
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-8 rounded-3xl shadow-xl text-white">
+	              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-8 rounded-3xl shadow-xl text-white">
                 <h2 className="text-xl font-black mb-6 flex items-center gap-2">
                   <span className="bg-white/20 p-2 rounded-xl text-lg">🤖</span>
                   全自動バルク生成
@@ -1236,7 +1330,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     {bulkLoading ? '🤖 自動トピック考案 & 生成中...' : 'バルク生成を開始する ⚡️'}
                   </button>
 
-                  <details className="text-[10px] bg-black/10 rounded-xl p-4 border border-white/10">
+	                  <details className="text-[10px] bg-black/10 rounded-xl p-4 border border-white/10">
                     <summary className="cursor-pointer font-black text-indigo-200">🕒 定期的な自動公開（Cron）の設定方法</summary>
                     <div className="mt-3 space-y-3 text-indigo-100 font-medium">
                       <p>Cloudflare Workers Cron Triggers等を利用して、以下のURLにアクセスすることで定期生成が可能です：</p>
@@ -1248,11 +1342,92 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                         2. <code>?secret=...</code> にその値を指定してGETリクエストを送ると、全ジャンルのクイズが自動で1つずつ生成されます。
                       </p>
                     </div>
-                  </details>
-                </form>
-              </div>
-            </div>
-          )}
+	                  </details>
+	                </form>
+	                <div className="mt-6 rounded-2xl border border-white/15 bg-black/10 p-5 space-y-4">
+	                  <div className="flex items-center justify-between gap-4">
+	                    <div>
+	                      <h3 className="text-sm font-black">毎日の自動生成</h3>
+	                      <p className="mt-1 text-[11px] font-medium text-indigo-100/90">
+	                        指定時刻に毎日、不足しているジャンル・年齢帯から優先してクイズを追加します。
+	                      </p>
+	                    </div>
+	                    <button
+	                      type="button"
+	                      onClick={() => setAutoGenerationSchedule((prev) => ({ ...prev, enabled: !prev.enabled }))}
+	                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${autoGenerationSchedule.enabled ? 'bg-emerald-400' : 'bg-white/20'}`}
+	                      aria-pressed={autoGenerationSchedule.enabled}
+	                    >
+	                      <span
+	                        className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${autoGenerationSchedule.enabled ? 'translate-x-7' : 'translate-x-1'}`}
+	                      />
+	                    </button>
+	                  </div>
+	                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+	                    <div className="space-y-1">
+	                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">毎日の時刻</label>
+	                      <input
+	                        type="time"
+	                        value={autoGenerationSchedule.time}
+	                        onChange={(e) => setAutoGenerationSchedule((prev) => ({ ...prev, time: e.target.value || '03:00' }))}
+	                        className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all"
+	                      />
+	                    </div>
+	                    <div className="space-y-1">
+	                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">1日の追加数</label>
+	                      <select
+	                        value={autoGenerationSchedule.quantity}
+	                        onChange={(e) => setAutoGenerationSchedule((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
+	                        className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all"
+	                      >
+	                        {[1, 2, 3, 5, 10].map((n) => <option key={n} value={n} className="text-zinc-800">{n}個</option>)}
+	                      </select>
+	                    </div>
+	                    <div className="space-y-1">
+	                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">形式</label>
+	                      <select
+	                        value={autoGenerationSchedule.quizType}
+	                        onChange={(e) => setAutoGenerationSchedule((prev) => ({ ...prev, quizType: e.target.value as 'TEXT' | 'CHOICE' }))}
+	                        className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-sm outline-none focus:bg-white/20 transition-all"
+	                      >
+	                        <option value="TEXT" className="text-zinc-800">記述式</option>
+	                        <option value="CHOICE" className="text-zinc-800">選択式</option>
+	                      </select>
+	                    </div>
+	                    <div className="space-y-1">
+	                      <label className="text-[10px] font-black text-indigo-200 uppercase ml-1">生成エンジン</label>
+	                      <select
+	                        value={autoGenerationSchedule.modelId}
+	                        onChange={(e) => setAutoGenerationSchedule((prev) => ({ ...prev, modelId: e.target.value }))}
+	                        className="w-full bg-white/10 border border-white/20 p-3 rounded-xl font-bold text-[11px] outline-none focus:bg-white/20 transition-all"
+	                      >
+	                        {AI_MODELS.map((m: any) => <option key={m.id} value={m.id} className="text-zinc-800">{m.name}</option>)}
+	                      </select>
+	                    </div>
+	                  </div>
+	                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+	                    <div className="text-[11px] font-bold text-indigo-100/90">
+	                      {autoGenerationLastRunAt
+	                        ? `前回実行: ${formatAdminTimestamp(autoGenerationLastRunAt)}`
+	                        : '前回実行: まだありません'}
+	                    </div>
+	                    <button
+	                      type="button"
+	                      disabled={loading || autoGenerationSettingsLoading}
+	                      onClick={handleSaveAutoGenerationSchedule}
+	                      className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-black text-indigo-700 hover:bg-amber-50 transition-all disabled:opacity-50"
+	                    >
+	                      {loading ? '保存中...' : '自動生成設定を保存'}
+	                    </button>
+	                  </div>
+	                  <div className="text-[10px] bg-black/20 rounded-xl p-3 border border-white/10 font-medium text-indigo-100 leading-relaxed">
+	                    Cron から <code className="font-black">/api/admin/cron?secret=YOUR_SECRET</code> を定期的に叩くと、
+	                    この設定に従って毎日1回だけ実行されます。実行時刻の判定は日本時間です。
+	                  </div>
+	                </div>
+	              </div>
+	            </div>
+	          )}
 
 
           {mainTab === 'categories' && (

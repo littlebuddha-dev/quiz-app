@@ -13,6 +13,8 @@ import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
+type CategorySummary = { id: string; name: string; nameJa: string | null };
+
 export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
@@ -52,7 +54,8 @@ export async function POST(req: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     // 1. Get Categories to process
-    let categoriesToProcess: Array<{ id: string; name: string; nameJa: string | null }> = [];
+    let categoriesToProcess: CategorySummary[] = [];
+    let generationUnits: Array<{ category: CategorySummary; age: number }> = [];
     
     if (autoBalance) {
       const allCategoriesRaw = await prisma.category.findMany({
@@ -70,22 +73,26 @@ export async function POST(req: NextRequest) {
         countMap.set(`${c.categoryId}-${c.targetAge}`, c._count.id);
       });
 
-      let minCount = Infinity;
-      let bestCombo = { categoryId: allCategoriesRaw[0]?.id, age: 0 };
+      const rankedCombos = allCategoriesRaw
+        .flatMap((cat) =>
+          Array.from({ length: 19 }, (_, age) => ({
+            category: cat as CategorySummary,
+            age,
+            count: countMap.get(`${cat.id}-${age}`) || 0,
+          }))
+        )
+        .sort((a, b) => {
+          if (a.count !== b.count) return a.count - b.count;
+          if (a.category.id !== b.category.id) return a.category.id.localeCompare(b.category.id);
+          return a.age - b.age;
+        })
+        .slice(0, count);
 
-      for (const cat of allCategoriesRaw) {
-        for (let age = 0; age <= 18; age++) {
-          const currentCount = countMap.get(`${cat.id}-${age}`) || 0;
-          if (currentCount < minCount) {
-            minCount = currentCount;
-            bestCombo = { categoryId: cat.id, age };
-          }
-        }
-      }
-
-      parsedAge = bestCombo.age;
-      const selectedCat = allCategoriesRaw.find(c => c.id === bestCombo.categoryId);
-      if (selectedCat) categoriesToProcess.push(selectedCat as any);
+      generationUnits = rankedCombos.map((combo) => ({
+        category: combo.category,
+        age: combo.age,
+      }));
+      categoriesToProcess = Array.from(new Map(generationUnits.map((unit) => [unit.category.id, unit.category])).values());
     } else {
       if (categoryId === 'all') {
         categoriesToProcess = (await prisma.category.findMany({
@@ -99,30 +106,37 @@ export async function POST(req: NextRequest) {
         });
         if (cat) categoriesToProcess.push(cat as any);
       }
+
+      generationUnits = categoriesToProcess.map((category) => ({
+        category,
+        age: parsedAge,
+      }));
     }
 
 
-    if (categoriesToProcess.length === 0) {
+    if (generationUnits.length === 0) {
       return NextResponse.json({ error: 'CATEGORY_NOT_FOUND' }, { status: 404 });
     }
 
     const results = [];
     const baseUrl = new URL(req.url).origin;
 
-    // 2. Process each category
-    for (const category of categoriesToProcess) {
+    // 2. Process each generation unit
+    for (const unit of generationUnits) {
+      const category = unit.category;
+      const targetAgeForUnit = unit.age;
       // Uniqueness check for this specific category
       const existingQuizzes = await prisma.quiz.findMany({
-        where: { categoryId: category.id, targetAge: parsedAge },
+        where: { categoryId: category.id, targetAge: targetAgeForUnit },
         include: { translations: { where: { locale: 'ja' } } }
       });
       const existingTitles = existingQuizzes.map(q => q.translations[0]?.title).filter(Boolean) as string[];
 
-      // Adjust count per category if "all" is selected to avoid hitting timeout limits
-      const countForThisCat = categoryId === 'all' ? Math.min(count, 2) : count;
+      // autoBalanceでは各不足ユニットに1件ずつ割り当てる
+      const countForThisCat = autoBalance ? 1 : categoryId === 'all' ? Math.min(count, 2) : count;
 
       const topicSuggestionPrompt = buildTopicPlannerPrompt(
-        parsedAge,
+        targetAgeForUnit,
         category.nameJa || category.name,
         countForThisCat,
         existingTitles
@@ -163,7 +177,7 @@ export async function POST(req: NextRequest) {
               body: JSON.stringify({
                 topic,
                 categoryId: category.id,
-                targetAge: parsedAge,
+                targetAge: targetAgeForUnit,
                 quizType: quizType || 'TEXT',
                 excludeTitles: existingTitles,
                 modelId: hybridModel.generatorId,
@@ -209,7 +223,7 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (err) {
-        console.error(`Error processing category ${category.id}:`, err);
+        console.error(`Error processing category ${category.id} age ${targetAgeForUnit}:`, err);
       }
     }
 
@@ -223,7 +237,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       count: results.length, 
-      categoriesProcessed: categoriesToProcess.length 
+      categoriesProcessed: categoriesToProcess.length,
+      unitsProcessed: generationUnits.length,
     });
 
   } catch (error: any) {
