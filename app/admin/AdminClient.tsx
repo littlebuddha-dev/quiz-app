@@ -241,7 +241,20 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     try {
       const res = await fetch(`/api/admin/backup?type=${type}`);
       if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('text/html')) {
+          const html = await res.text();
+          console.error('Backup download returned HTML instead of archive.', html.slice(0, 500));
+          alert('バックアップのダウンロードに失敗しました。サーバーがZIP/JSONではなくHTMLページを返しています。認証状態や本番サーバー設定を確認してください。');
+          return;
+        }
         const blob = await res.blob();
+        if (blob.type.includes('text/html')) {
+          const html = await blob.text();
+          console.error('Backup blob is HTML instead of archive.', html.slice(0, 500));
+          alert('バックアップのダウンロードに失敗しました。HTMLページが保存されそうだったため中止しました。');
+          return;
+        }
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -282,13 +295,18 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           method: 'POST',
           headers: {
             'Content-Type': file.type || 'application/octet-stream',
+            'x-backup-filename': file.name,
           },
           body: file,
         });
 
         const result = (await res.json()) as { success?: boolean; message?: string; error?: string };
         if (!res.ok || !result.success) {
-          setRestoreError(`復元に失敗しました:\n\n${result.error || `Status ${res.status}`}`);
+          if (result.error === 'HTML_BACKUP_FILE') {
+            setRestoreError('復元に失敗しました。\n\n選択したファイルはZIP/TAR.GZではなくHTMLページでした。バックアップのダウンロード時に認証エラーやリダイレクトが起き、トップページやログイン画面が保存された可能性があります。');
+          } else {
+            setRestoreError(`復元に失敗しました:\n\n${result.error || `Status ${res.status}`}`);
+          }
           return;
         }
 
