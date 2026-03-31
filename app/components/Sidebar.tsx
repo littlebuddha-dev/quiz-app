@@ -40,6 +40,16 @@ interface SidebarContentsProps {
   onAgeRangeChange?: (min: number, max: number) => void;
 }
 
+const AGE_GROUPS = [
+  { key: 'preschool', min: 0, max: 6, label: { ja: '幼児', en: 'Preschool', zh: '幼儿' } },
+  { key: 'elementary-lower', min: 6, max: 9, label: { ja: '小学校低学年', en: 'Elementary 1-3', zh: '小学低年级' } },
+  { key: 'elementary-upper', min: 10, max: 12, label: { ja: '小学校高学年', en: 'Elementary 4-6', zh: '小学高年级' } },
+  { key: 'middle-school', min: 13, max: 15, label: { ja: '中学生', en: 'Middle School', zh: '初中生' } },
+  { key: 'high-school', min: 16, max: 18, label: { ja: '高校生', en: 'High School', zh: '高中生' } },
+  { key: 'university', min: 18, max: 22, label: { ja: '大学生', en: 'University', zh: '大学生' } },
+  { key: 'adult', min: 18, max: 100, label: { ja: '大人', en: 'Adults', zh: '成人' } },
+] as const;
+
 const STUDY_MODE_LABELS: Record<Locale, Record<'all' | 'review' | 'daily' | 'mission', string>> = {
   ja: {
     all: '一覧',
@@ -73,64 +83,38 @@ export function SidebarContents({
   maxAge = 100,
   onAgeRangeChange
 }: SidebarContentsProps) {
-  // 年齢スライダーのハンドラ
-  const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Math.min(Number(e.target.value), maxAge - 1);
-    onAgeRangeChange?.(value, maxAge);
-  };
+  const ageLabel = locale === 'ja' ? '対象年齢' : locale === 'en' ? 'Target Age' : '对象年龄';
+  const activeAgeGroup = AGE_GROUPS.find((group) => group.min === minAge && group.max === maxAge);
 
-  const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Math.max(Number(e.target.value), minAge + 1);
-    onAgeRangeChange?.(minAge, value);
-  };
-
-  const ageLabel = locale === 'ja' ? '対象年齢' : locale === 'en' ? 'Age Range' : '年龄范围';
-
-  const rangeSlider = onAgeRangeChange ? (
+  const ageGroupSelector = onAgeRangeChange ? (
     <div className={`${isMobile ? 'mb-2' : 'mb-8'} p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 w-full`}>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-3 gap-3">
         <div className="flex items-center gap-2">
           <img src="/icons/list.svg" alt="" className="w-3.5 h-3.5 opacity-50 grayscale" />
           <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">{ageLabel}</span>
         </div>
-        <span className="text-xs font-black text-amber-600 bg-amber-100/50 px-2.5 py-1 rounded-lg border border-amber-200/50">
-          {minAge} - {maxAge === 100 ? '100+' : maxAge}
+        <span className="text-[10px] sm:text-xs font-black text-amber-600 bg-amber-100/50 px-2.5 py-1 rounded-lg border border-amber-200/50 whitespace-nowrap">
+          {activeAgeGroup ? activeAgeGroup.label[locale] : `${minAge}-${maxAge === 100 ? '100+' : maxAge}`}
         </span>
       </div>
-      <div className="relative h-6 flex items-center px-1">
-        {/* 背景トラック */}
-        <div className="absolute left-1 right-1 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full" />
-        {/* 選択範囲ハイライト */}
-        <div 
-          className="absolute h-1.5 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.3)] transition-all duration-300"
-          style={{ 
-            left: `${minAge + 1}%`, 
-            right: `${100 - maxAge + 1}%` 
-          }}
-        />
-        {/* デュアルスライダー（透明なトラック、見えるツマミ） */}
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={minAge}
-          onChange={handleMinChange}
-          style={{ WebkitAppearance: 'none', appearance: 'none' }}
-          className="absolute w-full h-1.5 bg-transparent pointer-events-none z-30 
-          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-amber-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:active:scale-125
-          [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-amber-500 [&::-moz-range-thumb]:shadow-lg [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:transition-transform [&::-moz-range-thumb]:active:scale-125"
-        />
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={maxAge}
-          onChange={handleMaxChange}
-          style={{ WebkitAppearance: 'none', appearance: 'none' }}
-          className="absolute w-full h-1.5 bg-transparent pointer-events-none z-40 
-          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-amber-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:active:scale-125
-          [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-amber-500 [&::-moz-range-thumb]:shadow-lg [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:transition-transform [&::-moz-range-thumb]:active:scale-125"
-        />
+      <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+        {AGE_GROUPS.map((group) => {
+          const isActive = group.min === minAge && group.max === maxAge;
+          return (
+            <button
+              key={group.key}
+              type="button"
+              onClick={() => onAgeRangeChange(group.min, group.max)}
+              className={`rounded-xl px-3 py-2.5 text-left text-[11px] font-black transition-all ${
+                isActive
+                  ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                  : 'bg-white dark:bg-zinc-900 border border-[var(--border)] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-amber-300'
+              }`}
+            >
+              {group.label[locale]}
+            </button>
+          );
+        })}
       </div>
     </div>
   ) : null;
@@ -213,7 +197,7 @@ export function SidebarContents({
       <div className="flex flex-col gap-3">
         {/* スライダーだけの段（幅いっぱいに表示） */}
         <div className="w-full">
-          {rangeSlider}
+          {ageGroupSelector}
         </div>
         
         {/* ボタンの段 */}
@@ -232,7 +216,7 @@ export function SidebarContents({
 
   return (
     <>
-      {rangeSlider}
+      {ageGroupSelector}
       {studyModeButtons}
       {gameModeLink}
       {/* 区切り線 (デスクトップ) */}

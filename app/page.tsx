@@ -22,6 +22,20 @@ function getTodayLabel() {
   return now.toISOString().slice(0, 10);
 }
 
+function getDefaultAgeRangeForUser(age: number | null) {
+  if (age === null) {
+    return { min: 0, max: 100 };
+  }
+
+  if (age <= 6) return { min: 0, max: 6 };
+  if (age <= 9) return { min: 6, max: 9 };
+  if (age <= 12) return { min: 10, max: 12 };
+  if (age <= 15) return { min: 13, max: 15 };
+  if (age <= 18) return { min: 16, max: 18 };
+  if (age <= 22) return { min: 18, max: 22 };
+  return { min: 18, max: 100 };
+}
+
 // Server Component (async)
 export default async function Home({
   searchParams,
@@ -107,13 +121,9 @@ export default async function Home({
     defaultMin = 0;
     defaultMax = 100;
   } else if (effectiveAge !== null) {
-    if (effectiveAge >= 16) {
-      defaultMin = 16;
-      defaultMax = 100;
-    } else {
-      defaultMin = effectiveAge;
-      defaultMax = Math.min(effectiveAge + 3, 100);
-    }
+    const defaultRange = getDefaultAgeRangeForUser(effectiveAge);
+    defaultMin = defaultRange.min;
+    defaultMax = defaultRange.max;
   }
 
   const parsedMin = minAgeParam ? parseInt(minAgeParam) : NaN;
