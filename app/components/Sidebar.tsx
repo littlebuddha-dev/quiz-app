@@ -41,13 +41,13 @@ interface SidebarContentsProps {
 }
 
 const AGE_GROUPS = [
-  { key: 'preschool', min: 0, max: 6, label: { ja: '幼児', en: 'Preschool', zh: '幼儿' } },
-  { key: 'elementary-lower', min: 6, max: 9, label: { ja: '小学校低学年', en: 'Elementary 1-3', zh: '小学低年级' } },
-  { key: 'elementary-upper', min: 10, max: 12, label: { ja: '小学校高学年', en: 'Elementary 4-6', zh: '小学高年级' } },
-  { key: 'middle-school', min: 13, max: 15, label: { ja: '中学生', en: 'Middle School', zh: '初中生' } },
-  { key: 'high-school', min: 16, max: 18, label: { ja: '高校生', en: 'High School', zh: '高中生' } },
-  { key: 'university', min: 18, max: 22, label: { ja: '大学生', en: 'University', zh: '大学生' } },
-  { key: 'adult', min: 18, max: 100, label: { ja: '大人', en: 'Adults', zh: '成人' } },
+  { key: 'preschool', min: 0, max: 6, icon: 'star.svg', label: { ja: '幼児', en: 'Preschool', zh: '幼儿' }, rangeLabel: { ja: '0〜6歳', en: 'Ages 0-6', zh: '0-6岁' } },
+  { key: 'elementary-lower', min: 6, max: 9, icon: 'math.svg', label: { ja: '小学校低学年', en: 'Elementary 1-3', zh: '小学低年级' }, rangeLabel: { ja: '6〜9歳', en: 'Ages 6-9', zh: '6-9岁' } },
+  { key: 'elementary-upper', min: 10, max: 12, icon: 'science.svg', label: { ja: '小学校高学年', en: 'Elementary 4-6', zh: '小学高年级' }, rangeLabel: { ja: '10〜12歳', en: 'Ages 10-12', zh: '10-12岁' } },
+  { key: 'middle-school', min: 13, max: 15, icon: 'social.svg', label: { ja: '中学生', en: 'Middle School', zh: '初中生' }, rangeLabel: { ja: '13〜15歳', en: 'Ages 13-15', zh: '13-15岁' } },
+  { key: 'high-school', min: 16, max: 18, icon: 'logic.svg', label: { ja: '高校生', en: 'High School', zh: '高中生' }, rangeLabel: { ja: '16〜18歳', en: 'Ages 16-18', zh: '16-18岁' } },
+  { key: 'university', min: 18, max: 22, icon: 'course.svg', label: { ja: '大学生', en: 'University', zh: '大学生' }, rangeLabel: { ja: '18〜22歳', en: 'Ages 18-22', zh: '18-22岁' } },
+  { key: 'adult', min: 18, max: 100, icon: 'users.svg', label: { ja: '大人', en: 'Adults', zh: '成人' }, rangeLabel: { ja: '18歳以上', en: '18 and older', zh: '18岁以上' } },
 ] as const;
 
 const STUDY_MODE_LABELS: Record<Locale, Record<'all' | 'review' | 'daily' | 'mission', string>> = {
@@ -97,7 +97,7 @@ export function SidebarContents({
           {activeAgeGroup ? activeAgeGroup.label[locale] : `${minAge}-${maxAge === 100 ? '100+' : maxAge}`}
         </span>
       </div>
-      <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+      <div className="grid grid-cols-2 gap-1.5">
         {AGE_GROUPS.map((group) => {
           const isActive = group.min === minAge && group.max === maxAge;
           return (
@@ -105,13 +105,24 @@ export function SidebarContents({
               key={group.key}
               type="button"
               onClick={() => onAgeRangeChange(group.min, group.max)}
-              className={`rounded-xl px-3 py-2.5 text-left text-[11px] font-black transition-all ${
+              title={`${group.label[locale]} (${group.rangeLabel[locale]})`}
+              className={`group relative rounded-xl px-2.5 py-2 text-left text-[10px] font-black transition-all ${
                 isActive
                   ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
                   : 'bg-white dark:bg-zinc-900 border border-[var(--border)] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-amber-300'
               }`}
             >
-              {group.label[locale]}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <img
+                  src={`/icons/${group.icon}`}
+                  alt=""
+                  className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'brightness-0 invert' : 'opacity-60 grayscale'}`}
+                />
+                <span className="leading-tight break-words">{group.label[locale]}</span>
+              </div>
+              <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-zinc-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg opacity-0 transition-opacity duration-150 group-hover:opacity-100 md:block">
+                {group.rangeLabel[locale]}
+              </span>
             </button>
           );
         })}
