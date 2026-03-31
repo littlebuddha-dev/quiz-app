@@ -276,10 +276,26 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
     setLoading(true);
     try {
-      const formData = new FormData();
       if (file.name.endsWith('.zip')) {
-        formData.append('file', file);
+        const res = await fetch('/api/admin/backup/restore-images', {
+          method: 'POST',
+          headers: {
+            'Content-Type': file.type || 'application/zip',
+          },
+          body: file,
+        });
+
+        const result = (await res.json()) as { success?: boolean; message?: string; error?: string };
+        if (!res.ok || !result.success) {
+          setRestoreError(`復元に失敗しました:\n\n${result.error || `Status ${res.status}`}`);
+          return;
+        }
+
+        alert(result.message || '画像バックアップの復元が完了しました。ページをリロードします。');
+        window.location.reload();
+        return;
       } else {
+        const formData = new FormData();
         const rawText = await file.text();
         const normalizedText = rawText.replace(/^\uFEFF/, '').trim();
 
@@ -296,17 +312,17 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         // 巨大なデータを単一フィールドの文字列として送ると不安定になるため、Blob (ファイル) として添付
         const jsonBlob = new Blob([normalizedText], { type: 'application/json' });
         formData.append('json', jsonBlob);
+
+        const result = await restoreBackupAction(formData);
+
+        if (result && result.success) {
+          alert(result.message || '復元が完了しました。ページをリロードします。');
+          window.location.reload();
+          return;
+        }
+
+        setRestoreError(`復元に失敗しました:\n\n${(result && 'error' in result ? result.error : undefined) || '不明なエラー'}`);
       }
-
-      const result = await restoreBackupAction(formData);
-
-      if (result && result.success) {
-        alert(result.message || '復元が完了しました。ページをリロードします。');
-        window.location.reload();
-        return;
-      }
-
-      setRestoreError(`復元に失敗しました:\n\n${(result && 'error' in result ? result.error : undefined) || '不明なエラー'}`);
     } catch (error: any) {
       console.error(error);
       if (error?.message === 'EMPTY_BACKUP_FILE') {
