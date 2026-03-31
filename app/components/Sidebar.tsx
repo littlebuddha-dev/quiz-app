@@ -41,6 +41,7 @@ interface SidebarContentsProps {
 }
 
 const AGE_GROUPS = [
+  { key: 'all', min: 0, max: 100, icon: 'all.svg', label: { ja: 'すべて', en: 'All', zh: '全部' }, rangeLabel: { ja: '全年齢', en: 'All ages', zh: '全部年龄' } },
   { key: 'preschool', min: 0, max: 6, icon: 'star.svg', label: { ja: '幼児', en: 'Preschool', zh: '幼儿' }, rangeLabel: { ja: '0〜6歳', en: 'Ages 0-6', zh: '0-6岁' } },
   { key: 'elementary-lower', min: 6, max: 9, icon: 'math.svg', label: { ja: '小学校低学年', en: 'Elementary 1-3', zh: '小学低年级' }, rangeLabel: { ja: '6〜9歳', en: 'Ages 6-9', zh: '6-9岁' } },
   { key: 'elementary-upper', min: 10, max: 12, icon: 'science.svg', label: { ja: '小学校高学年', en: 'Elementary 4-6', zh: '小学高年级' }, rangeLabel: { ja: '10〜12歳', en: 'Ages 10-12', zh: '10-12岁' } },
