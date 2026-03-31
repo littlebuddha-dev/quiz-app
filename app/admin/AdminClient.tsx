@@ -268,6 +268,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const isArchiveFile = /\.(zip|tgz|tar\.gz)$/i.test(file.name);
 
     if (!confirm('既存のデータ（クイズ、ジャンル等）がすべて削除され、バックアップの内容で上書きされます。本当によろしいですか？')) {
       e.target.value = '';
@@ -276,11 +277,11 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
     setLoading(true);
     try {
-      if (file.name.endsWith('.zip')) {
+      if (isArchiveFile) {
         const res = await fetch('/api/admin/backup/restore-images', {
           method: 'POST',
           headers: {
-            'Content-Type': file.type || 'application/zip',
+            'Content-Type': file.type || 'application/octet-stream',
           },
           body: file,
         });
@@ -1924,7 +1925,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <div className="relative cursor-pointer mt-4">
                       <input
                         type="file"
-                        accept=".json,.zip"
+                        accept=".json,.zip,.tgz,.tar.gz"
                         onChange={handleImportBackup}
                         className="hidden"
                         id="backup-upload"
