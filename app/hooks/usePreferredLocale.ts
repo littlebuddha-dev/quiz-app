@@ -32,6 +32,7 @@ export function usePreferredLocale() {
 
   const setLocale = (nextLocale: Locale) => {
     window.localStorage.setItem(STORAGE_KEY, nextLocale);
+    document.cookie = `${STORAGE_KEY}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY, newValue: nextLocale }));
   };
 

@@ -92,6 +92,11 @@ export default function Header({
     prevUserId.current = userId;
   }, [userId]);
 
+  const handleLocaleChange = (nextLocale: Locale) => {
+    setLocale(nextLocale);
+    router.refresh();
+  };
+
   const authSkeleton = (
     <div className="h-8 w-20 sm:w-24 rounded-full bg-zinc-100/80 border border-[var(--border)]" aria-hidden="true" />
   );
@@ -129,7 +134,7 @@ export default function Header({
               {mounted ? (
                 <select
                   value={locale}
-                  onChange={(e) => setLocale(e.target.value as Locale)}
+                  onChange={(e) => handleLocaleChange(e.target.value as Locale)}
                   className="border-none bg-transparent text-zinc-500 font-bold cursor-pointer focus:outline-none text-xs appearance-none pr-1"
                 >
                   <option value="ja">JP</option>
@@ -295,7 +300,7 @@ export default function Header({
             {mounted ? (
               <select
                 value={locale}
-                onChange={(e) => setLocale(e.target.value as Locale)}
+                onChange={(e) => handleLocaleChange(e.target.value as Locale)}
                 className="border-none bg-transparent text-zinc-500 font-bold cursor-pointer focus:outline-none text-xs sm:text-sm appearance-none pr-1"
               >
                 <option value="ja">JP</option>
