@@ -231,6 +231,51 @@ function normalizeComparisonText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeForSimilarity(value: string) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function calculateDiceSimilarity(a: string, b: string) {
+  const left = normalizeForSimilarity(a);
+  const right = normalizeForSimilarity(b);
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  if (left.length < 2 || right.length < 2) return left === right ? 1 : 0;
+
+  const makeBigrams = (source: string) => {
+    const bigrams = new Map<string, number>();
+    for (let i = 0; i < source.length - 1; i += 1) {
+      const gram = source.slice(i, i + 2);
+      bigrams.set(gram, (bigrams.get(gram) || 0) + 1);
+    }
+    return bigrams;
+  };
+
+  const leftBigrams = makeBigrams(left);
+  const rightBigrams = makeBigrams(right);
+  let overlap = 0;
+
+  for (const [gram, count] of leftBigrams.entries()) {
+    overlap += Math.min(count, rightBigrams.get(gram) || 0);
+  }
+
+  return (2 * overlap) / (Math.max(1, left.length - 1) + Math.max(1, right.length - 1));
+}
+
+function containsJapaneseScript(value: string) {
+  return /[ぁ-んァ-ヶ一-龠]/.test(value);
+}
+
+function containsChineseHan(value: string) {
+  return /[\u4e00-\u9fff]/.test(value);
+}
+
+function containsLatinLetters(value: string) {
+  return /[A-Za-z]/.test(value);
+}
+
 function extractExerciseText(question: string) {
   const trimmed = question.trim();
   const quotedAnywhere = trimmed.match(/[「『“"][\s\S]+?[」』”"]/);
@@ -840,8 +885,9 @@ function buildQualityFeedback(params: {
   requestedQuizType: 'TEXT' | 'CHOICE';
   topic?: string;
   correctionPrompt?: string;
+  excludeTitles?: string[];
 }) {
-  const { quiz, age, categoryName, categoryNames, requestedQuizType, topic, correctionPrompt } = params;
+  const { quiz, age, categoryName, categoryNames, requestedQuizType, topic, correctionPrompt, excludeTitles } = params;
   const issues: string[] = [];
   const ja = quiz.ja;
   const combined = [ja.title, ja.question, ja.hint, ja.answer, ja.explanation].map(normalizeText).join('\n');
@@ -873,6 +919,10 @@ function buildQualityFeedback(params: {
 
   if (normalizeText(ja.explanation) && !normalizeText(ja.explanation).includes(normalizeText(ja.answer).slice(0, Math.min(6, normalizeText(ja.answer).length)))) {
     issues.push('explanation に正答とのつながりが弱いです。答えが正しい理由を明示してください。');
+  }
+
+  if (normalizeText(ja.answer) && normalizeText(ja.question).includes(normalizeText(ja.answer))) {
+    issues.push('問題文の中に答えそのものが見えています。直接答えを含まない問いへ修正してください。');
   }
 
   if ((ja.type || requestedQuizType) === 'TEXT' && normalizeText(ja.answer).length > 28) {
@@ -916,6 +966,38 @@ function buildQualityFeedback(params: {
     if (options.length > 0 && normalizedOptionSet.size !== options.length) {
       issues.push('選択肢に重複があります。4つとも異なる内容にしてください。');
     }
+  }
+
+  if (Array.isArray(excludeTitles) && excludeTitles.length > 0) {
+    const duplicateTitle = excludeTitles.find((existingTitle) => calculateDiceSimilarity(existingTitle, titleText) >= 0.82);
+    if (duplicateTitle) {
+      issues.push(`title が既存問題「${duplicateTitle}」に近すぎます。別の切り口・別の題材へ変えてください。`);
+    }
+  }
+
+  const locales = {
+    ja: quiz.ja,
+    en: quiz.en,
+    zh: quiz.zh,
+  };
+
+  const localeTexts = {
+    ja: [normalizeText(locales.ja.title), normalizeText(locales.ja.question), normalizeText(locales.ja.hint), normalizeText(locales.ja.explanation || '')].join(' '),
+    en: [normalizeText(String(locales.en.title || '')), normalizeText(String(locales.en.question || '')), normalizeText(String(locales.en.hint || '')), normalizeText(String(locales.en.explanation || ''))].join(' '),
+    zh: [normalizeText(String(locales.zh.title || '')), normalizeText(String(locales.zh.question || '')), normalizeText(String(locales.zh.hint || '')), normalizeText(String(locales.zh.explanation || ''))].join(' '),
+  };
+
+  if (containsJapaneseScript(localeTexts.en)) {
+    issues.push('英語ロケールに日本語が混ざっています。title/question/hint/explanation を英語として自然に統一してください。');
+  }
+  if (containsJapaneseScript(localeTexts.zh)) {
+    issues.push('中国語ロケールに日本語が混ざっています。title/question/hint/explanation を簡体字中国語として自然に統一してください。');
+  }
+  if (!containsLatinLetters(localeTexts.en)) {
+    issues.push('英語ロケールに英語らしい表現が不足しています。英語として読める自然な文へ修正してください。');
+  }
+  if (!containsChineseHan(localeTexts.zh)) {
+    issues.push('中国語ロケールに中国語らしい漢字表現が不足しています。簡体字として自然な文へ修正してください。');
   }
 
   if (languageSubjectRule) {
@@ -969,6 +1051,14 @@ function buildQualityFeedback(params: {
       ) {
         issues.push(`言語学習ジャンルでは options も問題文の一部です。${languageSubjectRule.subjectNames.ja}の選択肢を ja / en / zh で共通にしてください。`);
       }
+    }
+  } else {
+    const localizedAnswers = [
+      normalizeText(String(quiz.en.answer || '')),
+      normalizeText(String(quiz.zh.answer || '')),
+    ].filter(Boolean);
+    if (localizedAnswers.some((answer) => calculateDiceSimilarity(answer, normalizeText(ja.answer)) >= 0.98)) {
+      issues.push('非言語学習ジャンルなのに en/zh の answer が日本語のまま残っています。各ロケールで自然に翻訳してください。');
     }
   }
 
@@ -1160,17 +1250,23 @@ ${excludeTitles && Array.isArray(excludeTitles) && excludeTitles.length > 0 ? `\
 
 ## 品質要件
 - まず最初に「この年齢がどこで面白いと感じるか」を踏まえて題材を設計してください。
+- 事実関係が曖昧な題材・議論が分かれる題材・検証しづらい細かい雑学は避け、教育的に安定した内容を優先してください。
 - タイトル・問題文・ヒント・解説の難易度を必ずそろえてください。タイトルだけ幼い/本文だけ難しい、のような不一致は禁止です。
 - 問題文は、単なる知識の丸暗記より「考える楽しさ」「気づき」「驚き」のいずれかが入るようにしてください。
 - 問題文は、読めば「何を答えるのか」「何を手がかりに考えるのか」が明確に分かる構造にしてください。
 - 正答は1つに定まり、ひっかけや解釈ブレで複数正解にならないようにしてください。
+- 問題文に答えそのものや、答えの直接的な言い換えを含めないでください。
 - answer は結論だけを短く返し、explanation では「なぜそれが正解で、他が違うのか」を学習者目線で説明してください。
 - ヒントは、その年齢が自力で一歩進める内容にしてください。答えの言い換えは禁止です。
 - 解説は、その年齢にとって「わかった！」という納得感が出るようにしてください。
 - 日本語(ja)を基準に品質を最優先し、en/zh は内容を忠実に自然翻訳してください。
+- 言語学習ジャンル以外では、en/zh の answer も各言語で自然に翻訳してください。日本語のまま残さないでください。
 - 選択式の場合、誤答はその年齢が本当に迷いそうなものにしてください。ただし理不尽なひっかけにはしないでください。
 - 幼児〜小学生では楽しい語り口と具体例を優先し、中高生以上では知的満足感と根拠を優先してください。
 - トピック未指定時は、教育課程を参考にしつつ、偏った定番だけでなく、その年齢の学習範囲から幅広い分野を扱ってください。
+- 既存問題と似たタイトル・似た切り口を避け、同じテーマでも視点・場面・問い方を変えてください。
+- title は画像見出しに収まる短さを意識し、日本語は 32 文字以内、英語は 64 文字以内、中国語は 36 文字以内を目安にしてください。
+- explanation は「正解理由」と「誤答との違い」が分かる説明にしてください。
 - 今回の教育課程ベース案: ${curriculumTopicPlan.summary}
 
 ${finalSystemInstruction}
@@ -1312,6 +1408,7 @@ ${finalSystemInstruction}
       requestedQuizType: (quizType || 'TEXT') as 'TEXT' | 'CHOICE',
       topic: topicForAi,
       correctionPrompt,
+      excludeTitles: Array.isArray(excludeTitles) ? excludeTitles : undefined,
     });
     console.log(`[quiz-generator] quality issues count=${qualityIssues.length} deferred=${isDeferredAdminGeneration}`);
 
