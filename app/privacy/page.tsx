@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: '隐私政策',
       description: 'Cue 的隐私政策。',
     },
-  });
+  }, '/privacy');
 }
 
 export default function PrivacyPage() {

@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: '使用条款',
       description: 'Cue 的使用条款。',
     },
-  });
+  }, '/terms');
 }
 
 export default function TermsPage() {

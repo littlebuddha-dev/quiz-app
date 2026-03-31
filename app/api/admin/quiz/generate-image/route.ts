@@ -96,6 +96,37 @@ Requirements:
 - Use polished lighting and textbook-quality clarity.`;
 }
 
+function buildJapaneseMasterPrompt(params: {
+  age: number;
+  categoryName: string;
+  title: string;
+  question: string;
+  hint?: string | null;
+  imageStyle: string;
+}) {
+  const { age, categoryName, title, question, hint, imageStyle } = params;
+  const headline = clampText(firstSentence(title), 24);
+  const support = clampText(firstSentence(hint || '') || firstSentence(question), 44);
+  return `Create exactly one premium educational quiz illustration in a wide 16:9 layout for learners around age ${age}.
+Subject area: ${categoryName}
+Visual direction: ${imageStyle}
+Question context: ${clampText(firstSentence(question), 90)}
+
+Visible text rules:
+- Add exactly two Japanese text blocks and no others.
+- Headline text: "${headline}"
+- Support text: "${support}"
+- Keep the headline visually primary and the support text secondary.
+- Keep all text fully visible. Do not crop, truncate, or fade out any letters.
+- Headline should fit within two lines. Support text should fit within three short lines.
+
+Image rules:
+- The composition must help the learner understand the quiz idea at a glance.
+- Keep the composition clean, exciting, and age-appropriate.
+- Do not add any extra labels, annotations, chart text, UI chrome, watermark, or logo.
+- Use polished lighting and textbook-quality clarity.`;
+}
+
 function buildLocalizedCopy(params: {
   locale: QuizLocale;
   subjectLocale: QuizLocale;
@@ -154,6 +185,9 @@ Visible text rules:
 - ${localeRule}
 - Headline text: "${copy.headline}"
 - Support text: "${copy.support}"
+- Replace only the existing Japanese quiz text blocks with the localized text above.
+- Preserve the layout, object placement, framing, camera angle, colors, and diagram structure as much as possible.
+- Do not move or redesign the composition unless it is necessary to fit the replacement text cleanly.
 - Keep the visible text exactly as written, with the same wording and punctuation.
 - Make the headline visually primary and the support text secondary.
 - Keep all text fully visible. Do not crop, truncate, or fade out any letters.
@@ -309,44 +343,49 @@ export async function POST(req: NextRequest) {
       quiz.category?.nameJa,
       quiz.categoryId,
     ]);
-    const existingQuizImageUrl = normalizeText(quiz.imageUrl);
-    let baseImageUrl = existingQuizImageUrl;
+    const jaExistingImageUrl = normalizeText(jaTranslation.imageUrl || quiz.imageUrl);
+    let masterJaImageUrl = jaExistingImageUrl;
 
-    if (!baseImageUrl || force) {
-      let baseImage = null;
+    if (!masterJaImageUrl || force) {
+      let masterJaImage = null;
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
-          baseImage = await withTimeout(
+          masterJaImage = await withTimeout(
             generateNanobananaImage(
               ai,
-              buildBasePrompt({
+              buildJapaneseMasterPrompt({
                 age: quiz.targetAge || 8,
                 categoryName,
                 title: normalizeText(jaTranslation.title) || 'Quiz',
                 question: normalizeText(jaTranslation.question),
+                hint: normalizeText(jaTranslation.hint),
                 imageStyle: persona.imageStyle,
               })
             ),
             timeoutMs,
-            'base image generation'
+            'ja master image generation'
           );
-          if (baseImage?.data) break;
+          if (masterJaImage?.data) break;
         } catch (retryErr: any) {
-          console.warn(`[generate-image] base attempt ${attempt + 1} error:`, retryErr.message);
+          console.warn(`[generate-image] ja master attempt ${attempt + 1} error:`, retryErr.message);
           if (attempt === 0) {
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
         }
       }
 
-      if (!baseImage?.data) {
-        return NextResponse.json({ error: 'Base image generation failed after retries' }, { status: 500 });
+      if (!masterJaImage?.data) {
+        return NextResponse.json({ error: 'Japanese master image generation failed after retries' }, { status: 500 });
       }
 
-      baseImageUrl = await storeImageWithFallback(Buffer.from(baseImage.data, 'base64'), baseImage.mimeType);
+      masterJaImageUrl = await storeImageWithFallback(Buffer.from(masterJaImage.data, 'base64'), masterJaImage.mimeType);
       await prisma.quiz.update({
         where: { id: quizId },
-        data: { imageUrl: baseImageUrl },
+        data: { imageUrl: masterJaImageUrl },
+      });
+      await prisma.quizTranslation.updateMany({
+        where: { quizId, locale: 'ja' },
+        data: { imageUrl: masterJaImageUrl },
       });
     }
 
@@ -356,19 +395,31 @@ export async function POST(req: NextRequest) {
       const translation = translationsByLocale.get(currentLocale) || jaTranslation;
       if (!translation) continue;
 
+      if (currentLocale === 'ja') {
+        generatedImageUrls.ja = masterJaImageUrl;
+        if (!force && translation.imageUrl) {
+          continue;
+        }
+        await prisma.quizTranslation.updateMany({
+          where: { quizId, locale: 'ja' },
+          data: { imageUrl: masterJaImageUrl },
+        });
+        continue;
+      }
+
       if (!force && translation.imageUrl) {
         generatedImageUrls[currentLocale] = translation.imageUrl;
         continue;
       }
 
-      const sourceImage = await resolveInlineImageData(baseImageUrl);
+      const sourceImage = await resolveInlineImageData(masterJaImageUrl);
       let localizedImage = null;
       let validationIssues: string[] = [];
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const prompt = `${buildLocalizedEditPrompt({
           locale: currentLocale,
-          subjectLocale: languageSubjectRule?.subjectLocale || currentLocale,
+          subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
           isLanguageSubject: Boolean(languageSubjectRule),
           title: normalizeText(translation.title || jaTranslation.title) || 'Quiz',
           question: normalizeText(translation.question || jaTranslation.question),
@@ -395,7 +446,7 @@ export async function POST(req: NextRequest) {
               ai,
               image: localizedImage,
               locale: currentLocale,
-              subjectLocale: languageSubjectRule?.subjectLocale || currentLocale,
+              subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
               isLanguageSubject: Boolean(languageSubjectRule),
             }),
             Math.max(8000, Math.floor(timeoutMs * 0.5)),
@@ -419,8 +470,8 @@ export async function POST(req: NextRequest) {
       }
 
       if (!localizedImage?.data) {
-        console.warn(`[generate-image] localized generation failed for locale=${currentLocale}, falling back to base image`);
-        generatedImageUrls[currentLocale] = baseImageUrl;
+        console.warn(`[generate-image] localized generation failed for locale=${currentLocale}, falling back to japanese master image`);
+        generatedImageUrls[currentLocale] = masterJaImageUrl;
       } else {
         generatedImageUrls[currentLocale] = await storeImageWithFallback(
           Buffer.from(localizedImage.data, 'base64'),
@@ -438,7 +489,7 @@ export async function POST(req: NextRequest) {
     console.log(`[generate-image] success quizId=${quizId} locale=${locale}`);
     return NextResponse.json({
       success: true,
-      imageUrl: generatedImageUrls[primaryLocale] || baseImageUrl,
+      imageUrl: generatedImageUrls[primaryLocale] || masterJaImageUrl,
       imageUrls: generatedImageUrls,
     });
   } catch (error: any) {

@@ -10,6 +10,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { parseQuizVisualData } from '@/lib/quiz-translation-visual';
 import { getServerLocale } from '@/lib/locale-server';
+import { getAbsoluteUrl, resolveMetadataImageUrl } from '@/lib/metadata';
 
 import { Metadata } from 'next';
 
@@ -45,6 +46,12 @@ function normalizeOptions(value: unknown): string[] | undefined {
   return undefined;
 }
 
+function toPlainText(value: string | null | undefined, maxLength = 160) {
+  const normalized = (value || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
+}
+
 export async function generateMetadata({
   params
 }: {
@@ -67,14 +74,32 @@ export async function generateMetadata({
 
   if (!quiz) return { title: "Quiz Not Found" };
 
-  const translation = quiz.translations[0] || { title: "Quiz" };
+  const translation = quiz.translations[0] || { title: "Quiz", question: '' };
   const baseTitle = `${translation.title} | Cue`;
+  const description = toPlainText(translation.question, 160) || baseTitle;
+  const canonical = getAbsoluteUrl(`/watch/${id}`);
+  const imageUrl =
+    resolveMetadataImageUrl(translation.imageUrl || quiz.imageUrl) ||
+    getAbsoluteUrl(`/api/quiz/${id}/og-image?locale=${locale}`);
 
   return {
     title: baseTitle,
+    description,
+    alternates: {
+      canonical,
+    },
     openGraph: {
       title: baseTitle,
-      images: [`/api/quiz/${id}/og-image?locale=${locale}`],
+      description,
+      type: 'article',
+      url: canonical,
+      images: [imageUrl],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: baseTitle,
+      description,
+      images: [imageUrl],
     },
   };
 }
@@ -84,11 +109,21 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const prisma = createPrisma(env);
   const { id } = await params;
   const { userId: clerkId } = await auth();
+  const locale = await getServerLocale();
 
   // 1. クイズ情報の取得
   const rawQuiz = await prisma.quiz.findUnique({
     where: { id },
     include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          nameJa: true,
+          nameEn: true,
+          nameZh: true,
+        },
+      },
       channel: true,
       comments: {
         include: { user: true },
@@ -326,17 +361,59 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     createdAt: c.createdAt.toISOString(),
   }));
 
+  const localizedQuiz =
+    rawTranslations.find((translation) => translation.locale === locale) ||
+    rawTranslations.find((translation) => translation.locale === 'ja') ||
+    rawTranslations[0];
+  const seoImageUrl =
+    resolveMetadataImageUrl(localizedQuiz?.imageUrl || rawQuiz.imageUrl) ||
+    getAbsoluteUrl(`/api/quiz/${id}/og-image?locale=${locale}`);
+  const quizStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Quiz',
+    name: localizedQuiz?.title || 'Cue Quiz',
+    description:
+      toPlainText(localizedQuiz?.question, 180) ||
+      toPlainText(localizedQuiz?.explanation, 180) ||
+      'Cue quiz detail page',
+    inLanguage: locale,
+    url: getAbsoluteUrl(`/watch/${id}`),
+    image: [seoImageUrl],
+    isAccessibleForFree: true,
+    educationalUse: 'practice',
+    learningResourceType: 'quiz',
+    about: rawQuiz.category
+      ? {
+          '@type': 'Thing',
+          name:
+            (locale === 'en' ? rawQuiz.category.nameEn : locale === 'zh' ? rawQuiz.category.nameZh : rawQuiz.category.nameJa) ||
+            rawQuiz.category.name,
+        }
+      : undefined,
+    publisher: {
+      '@type': 'Organization',
+      name: 'Cue',
+      url: getAbsoluteUrl('/'),
+    },
+  };
+
   return (
-    <WatchClientWrapper
-      quiz={quizData as any}
-      initialComments={initialComments}
-      initialBookmark={isBookmarked}
-      initialLike={isLiked}
-      initialCleared={isCleared}
-      isLoggedIn={!!clerkId}
-      relatedQuizzes={relatedQuizzes}
-      userStatus={userStatus}
-      missionProgress={missionProgress}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(quizStructuredData) }}
+      />
+      <WatchClientWrapper
+        quiz={quizData as any}
+        initialComments={initialComments}
+        initialBookmark={isBookmarked}
+        initialLike={isLiked}
+        initialCleared={isCleared}
+        isLoggedIn={!!clerkId}
+        relatedQuizzes={relatedQuizzes}
+        userStatus={userStatus}
+        missionProgress={missionProgress}
+      />
+    </>
   );
 }

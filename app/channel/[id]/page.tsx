@@ -11,7 +11,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import type { Metadata } from 'next';
-import { getSiteUrl } from '@/lib/site-config';
+import { getAbsoluteUrl, getDefaultOgImageUrl, resolveMetadataImageUrl } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,35 +27,47 @@ export async function generateMetadata({
   const prisma = createPrisma(env);
   const locale = await getServerLocale();
 
-  const channel = await prisma.category.findUnique({
+  const channel = await prisma.channel.findUnique({
     where: { id },
     select: {
       id: true,
       name: true,
-      nameJa: true,
-      nameEn: true,
-      nameZh: true,
+      description: true,
+      avatarUrl: true,
     },
   });
 
   if (!channel) return { title: 'Channel Not Found' };
-
-  const titleJa = channel.nameJa || channel.name;
-  const titleEn = channel.nameEn || channel.name;
-  const titleZh = channel.nameZh || channel.name;
-
-  let title = titleJa;
-  if (locale === 'en') title = titleEn;
-  if (locale === 'zh') title = titleZh;
-
+  const title = channel.name;
   const baseTitle = `${title} | Cue`;
+  const description =
+    (channel.description || '').trim() ||
+    (locale === 'en'
+      ? `Explore quizzes published on ${title}.`
+      : locale === 'zh'
+        ? `查看 ${title} 发布的测验。`
+        : `${title} が公開しているクイズ一覧です。`);
+  const canonical = getAbsoluteUrl(`/channel/${id}`);
+  const imageUrl = resolveMetadataImageUrl(channel.avatarUrl) || getDefaultOgImageUrl();
 
   return {
     title: baseTitle,
+    description,
+    alternates: {
+      canonical,
+    },
     openGraph: {
       title: baseTitle,
-      url: `${getSiteUrl()}/channel/${id}`,
-      images: ['/og-image.png'],
+      description,
+      type: 'profile',
+      url: canonical,
+      images: [imageUrl],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: baseTitle,
+      description,
+      images: [imageUrl],
     },
   };
 }
@@ -65,6 +77,7 @@ export default async function ChannelPage({ params }: { params: { id: string } }
   const prisma = createPrisma(env);
   const { id } = await params;
   const { userId: clerkId } = await auth();
+  const locale = await getServerLocale();
 
   // Fetch channel info
   const channel = await prisma.channel.findUnique({
@@ -137,53 +150,81 @@ export default async function ChannelPage({ params }: { params: { id: string } }
 
   // Fetch categories for the wrapper
   const categories = await prisma.category.findMany();
+  const channelStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: channel.name,
+    description:
+      (channel.description || '').trim() ||
+      (locale === 'en'
+        ? `Quiz collection by ${channel.name}`
+        : locale === 'zh'
+          ? `${channel.name} 的测验合集`
+          : `${channel.name} のクイズ一覧`),
+    url: getAbsoluteUrl(`/channel/${channel.id}`),
+    image: resolveMetadataImageUrl(channel.avatarUrl) ? [getAbsoluteUrl(channel.avatarUrl!)] : undefined,
+    mainEntity: {
+      '@type': 'ItemList',
+      itemListElement: channel.quizzes.slice(0, 10).map((quiz, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: getAbsoluteUrl(`/watch/${quiz.id}`),
+        name: quiz.translations[0]?.title || quiz.id,
+      })),
+    },
+  };
 
   return (
-    <div className="min-h-screen bg-zinc-50 pt-16">
-      {/* チャンネルヘッダー */}
-      <div className="bg-white border-b border-zinc-200">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-zinc-200 overflow-hidden relative border-4 border-white flex-shrink-0">
-              {channel.avatarUrl ? (
-                <Image src={channel.avatarUrl} alt={channel.name} fill className="object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-400 bg-zinc-100">
-                  {channel.name.charAt(0)}
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-zinc-900 mb-2">{channel.name}</h1>
-              <p className="text-zinc-500 mb-4">{channel.description || 'まだ自己紹介はありません'}</p>
-              <div className="flex gap-4 text-sm font-bold text-zinc-600">
-                <span>登録者 {channel._count.subscribers}人</span>
-                <span>•</span>
-                <span>公開クイズ {channel._count.quizzes}問</span>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(channelStructuredData) }}
+      />
+      <div className="min-h-screen bg-zinc-50 pt-16">
+        {/* チャンネルヘッダー */}
+        <div className="bg-white border-b border-zinc-200">
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="flex items-center gap-6">
+              <div className="w-24 h-24 rounded-full bg-zinc-200 overflow-hidden relative border-4 border-white flex-shrink-0">
+                {channel.avatarUrl ? (
+                  <Image src={channel.avatarUrl} alt={channel.name} fill className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-400 bg-zinc-100">
+                    {channel.name.charAt(0)}
+                  </div>
+                )}
               </div>
-            </div>
-            <div>
-              <SubscribeButton 
-                channelId={channel.id} 
-                initialSubscribed={initialSubscribed} 
-                isLoggedIn={!!clerkId} 
-              />
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-zinc-900 mb-2">{channel.name}</h1>
+                <p className="text-zinc-500 mb-4">{channel.description || 'まだ自己紹介はありません'}</p>
+                <div className="flex gap-4 text-sm font-bold text-zinc-600">
+                  <span>登録者 {channel._count.subscribers}人</span>
+                  <span>•</span>
+                  <span>公開クイズ {channel._count.quizzes}問</span>
+                </div>
+              </div>
+              <div>
+                <SubscribeButton 
+                  channelId={channel.id} 
+                  initialSubscribed={initialSubscribed} 
+                  isLoggedIn={!!clerkId} 
+                />
+              </div>
             </div>
           </div>
         </div>
+        {/* チャンネルのクイズ一覧 */}
+        <div className="max-w-7xl mx-auto py-8">
+          <h2 className="text-xl font-bold text-zinc-800 px-6 mb-6">公開中のクイズ</h2>
+          {quizzes.length > 0 ? (
+            <QuizClientWrapper initialQuizzes={quizzes as any} categories={categories} hideHeader={true} />
+          ) : (
+            <div className="text-center py-20 text-zinc-500 font-bold">
+              まだクイズが投稿されていません
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* チャンネルのクイズ一覧 */}
-      <div className="max-w-7xl mx-auto py-8">
-        <h2 className="text-xl font-bold text-zinc-800 px-6 mb-6">公開中のクイズ</h2>
-        {quizzes.length > 0 ? (
-          <QuizClientWrapper initialQuizzes={quizzes as any} categories={categories} hideHeader={true} />
-        ) : (
-          <div className="text-center py-20 text-zinc-500 font-bold">
-            まだクイズが投稿されていません
-          </div>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

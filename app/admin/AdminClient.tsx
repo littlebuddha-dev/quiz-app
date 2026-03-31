@@ -980,24 +980,43 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             <div className="flex flex-col gap-3 overflow-y-auto pr-2">
               {filteredQuizzes.map((q: any) => (
                 <div key={q.id} className={`p-3 rounded-xl border transition-all ${editingId === q.id ? 'border-blue-500 bg-blue-500/5' : 'border-[var(--border)] hover:bg-zinc-50'}`}>
-                  <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-3 items-start">
-                    <div className="flex flex-col items-start gap-2">
-                      <div className="w-[72px] aspect-video rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-[var(--border)] flex-shrink-0">
-                        {(q.translations?.[locale]?.imageUrl || q.translations?.ja?.imageUrl || q.imageUrl) ? (
-                          <img src={q.translations?.[locale]?.imageUrl || q.translations?.ja?.imageUrl || q.imageUrl} alt="Thumbnail" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[6px] text-zinc-300">NO IMG</div>
-                        )}
+                  <div className="flex gap-3 items-start">
+                    <a
+                      href={`/watch/${q.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-[46%] max-w-[152px] min-w-[132px] aspect-video rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-[var(--border)] flex-shrink-0 hover:opacity-90 transition-opacity"
+                      title="クイズページを開く"
+                    >
+                      {(q.translations?.[locale]?.imageUrl || q.translations?.ja?.imageUrl || q.imageUrl) ? (
+                        <img src={q.translations?.[locale]?.imageUrl || q.translations?.ja?.imageUrl || q.imageUrl} alt="Thumbnail" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[8px] text-zinc-300 font-black">NO IMG</div>
+                      )}
+                    </a>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <a
+                        href={`/watch/${q.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block font-bold text-[13px] leading-snug break-words hover:text-blue-600 transition-colors"
+                      >
+                        <LatexRenderer text={q.title} />
+                      </a>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-[8px] font-black bg-zinc-100 px-1.5 py-0.5 rounded">{q.targetAge}歳</span>
+                        <a
+                          href={`/watch/${q.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-full hover:bg-blue-100 transition-colors"
+                        >
+                          公開ページ ↗
+                        </a>
                       </div>
-                      <span className="text-[8px] font-black bg-zinc-100 px-1.5 py-0.5 rounded">{q.targetAge}歳</span>
-                      <div className="flex items-center gap-1">
+                      <div className="mt-2 flex items-center gap-1">
                         <button type="button" onClick={() => handleEdit(q)} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors"><img src="/icons/edit.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
                         <button type="button" onClick={() => handleDelete(q.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"><img src="/icons/delete.svg" alt="" className="w-4 h-4 opacity-70 grayscale" /></button>
-                      </div>
-                    </div>
-                    <div className="min-w-0 pt-0.5">
-                      <div className="font-bold text-[13px] leading-snug break-words">
-                        <LatexRenderer text={q.title} />
                       </div>
                     </div>
                   </div>
@@ -1820,6 +1839,22 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   </p>
                   <div className="flex items-center text-xs font-black text-indigo-600 gap-1">
                     ダッシュボードへ <span className="text-lg">→</span>
+                  </div>
+                </a>
+
+                <a href="https://search.google.com/u/0/search-console?resource_id=sc-domain%3Acue.college&hl=ja" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-sky-100 text-sky-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">🔎</span>
+                    <div>
+                      <h3 className="text-lg font-black">Google Search Console</h3>
+                      <p className="text-xs font-bold text-zinc-500">Indexing / Sitemap / Search Performance</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
+                    インデックス状況、サムネイル警告、サイトマップ送信、検索パフォーマンスの確認に使う管理画面です。
+                  </p>
+                  <div className="flex items-center text-xs font-black text-sky-600 gap-1">
+                    Search Console を開く <span className="text-lg">→</span>
                   </div>
                 </a>
 

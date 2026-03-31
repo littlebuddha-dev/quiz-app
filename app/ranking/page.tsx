@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: '排行榜',
       description: '查看答题数量和正确率最高的学习者。',
     },
-  });
+  }, '/ranking');
 }
 
 export default async function RankingPage() {

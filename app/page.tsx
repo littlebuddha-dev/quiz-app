@@ -11,6 +11,7 @@ import { ensureLocalUser } from '@/lib/clerk-sync';
 import QuizClientWrapper from './components/QuizClientWrapper';
 import { Quiz, StudyRecommendations, WeakCategoryInsight } from './types';
 import { calculateStreak } from '@/lib/streak';
+import { getAbsoluteUrl, getDefaultOgImageUrl } from '@/lib/metadata';
 
 
 
@@ -184,6 +185,15 @@ export default async function Home({
   ]);
 
   const rawQuizzes = [...rawQuizzesResult];
+  const websiteStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Cue',
+    url: getAbsoluteUrl('/'),
+    image: [getDefaultOgImageUrl()],
+    description: 'Learn through multilingual quizzes, logic puzzles, and age-appropriate educational challenges.',
+    inLanguage: ['ja', 'en', 'zh'],
+  };
 
   // サイドバー用のカテゴリー（表示されているすべてのジャンルを許可）
   const displayCategoriesRaw = allCategories.filter(c => (c.nameJa || c.name) && (c.nameJa || c.name).trim() !== '');
@@ -387,18 +397,24 @@ export default async function Home({
     : undefined;
 
   return (
-    <QuizClientWrapper
-      initialQuizzes={quizzes}
-      categories={displayCategories}
-      userBookmarks={userBookmarks}
-      userHistories={userHistories}
-      userTargetAge={effectiveAge}
-      userStatus={userStatus}
-      initialSearchQuery={searchQuery}
-      initialCategory={activeCategory}
-      initialMinAge={currentMinAge}
-      initialMaxAge={currentMaxAge}
-      studyRecommendations={studyRecommendations}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
+      />
+      <QuizClientWrapper
+        initialQuizzes={quizzes}
+        categories={displayCategories}
+        userBookmarks={userBookmarks}
+        userHistories={userHistories}
+        userTargetAge={effectiveAge}
+        userStatus={userStatus}
+        initialSearchQuery={searchQuery}
+        initialCategory={activeCategory}
+        initialMinAge={currentMinAge}
+        initialMaxAge={currentMaxAge}
+        studyRecommendations={studyRecommendations}
+      />
+    </>
   );
 }

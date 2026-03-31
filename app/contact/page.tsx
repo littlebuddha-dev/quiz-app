@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: '联系我们',
       description: '联系 Cue，获取支持、咨询或反馈。',
     },
-  });
+  }, '/contact');
 }
 
 export default function ContactPage() {
