@@ -51,6 +51,9 @@ const STUDY_COPY: Record<
     weakAccuracy: string;
     weakAttempts: string;
     openCategory: string;
+    recommendedSection: string;
+    latestSection: string;
+    archiveSection: string;
   }
 > = {
   ja: {
@@ -79,6 +82,9 @@ const STUDY_COPY: Record<
     weakAccuracy: '正答率',
     weakAttempts: '挑戦',
     openCategory: 'この分野を復習',
+    recommendedSection: 'おすすめ',
+    latestSection: '新着',
+    archiveSection: 'これまでの一覧',
   },
   en: {
     panelTitle: "Today's Study Dashboard",
@@ -106,6 +112,9 @@ const STUDY_COPY: Record<
     weakAccuracy: 'Accuracy',
     weakAttempts: 'Attempts',
     openCategory: 'Review this topic',
+    recommendedSection: 'Recommended',
+    latestSection: 'Latest',
+    archiveSection: 'All Previous Quizzes',
   },
   zh: {
     panelTitle: '今日学习看板',
@@ -133,6 +142,9 @@ const STUDY_COPY: Record<
     weakAccuracy: '正确率',
     weakAttempts: '作答次数',
     openCategory: '复习这个领域',
+    recommendedSection: '推荐',
+    latestSection: '最新',
+    archiveSection: '历次题目列表',
   },
 };
 
@@ -432,6 +444,32 @@ export default function QuizClient({
     () => sortedQuizzes.filter((quiz) => missionQuizSet.has(quiz.id)),
     [missionQuizSet, sortedQuizzes]
   );
+  const homepageSections = useMemo(() => {
+    if (studyMode !== 'all') {
+      return [
+        {
+          key: 'all',
+          title: '',
+          quizzes: displayQuizzes,
+        },
+      ];
+    }
+
+    const recommendedIds = activeStudyRecommendations?.dailyQuizIds?.length
+      ? activeStudyRecommendations.dailyQuizIds
+      : sortedQuizzes.slice(0, 3).map((quiz) => quiz.id);
+    const recommendedSet = new Set(recommendedIds);
+    const recommendedQuizzes = sortedQuizzes.filter((quiz) => recommendedSet.has(quiz.id)).slice(0, 3);
+    const latestQuizzes = sortedQuizzes.filter((quiz) => !recommendedSet.has(quiz.id)).slice(0, 8);
+    const latestSet = new Set(latestQuizzes.map((quiz) => quiz.id));
+    const archiveQuizzes = sortedQuizzes.filter((quiz) => !recommendedSet.has(quiz.id) && !latestSet.has(quiz.id));
+
+    return [
+      { key: 'recommended', title: studyText.recommendedSection, quizzes: recommendedQuizzes },
+      { key: 'latest', title: studyText.latestSection, quizzes: latestQuizzes },
+      { key: 'archive', title: studyText.archiveSection, quizzes: archiveQuizzes },
+    ].filter((section) => section.quizzes.length > 0);
+  }, [activeStudyRecommendations?.dailyQuizIds, displayQuizzes, sortedQuizzes, studyMode, studyText.archiveSection, studyText.latestSection, studyText.recommendedSection]);
   const dailyGoalProgress = activeStudyRecommendations
     ? Math.min(activeStudyRecommendations.solvedTodayCount / Math.max(activeStudyRecommendations.dailyGoalTarget, 1), 1)
     : 0;
@@ -690,9 +728,18 @@ export default function QuizClient({
         )}
 
         {isOnline ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
-          {displayQuizzes.length > 0 ? (
-             displayQuizzes.map((quiz) => {
+        <div className="space-y-10">
+          {(studyMode !== 'all' ? displayQuizzes.length > 0 : homepageSections.length > 0) ? (
+            (studyMode === 'all' ? homepageSections : [{ key: 'all', title: '', quizzes: displayQuizzes }]).map((section) => (
+              <section key={section.key} className="space-y-4">
+                {section.title && (
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl sm:text-2xl font-semibold safari-no-faux-bold">{section.title}</h2>
+                    <div className="h-px flex-1 bg-[var(--border)]" />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+                  {section.quizzes.map((quiz) => {
               const qt = quiz.translations[locale] || quiz.translations['ja'];
               const localeImage = quiz.translations[locale]?.imageUrl || null;
               const jaImage = quiz.translations['ja']?.imageUrl || null;
@@ -770,9 +817,12 @@ export default function QuizClient({
                   </div>
                 </Link>
               );
-            })
+            })}
+                </div>
+              </section>
+            ))
           ) : (
-             <div className="col-span-full flex flex-col items-center justify-center p-20 text-zinc-400">
+             <div className="flex flex-col items-center justify-center p-20 text-zinc-400">
                  <div className="text-xl font-bold">クイズが見つかりません</div>
                  <div className="mt-2 text-sm">左側のメニューからAIでクイズを生成してみてください。</div>
              </div>
