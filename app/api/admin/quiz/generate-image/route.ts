@@ -10,7 +10,7 @@ import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { createDataUrlFromBuffer, storeImageBuffer } from '@/lib/image-storage';
 import { editNanobananaImage, generateNanobananaImage, resolveInlineImageData } from '@/lib/nanobanana';
-import { getPersonaByAge } from '@/lib/ai-prompts';
+import { detectLanguageSubjectRule, getPersonaByAge } from '@/lib/ai-prompts';
 
 type QuizLocale = 'ja' | 'en' | 'zh';
 type RequestedLocale = QuizLocale | 'all';
@@ -34,6 +34,24 @@ function firstSentence(value: string) {
     .map((segment) => segment.trim())
     .filter(Boolean);
   return segments[0] || normalized;
+}
+
+function extractExerciseText(question: string) {
+  const trimmed = question.trim();
+  const quotedAnywhere = trimmed.match(/[「『“"][\s\S]+?[」』”"]/);
+  if (quotedAnywhere?.[0]) {
+    return quotedAnywhere[0].trim();
+  }
+
+  const firstLine = trimmed.split('\n')[0]?.trim();
+  if (!firstLine) return '';
+
+  const colonSeparated = firstLine.match(/^[^:：]+[:：]\s*(.+)$/);
+  if (colonSeparated?.[1]) {
+    return colonSeparated[1].trim();
+  }
+
+  return firstLine.length <= 120 ? firstLine : '';
 }
 
 async function storeImageWithFallback(buffer: Buffer, mimeType: string) {
@@ -80,44 +98,136 @@ Requirements:
 
 function buildLocalizedCopy(params: {
   locale: QuizLocale;
+  subjectLocale: QuizLocale;
+  isLanguageSubject: boolean;
   title: string;
   question: string;
   hint?: string | null;
+  sharedQuestionText?: string;
 }) {
-  const { locale, title, question, hint } = params;
+  const { locale, subjectLocale, isLanguageSubject, title, question, hint, sharedQuestionText } = params;
   const headlineLimit = locale === 'en' ? 42 : 24;
   const supportLimit = locale === 'en' ? 78 : 44;
-  const headline = clampText(firstSentence(title), headlineLimit);
-  const supportSource = firstSentence(hint || '') || firstSentence(question);
+  const headlineSource = isLanguageSubject
+    ? (sharedQuestionText || firstSentence(title))
+    : firstSentence(title);
+  const supportSource = isLanguageSubject
+    ? normalizeText(question.replace(sharedQuestionText || '', '')) || firstSentence(hint || '') || firstSentence(question)
+    : (firstSentence(hint || '') || firstSentence(question));
+  const headline = clampText(headlineSource, subjectLocale === 'en' ? 42 : 24);
   const support = clampText(supportSource, supportLimit);
   return { headline, support };
 }
 
 function buildLocalizedEditPrompt(params: {
   locale: QuizLocale;
+  subjectLocale: QuizLocale;
+  isLanguageSubject: boolean;
   title: string;
   question: string;
   hint?: string | null;
+  sharedQuestionText?: string;
   age: number;
   categoryName: string;
   imageStyle: string;
 }) {
-  const { locale, title, question, hint, age, categoryName, imageStyle } = params;
-  const copy = buildLocalizedCopy({ locale, title, question, hint });
-  return `Use the attached educational illustration as the visual base and create one finished localized quiz image for learners around age ${age}.
+  const { locale, subjectLocale, isLanguageSubject, title, question, hint, sharedQuestionText, age, categoryName, imageStyle } = params;
+  const copy = buildLocalizedCopy({
+    locale,
+    subjectLocale,
+    isLanguageSubject,
+    title,
+    question,
+    hint,
+    sharedQuestionText,
+  });
+  const localeRule = isLanguageSubject
+    ? `Only two text blocks are allowed. The headline must be strictly in ${detectLocaleLanguageName(subjectLocale)}. The support text must be strictly in ${detectLocaleLanguageName(locale)}. Do not mix other scripts or add any extra labels elsewhere.`
+    : `All visible text must be strictly in ${detectLocaleLanguageName(locale)} only. Do not mix scripts, and do not add any other language anywhere in the image.`;
+
+  return `Edit this educational illustration into a polished localized quiz image for learners around age ${age}.
 Subject area: ${categoryName}
 Visual direction: ${imageStyle}
 
 Visible text rules:
 - Add exactly two text blocks and no others.
-- Language: ${detectLocaleLanguageName(locale)} only.
-- Headline: "${copy.headline}"
+- ${localeRule}
+- Headline text: "${copy.headline}"
 - Support text: "${copy.support}"
-- Keep the text blocks short and fully visible. Do not cut off letters or end mid-sentence.
-- Headline should fit within two lines. Support text should fit within three short lines.
+- Keep the visible text exactly as written, with the same wording and punctuation.
 - Make the headline visually primary and the support text secondary.
-- Keep the composition, characters, background, and educational meaning consistent with the source image.
-- Do not add subtitles, labels, UI chrome, watermark, or any extra random text.`;
+- Keep all text fully visible. Do not crop, truncate, or fade out any letters.
+- Headline should fit within two lines. Support text should fit within three short lines.
+- Keep the composition, objects, and educational meaning consistent with the source image.
+- No subtitles, no labels, no chart annotations, no UI chrome, no watermark, and no additional random text.`;
+}
+
+type ImageValidationResult = {
+  ok: boolean;
+  issues: string[];
+};
+
+async function validateLocalizedImage(params: {
+  ai: GoogleGenAI;
+  image: { data: string; mimeType: string };
+  locale: QuizLocale;
+  subjectLocale: QuizLocale;
+  isLanguageSubject: boolean;
+}) {
+  const { ai, image, locale, subjectLocale, isLanguageSubject } = params;
+  const validationPrompt = isLanguageSubject
+    ? `Inspect this quiz image and answer in JSON.
+Rules:
+- Only two meaningful text blocks should be visible.
+- The headline must be only in ${detectLocaleLanguageName(subjectLocale)}.
+- The support text must be only in ${detectLocaleLanguageName(locale)}.
+- No other labels, annotations, or mixed-language text should appear.
+- Text must not be cut off or incomplete.
+Return exactly:
+{"ok":true|false,"issues":["..."]}`
+    : `Inspect this quiz image and answer in JSON.
+Rules:
+- All visible text must be only in ${detectLocaleLanguageName(locale)}.
+- No other languages or mixed scripts should appear.
+- Text must not be cut off or incomplete.
+- No extra labels or annotations should appear besides the intended title and support text.
+Return exactly:
+{"ok":true|false,"issues":["..."]}`;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            inlineData: {
+              data: image.data,
+              mimeType: image.mimeType,
+            },
+          },
+          { text: validationPrompt },
+        ],
+      },
+    ],
+    config: {
+      responseMimeType: 'application/json',
+    },
+  });
+
+  try {
+    const parsed = JSON.parse(response.text || '{}') as Partial<ImageValidationResult>;
+    return {
+      ok: Boolean(parsed.ok),
+      issues: Array.isArray(parsed.issues) ? parsed.issues.filter((issue): issue is string => typeof issue === 'string') : [],
+    };
+  } catch (error) {
+    console.warn('[generate-image] validation parse failed:', error);
+    return {
+      ok: false,
+      issues: ['validation response could not be parsed'],
+    };
+  }
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -194,6 +304,11 @@ export async function POST(req: NextRequest) {
     const persona = getPersonaByAge(quiz.targetAge || 8);
     const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     const categoryName = quiz.category?.nameJa || quiz.category?.name || quiz.categoryId;
+    const languageSubjectRule = detectLanguageSubjectRule([
+      quiz.category?.name,
+      quiz.category?.nameJa,
+      quiz.categoryId,
+    ]);
     const existingQuizImageUrl = normalizeText(quiz.imageUrl);
     let baseImageUrl = existingQuizImageUrl;
 
@@ -236,6 +351,7 @@ export async function POST(req: NextRequest) {
     }
 
     const generatedImageUrls: Partial<Record<QuizLocale, string>> = {};
+    const sharedQuestionText = languageSubjectRule ? extractExerciseText(normalizeText(jaTranslation.question)) : '';
     for (const currentLocale of localesToGenerate) {
       const translation = translationsByLocale.get(currentLocale) || jaTranslation;
       if (!translation) continue;
@@ -247,27 +363,54 @@ export async function POST(req: NextRequest) {
 
       const sourceImage = await resolveInlineImageData(baseImageUrl);
       let localizedImage = null;
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      let validationIssues: string[] = [];
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const prompt = `${buildLocalizedEditPrompt({
+          locale: currentLocale,
+          subjectLocale: languageSubjectRule?.subjectLocale || currentLocale,
+          isLanguageSubject: Boolean(languageSubjectRule),
+          title: normalizeText(translation.title || jaTranslation.title) || 'Quiz',
+          question: normalizeText(translation.question || jaTranslation.question),
+          hint: normalizeText(translation.hint || jaTranslation.hint),
+          sharedQuestionText,
+          age: quiz.targetAge || 8,
+          categoryName,
+          imageStyle: persona.imageStyle,
+        })}${validationIssues.length > 0 ? `\n\nFix these problems from the previous attempt:\n- ${validationIssues.join('\n- ')}` : ''}`;
+
         try {
           localizedImage = await withTimeout(
-            editNanobananaImage(
-              ai,
-              sourceImage,
-              buildLocalizedEditPrompt({
-                locale: currentLocale,
-                title: normalizeText(translation.title || jaTranslation.title) || 'Quiz',
-                question: normalizeText(translation.question || jaTranslation.question),
-                hint: normalizeText(translation.hint || jaTranslation.hint),
-                age: quiz.targetAge || 8,
-                categoryName,
-                imageStyle: persona.imageStyle,
-              })
-            ),
+            editNanobananaImage(ai, sourceImage, prompt),
             timeoutMs,
             `${currentLocale} localized image generation`
           );
-          if (localizedImage?.data) break;
+          if (!localizedImage?.data) {
+            validationIssues = ['no image data was returned'];
+            continue;
+          }
+
+          const validation = await withTimeout(
+            validateLocalizedImage({
+              ai,
+              image: localizedImage,
+              locale: currentLocale,
+              subjectLocale: languageSubjectRule?.subjectLocale || currentLocale,
+              isLanguageSubject: Boolean(languageSubjectRule),
+            }),
+            Math.max(8000, Math.floor(timeoutMs * 0.5)),
+            `${currentLocale} image validation`
+          );
+
+          if (validation.ok) {
+            break;
+          }
+
+          validationIssues = validation.issues.length > 0 ? validation.issues : ['mixed or truncated text was detected'];
+          console.warn(`[generate-image] validation failed locale=${currentLocale} attempt=${attempt + 1}:`, validationIssues);
+          localizedImage = null;
         } catch (retryErr: any) {
+          validationIssues = [retryErr.message || 'generation failed'];
           console.warn(`[generate-image] ${currentLocale} attempt ${attempt + 1} error:`, retryErr.message);
           if (attempt === 0) {
             await new Promise((resolve) => setTimeout(resolve, 1500));
