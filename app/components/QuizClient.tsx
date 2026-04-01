@@ -809,7 +809,9 @@ export default function QuizClient({
                       <LatexRenderer text={qt.title} className="block w-full max-w-full break-words [overflow-wrap:anywhere] sm:line-clamp-2" />
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{translatedCategory}</div>
+                      <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                        {translatedCategory}
+                      </span>
                       <span className="text-[10px] text-zinc-400/70 flex items-center gap-1 leading-none">
                         • {quiz.viewCount || 0}{locale === 'ja' ? ' 回' : locale === 'en' ? ' views' : ' 次'}
                       </span>

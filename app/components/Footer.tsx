@@ -7,18 +7,24 @@
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import { Locale } from '../types';
 
-const DICTIONARY: Record<Locale, { catchphrase: string; description: string }> = {
+const DICTIONARY: Record<Locale, { catchphrase: string; description: string; new: string; popular: string }> = {
   ja: {
     catchphrase: 'すべての人に学ぶことの楽しさを。',
     description: '直感的なクイズで知的好奇心を刺激するプラットフォーム。',
+    new: 'New',
+    popular: 'Popular',
   },
   en: {
     catchphrase: 'Fun of learning for everyone.',
     description: 'A platform that stimulates intellectual curiosity with intuitive quizzes.',
+    new: 'New',
+    popular: 'Popular',
   },
   zh: {
     catchphrase: '给每个人的学习乐趣。',
     description: '通过直观的测验激发求知欲的平台。',
+    new: '最新',
+    popular: '热门',
   },
 };
 
@@ -47,10 +53,16 @@ export default function Footer() {
             {t.description}
           </p>
 
-          <div className="flex items-center gap-6">
-            <a href="/privacy" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">Privacy</a>
-            <a href="/terms" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">Terms</a>
-            <a href="/contact" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">Contact</a>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-6 flex-wrap justify-center">
+              <a href="/new" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">{t.new}</a>
+              <a href="/popular" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">{t.popular}</a>
+            </div>
+            <div className="flex items-center gap-6 flex-wrap justify-center">
+              <a href="/privacy" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">Privacy</a>
+              <a href="/terms" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">Terms</a>
+              <a href="/contact" className="text-xs font-bold text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">Contact</a>
+            </div>
           </div>
         </div>
 
