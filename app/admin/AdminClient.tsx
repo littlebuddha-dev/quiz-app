@@ -2033,6 +2033,22 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   </div>
                 </a>
 
+                <a href="https://analytics.google.com/analytics/web/?authuser=0#/a343637851p529847963/reports/intelligenthome?params=_u..nav%3Dmaui" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-orange-100 text-orange-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">📈</span>
+                    <div>
+                      <h3 className="text-lg font-black">Google Analytics</h3>
+                      <p className="text-xs font-bold text-zinc-500">Traffic / Engagement / User Behavior</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
+                    訪問数、流入元、ユーザー行動、主要ページの閲覧状況などを確認する管理画面です。
+                  </p>
+                  <div className="flex items-center text-xs font-black text-orange-600 gap-1">
+                    Analytics を開く <span className="text-lg">→</span>
+                  </div>
+                </a>
+
                 <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 -mr-8 -mt-8 rotate-45"></div>
                   <div className="flex items-center gap-4 mb-4">
