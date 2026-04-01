@@ -36,6 +36,24 @@ const DEFAULT_AUTO_GENERATION_SCHEDULE: AutoGenerationSchedule = {
   modelId: DEFAULT_MODEL_ID,
 };
 
+function buildApiErrorMessage(errorData: any, status: number, fallback: string) {
+  if (!errorData || typeof errorData !== 'object') {
+    return `${fallback} (Status: ${status})`;
+  }
+
+  const messageParts = [
+    typeof errorData.message === 'string' ? errorData.message : '',
+    typeof errorData.error === 'string' ? errorData.error : '',
+    typeof errorData.details === 'string' ? errorData.details : '',
+  ].filter(Boolean);
+
+  if (messageParts.length > 0) {
+    return `${fallback}: ${messageParts.join(' / ')}`;
+  }
+
+  return `${fallback} (Status: ${status})`;
+}
+
 export default function AdminClient({ initialQuizzes, categories, userStatus, initialComments = [] }: AdminClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
@@ -572,8 +590,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         fetchQuizzes();
       } else {
         const errorData = (await res.json()) as any;
-        const detail = errorData.details ? ` (${errorData.details})` : '';
-        alert(errorData.message || `生成に失敗しました。(Status: ${res.status}${detail})`);
+        console.error('AI quiz generation failed:', errorData);
+        alert(buildApiErrorMessage(errorData, res.status, '生成に失敗しました'));
       }
     } catch (error: any) {
       console.error(error);
@@ -746,6 +764,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     { id: 'math.svg', name: '算数 (Math)' },
     { id: 'language.svg', name: '国語 (Language)' },
     { id: 'science.svg', name: '理科 (Science)' },
+    { id: 'science.svg', name: '物理 (Physics)' },
     { id: 'social.svg', name: '社会 (Social)' },
     { id: 'logic.svg', name: '論理 (Logic)' },
     { id: 'coding.svg', name: 'プログラミング (Coding)' },
@@ -781,8 +800,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         fetchQuizzes();
       } else {
         const err = (await res.json()) as any;
-        const detail = err.details ? ` (${err.details})` : '';
-        alert(err.message || `自動生成に失敗しました。(Status: ${res.status}${detail})`);
+        console.error('Bulk quiz generation failed:', err);
+        alert(buildApiErrorMessage(err, res.status, '自動生成に失敗しました'));
       }
     } catch (error: any) {
       console.error(error);
