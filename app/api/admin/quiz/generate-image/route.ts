@@ -15,6 +15,7 @@ import { detectLanguageSubjectRule, getPersonaByAge } from '@/lib/ai-prompts';
 type QuizLocale = 'ja' | 'en' | 'zh';
 type RequestedLocale = QuizLocale | 'all';
 const ALL_LOCALES: QuizLocale[] = ['ja', 'en', 'zh'];
+type LocaleGenerationStatus = 'generated' | 'existing' | 'fallback_ja' | 'missing_translation';
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -390,13 +391,25 @@ export async function POST(req: NextRequest) {
     }
 
     const generatedImageUrls: Partial<Record<QuizLocale, string>> = {};
+    const localeResults: Partial<Record<QuizLocale, { status: LocaleGenerationStatus; imageUrl: string; issues?: string[] }>> = {};
     const sharedQuestionText = languageSubjectRule ? extractExerciseText(normalizeText(jaTranslation.question)) : '';
     for (const currentLocale of localesToGenerate) {
       const translation = translationsByLocale.get(currentLocale) || jaTranslation;
-      if (!translation) continue;
+      if (!translation) {
+        localeResults[currentLocale] = {
+          status: 'missing_translation',
+          imageUrl: masterJaImageUrl,
+          issues: ['translation record was not found'],
+        };
+        continue;
+      }
 
       if (currentLocale === 'ja') {
         generatedImageUrls.ja = masterJaImageUrl;
+        localeResults.ja = {
+          status: force || !translation.imageUrl ? 'generated' : 'existing',
+          imageUrl: masterJaImageUrl,
+        };
         if (!force && translation.imageUrl) {
           continue;
         }
@@ -409,6 +422,10 @@ export async function POST(req: NextRequest) {
 
       if (!force && translation.imageUrl) {
         generatedImageUrls[currentLocale] = translation.imageUrl;
+        localeResults[currentLocale] = {
+          status: 'existing',
+          imageUrl: translation.imageUrl,
+        };
         continue;
       }
 
@@ -472,11 +489,20 @@ export async function POST(req: NextRequest) {
       if (!localizedImage?.data) {
         console.warn(`[generate-image] localized generation failed for locale=${currentLocale}, falling back to japanese master image`);
         generatedImageUrls[currentLocale] = masterJaImageUrl;
+        localeResults[currentLocale] = {
+          status: 'fallback_ja',
+          imageUrl: masterJaImageUrl,
+          issues: validationIssues,
+        };
       } else {
         generatedImageUrls[currentLocale] = await storeImageWithFallback(
           Buffer.from(localizedImage.data, 'base64'),
           localizedImage.mimeType
         );
+        localeResults[currentLocale] = {
+          status: 'generated',
+          imageUrl: generatedImageUrls[currentLocale],
+        };
       }
 
       await prisma.quizTranslation.updateMany({
@@ -491,6 +517,7 @@ export async function POST(req: NextRequest) {
       success: true,
       imageUrl: generatedImageUrls[primaryLocale] || masterJaImageUrl,
       imageUrls: generatedImageUrls,
+      localeResults,
     });
   } catch (error: any) {
     console.error('Generate Quiz Image Error:', error);

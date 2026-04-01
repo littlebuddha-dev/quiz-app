@@ -956,10 +956,21 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       const imageData = (await imageRes.json()) as {
         imageUrl?: string;
         imageUrls?: Partial<Record<Locale, string>>;
+        localeResults?: Partial<Record<Locale, { status: 'generated' | 'existing' | 'fallback_ja' | 'missing_translation'; imageUrl: string; issues?: string[] }>>;
       };
       const localizedImageUrl = imageData.imageUrls?.[targetLocale] || imageData.imageUrl;
       if (localizedImageUrl) {
         setAiImageUrl(localizedImageUrl);
+      }
+      const localeWarnings = Object.entries(imageData.localeResults || {})
+        .filter(([, result]) => result && (result.status === 'fallback_ja' || result.status === 'missing_translation'))
+        .map(([localeKey, result]) => {
+          const issueText = result?.issues && result.issues.length > 0 ? ` (${result.issues.join(' / ')})` : '';
+          return `${localeKey}: ${result?.status}${issueText}`;
+        });
+      if (localeWarnings.length > 0) {
+        console.warn('Deferred image generation locale warnings:', localeWarnings);
+        alert(`一部の言語画像は日本語画像へフォールバックしました。\n${localeWarnings.join('\n')}`);
       }
       fetchQuizzes();
       return true;
