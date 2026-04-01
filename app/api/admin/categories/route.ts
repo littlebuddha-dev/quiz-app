@@ -21,6 +21,13 @@ type CategoryRow = {
   updatedAt: string;
 };
 
+function normalizeSortOrder(value: number | bigint | null | undefined) {
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+  return value ?? 0;
+}
+
 // 管理者権限チェック
 async function checkAdmin(prisma: PrismaClient) {
   const { userId } = await auth();
@@ -69,10 +76,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 最大のsortOrderを取得
-    const maxSortResult = await prisma.$queryRawUnsafe<Array<{ maxSort: number | null }>>(
+    const maxSortResult = await prisma.$queryRawUnsafe<Array<{ maxSort: number | bigint | null }>>(
       'SELECT MAX("sortOrder") as maxSort FROM "Category"'
     );
-    const nextSortOrder = (maxSortResult[0]?.maxSort ?? -1) + 1;
+    const nextSortOrder = normalizeSortOrder(maxSortResult[0]?.maxSort) + 1;
 
     await prisma.$executeRawUnsafe(
       'INSERT INTO "Category" ("id", "name", "nameJa", "nameEn", "nameZh", "minAge", "maxAge", "systemPrompt", "sortOrder", "icon", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
@@ -129,7 +136,12 @@ export async function PATCH(request: NextRequest) {
 
     if (sortOrder !== undefined) {
       await prisma.$executeRawUnsafe(
-        'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "sortOrder" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
+        'UPDATE "Category" SET "name" = ?, "nameJa" = ?, "nameEn" = ?, "nameZh" = ?, "minAge" = ?, "maxAge" = ?, "systemPrompt" = ?, "sortOrder" = ?, "icon" = ?, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ?',
+        nameJa,
+        nameJa,
+        nameEn,
+        nameZh,
+        parseInt(minAge || '0'),
         maxAge ? parseInt(maxAge) : null,
         systemPrompt || null,
         sortOrder,
