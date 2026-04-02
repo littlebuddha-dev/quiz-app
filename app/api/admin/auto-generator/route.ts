@@ -14,6 +14,7 @@ import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
 type CategorySummary = { id: string; name: string; nameJa: string | null };
+type CategoryCountRow = { categoryId: string; _count: { id: number } };
 
 function normalizeSuggestedTopics(rawTopics: unknown): string[] {
   if (!Array.isArray(rawTopics)) return [];
@@ -112,26 +113,37 @@ export async function POST(req: NextRequest) {
         select: { id: true, name: true, nameJa: true },
         orderBy: { sortOrder: 'asc' }
       });
+      const allCategories = allCategoriesRaw.filter((category) => category.id !== 'その他');
       
       const counts = await (prisma.quiz as any).groupBy({
         by: ['categoryId', 'targetAge'],
         _count: { id: true }
       });
+      const categoryTotals = await (prisma.quiz as any).groupBy({
+        by: ['categoryId'],
+        _count: { id: true }
+      }) as CategoryCountRow[];
 
       const countMap = new Map();
       counts.forEach((c: any) => {
         countMap.set(`${c.categoryId}-${c.targetAge}`, c._count.id);
       });
+      const categoryTotalMap = new Map<string, number>();
+      categoryTotals.forEach((row) => {
+        categoryTotalMap.set(row.categoryId, row._count.id);
+      });
 
-      const rankedCombos = allCategoriesRaw
+      const rankedCombos = allCategories
         .flatMap((cat) =>
           Array.from({ length: 19 }, (_, age) => ({
             category: cat as CategorySummary,
             age,
+            totalCount: categoryTotalMap.get(cat.id) || 0,
             count: countMap.get(`${cat.id}-${age}`) || 0,
           }))
         )
         .sort((a, b) => {
+          if (a.totalCount !== b.totalCount) return a.totalCount - b.totalCount;
           if (a.count !== b.count) return a.count - b.count;
           if (a.category.id !== b.category.id) return a.category.id.localeCompare(b.category.id);
           return a.age - b.age;
