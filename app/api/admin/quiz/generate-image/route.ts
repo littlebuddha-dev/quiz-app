@@ -16,9 +16,38 @@ type QuizLocale = 'ja' | 'en' | 'zh';
 type RequestedLocale = QuizLocale | 'all';
 const ALL_LOCALES: QuizLocale[] = ['ja', 'en', 'zh'];
 type LocaleGenerationStatus = 'generated' | 'existing' | 'fallback_ja' | 'missing_translation';
+const PROGRAMMING_SUBJECT_ALIASES = [
+  'プログラミング',
+  'programming',
+  'coding',
+  'code',
+  '情報',
+  'information',
+  'informatics',
+  'computer science',
+];
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeGeneratedImageUrl(value: unknown) {
+  const normalized = normalizeText(value);
+  return normalized === '/images/no-image.png' ? '' : normalized;
+}
+
+function normalizeCategoryName(value: string) {
+  return value.toLowerCase().replace(/\s+/g, '').trim();
+}
+
+function detectProgrammingSubject(categoryNames: Array<string | null | undefined>) {
+  const normalizedNames = categoryNames
+    .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+    .map(normalizeCategoryName);
+
+  return PROGRAMMING_SUBJECT_ALIASES.some((alias) =>
+    normalizedNames.some((name) => name.includes(normalizeCategoryName(alias)))
+  );
 }
 
 function clampText(value: string, maxLength: number) {
@@ -95,6 +124,27 @@ Requirements:
 - Keep the composition clean, exciting, and age-appropriate.
 - Do not include any letters, words, numbers, subtitles, captions, UI, watermark, or logo.
 - Use polished lighting and textbook-quality clarity.`;
+}
+
+function buildProgrammingFallbackPrompt(params: {
+  age: number;
+  categoryName: string;
+  title: string;
+  question: string;
+  imageStyle: string;
+}) {
+  const { age, categoryName, title, question, imageStyle } = params;
+  return `Create exactly one premium educational programming illustration in a wide 16:9 layout for learners around age ${age}.
+Topic: ${title}
+Subject area: ${categoryName}
+Programming concept: ${clampText(firstSentence(question), 90)}
+Visual direction: ${imageStyle}
+
+Requirements:
+- Show sequence, branching, repetition, shortest path, or step-by-step logic using arrows, cards, blocks, paths, robots, icons, or highlighted steps.
+- Keep it as a concept illustration, not a screenshot.
+- Do not include any letters, words, numbers, subtitles, captions, UI, watermark, or logo.
+- Make the logic easy to grasp at a glance with polished lighting and textbook-quality clarity.`;
 }
 
 function buildJapaneseMasterPrompt(params: {
@@ -339,12 +389,17 @@ export async function POST(req: NextRequest) {
     const persona = getPersonaByAge(quiz.targetAge || 8);
     const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     const categoryName = quiz.category?.nameJa || quiz.category?.name || quiz.categoryId;
+    const isProgrammingSubject = detectProgrammingSubject([
+      quiz.category?.name,
+      quiz.category?.nameJa,
+      quiz.categoryId,
+    ]);
     const languageSubjectRule = detectLanguageSubjectRule([
       quiz.category?.name,
       quiz.category?.nameJa,
       quiz.categoryId,
     ]);
-    const jaExistingImageUrl = normalizeText(jaTranslation.imageUrl || quiz.imageUrl);
+    const jaExistingImageUrl = normalizeGeneratedImageUrl(jaTranslation.imageUrl || quiz.imageUrl);
     let masterJaImageUrl = jaExistingImageUrl;
 
     if (!masterJaImageUrl || force) {
@@ -372,6 +427,27 @@ export async function POST(req: NextRequest) {
           if (attempt === 0) {
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
+        }
+      }
+
+      if (!masterJaImage?.data && isProgrammingSubject) {
+        try {
+          masterJaImage = await withTimeout(
+            generateNanobananaImage(
+              ai,
+              buildProgrammingFallbackPrompt({
+                age: quiz.targetAge || 8,
+                categoryName,
+                title: normalizeText(jaTranslation.title) || 'Programming Quiz',
+                question: normalizeText(jaTranslation.question),
+                imageStyle: persona.imageStyle,
+              })
+            ),
+            Math.max(8000, Math.floor(timeoutMs * 0.8)),
+            'ja programming fallback image generation'
+          );
+        } catch (fallbackError: any) {
+          console.warn('[generate-image] programming fallback master image failed:', fallbackError.message);
         }
       }
 
@@ -406,11 +482,12 @@ export async function POST(req: NextRequest) {
 
       if (currentLocale === 'ja') {
         generatedImageUrls.ja = masterJaImageUrl;
+        const hasExistingJaImage = Boolean(normalizeGeneratedImageUrl(translation.imageUrl));
         localeResults.ja = {
-          status: force || !translation.imageUrl ? 'generated' : 'existing',
+          status: force || !hasExistingJaImage ? 'generated' : 'existing',
           imageUrl: masterJaImageUrl,
         };
-        if (!force && translation.imageUrl) {
+        if (!force && hasExistingJaImage) {
           continue;
         }
         await prisma.quizTranslation.updateMany({
@@ -420,11 +497,12 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      if (!force && translation.imageUrl) {
-        generatedImageUrls[currentLocale] = translation.imageUrl;
+      const existingLocalizedImageUrl = normalizeGeneratedImageUrl(translation.imageUrl);
+      if (!force && existingLocalizedImageUrl) {
+        generatedImageUrls[currentLocale] = existingLocalizedImageUrl;
         localeResults[currentLocale] = {
           status: 'existing',
-          imageUrl: translation.imageUrl,
+          imageUrl: existingLocalizedImageUrl,
         };
         continue;
       }

@@ -896,6 +896,7 @@ function buildQualityFeedback(params: {
   const ja = quiz.ja;
   const combined = [ja.title, ja.question, ja.hint, ja.answer, ja.explanation].map(normalizeText).join('\n');
   const languageSubjectRule = detectLanguageSubjectRule(categoryNames);
+  const isProgrammingSubject = detectProgrammingSubject(categoryNames);
 
   if (!normalizeText(ja.title) || !normalizeText(ja.question) || !normalizeText(ja.hint) || !normalizeText(ja.answer)) {
     issues.push('日本語の title/question/hint/answer のいずれかが不足しています。');
@@ -976,6 +977,26 @@ function buildQualityFeedback(params: {
     const duplicateTitle = excludeTitles.find((existingTitle) => calculateDiceSimilarity(existingTitle, titleText) >= 0.82);
     if (duplicateTitle) {
       issues.push(`title が既存問題「${duplicateTitle}」に近すぎます。別の切り口・別の題材へ変えてください。`);
+    }
+  }
+
+  if (isProgrammingSubject) {
+    const strongProgrammingTerms = ['アルゴリズム', '手順', '命令', 'ループ', 'くり返し', '条件分岐', '条件', '分岐', '変数', 'デバッグ', '入力', '出力', '最短', '効率'];
+    const abstractStoryTerms = ['どうぶつ', 'ねこ', 'いぬ', 'くま', 'しろくま', 'うさぎ', 'ぞう', 'ワン', 'ニャー', 'くだもの', 'おかし'];
+    if (!strongProgrammingTerms.some((term) => combined.includes(term))) {
+      issues.push('プログラミングジャンルなのに、アルゴリズム・命令・条件分岐・ループ・変数・デバッグなどの概念が弱すぎます。物語だけでなく、学ぶべき概念を明確にしてください。');
+    }
+    const hasStoryOnlyMotif = abstractStoryTerms.some((term) => combined.includes(term));
+    const hasCoreProgrammingSignal = ['ループ', 'くり返し', '条件分岐', '条件', '分岐', '変数', 'デバッグ', '入力', '出力'].some((term) => combined.includes(term));
+    if (hasStoryOnlyMotif && !hasCoreProgrammingSignal) {
+      issues.push('プログラミング問題なのに、動物や日常小物の物語が前面に出すぎています。命令、順序、条件、繰り返し、デバッグなどの学習概念を主役にしてください。');
+    }
+    if ((ja.type || requestedQuizType) === 'CHOICE') {
+      const options = normalizeChoiceOptions(ja.options) || [];
+      const optionCombined = options.join('\n');
+      if (!/ループ|くり返し|条件|分岐|順番|最短|効率|命令|デバッグ|変数/.test(`${questionText}\n${optionCombined}`)) {
+        issues.push('プログラミングの選択肢としての焦点が弱いです。順番・繰り返し・条件・最短手順・デバッグなど、判断基準が分かる選択肢にしてください。');
+      }
     }
   }
 
@@ -1240,8 +1261,19 @@ export async function POST(req: NextRequest) {
     const educationalContextInstruction = buildEducationalContextPrompt(parsedAge, categoryNames, guidelines);
 
     const languageSubjectInstruction = buildLanguageSubjectPromptBlock(categoryNames);
+    const programmingSubjectInstruction = detectProgrammingSubject(categoryNames)
+      ? `
 
-    const finalSystemInstruction = BASE_SYSTEM_INSTRUCTION + agePersonaInstruction + educationalContextInstruction + languageSubjectInstruction + categorySystemPrompt + (systemPrompt ? `\n\n## ユーザー定義の追加システム要件:\n${systemPrompt}` : '');
+## プログラミングジャンル追加指示
+- 物語やキャラクターは補助としてのみ使い、主役は必ず「命令」「手順」「順番」「ループ」「条件分岐」「変数」「入力/出力」「デバッグ」「最短手順」のいずれかの学習概念にしてください。
+- 単なる鳴き声当て・動物当て・お話の続き当てにならないようにしてください。
+- 問題を見た瞬間に「何のプログラミング概念を学ぶ問題か」が分かる構造にしてください。
+- 特に幼児〜小学校低学年でも、順序・くり返し・最短ルート・条件のどれを考えるのかが明確な問いにしてください。
+- 4択では、どの命令列・どの手順・どの修正が正しいかを比較できる選択肢にしてください。
+`
+      : '';
+
+    const finalSystemInstruction = BASE_SYSTEM_INSTRUCTION + agePersonaInstruction + educationalContextInstruction + languageSubjectInstruction + programmingSubjectInstruction + categorySystemPrompt + (systemPrompt ? `\n\n## ユーザー定義の追加システム要件:\n${systemPrompt}` : '');
 
     let textPrompt = `
 テーマ: ${topicForAi}
