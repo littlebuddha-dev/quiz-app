@@ -51,6 +51,20 @@ function getInternalBaseUrl(req: NextRequest) {
   return requestUrl.origin.replace(/\/+$/, '');
 }
 
+async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Promise<Response> {
+  try {
+    const response = await fetch(url, init);
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      console.warn(`[auto-generator] network fetch failed for ${url}. Retrying...`, error);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return fetchWithRetry(url, init, retries - 1);
+    }
+    throw error;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
@@ -224,7 +238,7 @@ export async function POST(req: NextRequest) {
               ...override,
             });
 
-            let genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
+            let genRes = await fetchWithRetry(`${baseUrl}/api/quiz-generator`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -237,7 +251,7 @@ export async function POST(req: NextRequest) {
               const firstErrorText = await genRes.text();
               console.warn(`[auto-generator] first quiz-generator attempt failed for topic "${topic}":`, genRes.status, firstErrorText);
 
-              genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
+              genRes = await fetchWithRetry(`${baseUrl}/api/quiz-generator`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -259,7 +273,7 @@ export async function POST(req: NextRequest) {
               // 遅延画像生成: クイズ保存後に画像を個別生成
               if (quizData?.id) {
                 try {
-                  const imageRes = await fetch(`${baseUrl}/api/admin/quiz/generate-image`, {
+                  const imageRes = await fetchWithRetry(`${baseUrl}/api/admin/quiz/generate-image`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',

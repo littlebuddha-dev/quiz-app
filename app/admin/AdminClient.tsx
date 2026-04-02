@@ -926,14 +926,22 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   };
 
   const fetchWithRetry = async (url: string, options: RequestInit, retries = 1): Promise<Response> => {
-    const res = await fetch(url, options);
-    if (res.status === 403 && retries > 0) {
-      console.warn(`403 encountered. Retrying ${url}...`);
-      // Wait a bit before retrying
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return fetchWithRetry(url, options, retries - 1);
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 403 && retries > 0) {
+        console.warn(`403 encountered. Retrying ${url}...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return fetchWithRetry(url, options, retries - 1);
+      }
+      return res;
+    } catch (error) {
+      if (retries > 0) {
+        console.warn(`Network error encountered. Retrying ${url}...`, error);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchWithRetry(url, options, retries - 1);
+      }
+      throw error;
     }
-    return res;
   };
 
   const triggerDeferredImageGeneration = async (quizId: string, targetLocale: Locale, retries = 2): Promise<boolean> => {
