@@ -14,7 +14,11 @@ import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
 type CategorySummary = { id: string; name: string; nameJa: string | null };
-type CategoryCountRow = { categoryId: string; _count: { id: number } };
+type CategoryCountRow = {
+  categoryId: string;
+  _count: { id: number };
+  _max?: { createdAt: Date | null };
+};
 
 function normalizeSuggestedTopics(rawTopics: unknown): string[] {
   if (!Array.isArray(rawTopics)) return [];
@@ -121,7 +125,8 @@ export async function POST(req: NextRequest) {
       });
       const categoryTotals = await (prisma.quiz as any).groupBy({
         by: ['categoryId'],
-        _count: { id: true }
+        _count: { id: true },
+        _max: { createdAt: true }
       }) as CategoryCountRow[];
 
       const countMap = new Map();
@@ -129,8 +134,10 @@ export async function POST(req: NextRequest) {
         countMap.set(`${c.categoryId}-${c.targetAge}`, c._count.id);
       });
       const categoryTotalMap = new Map<string, number>();
+      const categoryLastCreatedAtMap = new Map<string, number>();
       categoryTotals.forEach((row) => {
         categoryTotalMap.set(row.categoryId, row._count.id);
+        categoryLastCreatedAtMap.set(row.categoryId, row._max?.createdAt ? new Date(row._max.createdAt).getTime() : 0);
       });
 
       const rankedCombos = allCategories
@@ -140,12 +147,14 @@ export async function POST(req: NextRequest) {
             age,
             totalCount: categoryTotalMap.get(cat.id) || 0,
             count: countMap.get(`${cat.id}-${age}`) || 0,
+            lastCreatedAt: categoryLastCreatedAtMap.get(cat.id) || 0,
           }))
         )
         .sort((a, b) => {
           if (a.totalCount !== b.totalCount) return a.totalCount - b.totalCount;
           if (a.count !== b.count) return a.count - b.count;
-          if (a.category.id !== b.category.id) return a.category.id.localeCompare(b.category.id);
+          if (a.lastCreatedAt !== b.lastCreatedAt) return a.lastCreatedAt - b.lastCreatedAt;
+          if (a.category.nameJa !== b.category.nameJa) return (a.category.nameJa || a.category.name).localeCompare(b.category.nameJa || b.category.name);
           return a.age - b.age;
         })
         .slice(0, count);
