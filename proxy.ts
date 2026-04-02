@@ -4,6 +4,11 @@ import { NextResponse } from 'next/server';
 // ログインしていなくてもアクセス可能なパブリックなルートを定義
 const isPublicRoute = createRouteMatcher([
   '/',
+  '/new(.*)',
+  '/popular(.*)',
+  '/age(.*)',
+  '/category/(.*)',
+  '/channel/(.*)',
   '/sign-in(.*)',
   '/sign-out(.*)',
   '/sign-up(.*)',
@@ -25,6 +30,9 @@ const isPublicRoute = createRouteMatcher([
   '/contact(.*)',
   '/privacy(.*)',
   '/terms(.*)',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/manifest.webmanifest',
   '/about(.*)',
 ]);
 
