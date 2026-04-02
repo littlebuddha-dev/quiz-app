@@ -1,6 +1,17 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
+const STORAGE_KEY = 'cue-locale';
+
+function normalizeLocale(value?: string | null) {
+  if (!value) return null;
+  const lower = value.toLowerCase();
+  if (lower.startsWith('ja')) return 'ja';
+  if (lower.startsWith('en')) return 'en';
+  if (lower.startsWith('zh')) return 'zh';
+  return null;
+}
+
 // ログインしていなくてもアクセス可能なパブリックなルートを定義
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -57,8 +68,25 @@ export default clerkMiddleware(async (auth, request) => {
     ${isDev ? '' : 'upgrade-insecure-requests;'}
   `.replace(/\s{2,}/g, ' ').trim();
 
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  const langParam = normalizeLocale(request.nextUrl.searchParams.get('lang'));
+  if (langParam) {
+    requestHeaders.set('x-cue-locale', langParam);
+  }
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
   response.headers.set('Content-Security-Policy', cspHeader);
+  if (langParam) {
+    response.cookies.set(STORAGE_KEY, langParam, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    });
+  }
   return response;
 }, { clockSkewInMs: 30000 });
 

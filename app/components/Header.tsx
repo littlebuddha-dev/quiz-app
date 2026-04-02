@@ -94,6 +94,9 @@ export default function Header({
 
   const handleLocaleChange = (nextLocale: Locale) => {
     setLocale(nextLocale);
+    const nextParams = new URLSearchParams(searchParams?.toString());
+    nextParams.set('lang', nextLocale);
+    router.replace(`${pathname}${nextParams.toString() ? `?${nextParams.toString()}` : ''}`, { scroll: false });
     router.refresh();
   };
 

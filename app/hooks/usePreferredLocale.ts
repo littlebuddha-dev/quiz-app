@@ -24,6 +24,10 @@ export function usePreferredLocale() {
       return () => window.removeEventListener('storage', onStoreChange);
     },
     () => {
+      const urlLocale = new URLSearchParams(window.location.search).get('lang');
+      if (urlLocale) {
+        return normalizeLocale(urlLocale);
+      }
       const savedLocale = window.localStorage.getItem(STORAGE_KEY);
       return normalizeLocale(savedLocale || navigator.language);
     },
@@ -33,6 +37,9 @@ export function usePreferredLocale() {
   const setLocale = (nextLocale: Locale) => {
     window.localStorage.setItem(STORAGE_KEY, nextLocale);
     document.cookie = `${STORAGE_KEY}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
+    const url = new URL(window.location.href);
+    url.searchParams.set('lang', nextLocale);
+    window.history.replaceState({}, '', url.toString());
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY, newValue: nextLocale }));
   };
 
