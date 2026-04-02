@@ -65,6 +65,7 @@ export default async function RootLayout({
 }>) {
   const locale = await getServerLocale();
   const gtmContainerId = "GTM-PM7XG62T";
+  const gaMeasurementId = "G-X0HYX7DD84";
   const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const multiSessionEnabled =
     process.env.NEXT_PUBLIC_CLERK_MULTI_SESSION_ENABLED === "true";
@@ -102,6 +103,20 @@ export default async function RootLayout({
         strategy="beforeInteractive"
         src={`https://www.googletagmanager.com/gtm.js?id=${gtmContainerId}`}
       />
+      <Script
+        id="google-analytics-src"
+        strategy="afterInteractive"
+        src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+      />
+      <Script id="google-analytics-config" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){window.dataLayer.push(arguments);}
+          window.gtag = window.gtag || gtag;
+          window.gtag('js', new Date());
+          window.gtag('config', '${gaMeasurementId}');
+        `}
+      </Script>
     </>
   );
 
