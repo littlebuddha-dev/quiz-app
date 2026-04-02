@@ -210,6 +210,10 @@ const CATEGORY_QUALITY_RULES: Record<string, CategoryQualityRule> = {
     focusKeywords: ['観察', '実験', '現象', 'エネルギー', '生物', '地層', '天気', '植物', '光', '音'],
     avoidKeywords: ['古典文法', '英作文'],
   },
+  'プログラミング': {
+    focusKeywords: ['プログラム', 'アルゴリズム', '順番', 'ループ', '条件分岐', '変数', '入力', '出力', 'デバッグ', 'コード'],
+    avoidKeywords: ['鳴き声', 'どうぶつ', 'ねこ', 'いぬ', 'ワン', 'ニャー', 'くだもの', 'おかし'],
+  },
 };
 
 function normalizeText(value: unknown) {
@@ -1412,7 +1416,10 @@ ${finalSystemInstruction}
     });
     console.log(`[quiz-generator] quality issues count=${qualityIssues.length} deferred=${isDeferredAdminGeneration}`);
 
-    if (qualityIssues.length > 0 && !isDeferredAdminGeneration) {
+    const shouldRetryForQuality =
+      qualityIssues.length > 0 && (!isDeferredAdminGeneration || detectProgrammingSubject(categoryNames));
+
+    if (shouldRetryForQuality) {
       const correctionPromptWithIssues = `${correctionPrompt ? `${correctionPrompt}\n` : ''}以下の品質問題を必ず解消してください:\n${qualityIssues.map((issue) => `- ${issue}`).join('\n')}`;
       textPrompt += `\n\n## 品質修正指示\n${qualityIssues.map((issue) => `- ${issue}`).join('\n')}`;
 

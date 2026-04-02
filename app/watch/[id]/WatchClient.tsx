@@ -104,6 +104,12 @@ export default function WatchClient({
 
   // 現在の言語の翻訳を取得。なければ日本語、それもなければ最初の翻訳をフォールバックに。
   const t = quiz.translations[locale] || quiz.translations['ja'] || Object.values(quiz.translations)[0];
+  const categoryLabel =
+    locale === 'en'
+      ? quiz.categoryInfo?.nameEn || quiz.categoryInfo?.nameJa || quiz.categoryInfo?.name || quiz.category || quiz.categoryId
+      : locale === 'zh'
+        ? quiz.categoryInfo?.nameZh || quiz.categoryInfo?.nameJa || quiz.categoryInfo?.name || quiz.category || quiz.categoryId
+        : quiz.categoryInfo?.nameJa || quiz.categoryInfo?.name || quiz.category || quiz.categoryId;
 
   // Merge split LaTeX fragments if they exist (defensive fix for potential serialization/translation issues)
   const mergedOptions = useMemo(() => {
@@ -350,6 +356,12 @@ export default function WatchClient({
               <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] lg:truncate lg:!whitespace-nowrap" />
             </h1>
 
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="bg-amber-500/12 text-amber-700 dark:text-amber-300 text-[11px] font-black tracking-[0.22em] px-3 py-1.5 rounded-full border border-amber-500/20">
+                {categoryLabel}
+              </span>
+            </div>
+
             <div className="flex flex-wrap items-center gap-x-3 gap-y-3 mb-6 pb-6 border-b border-[var(--border)] min-w-0 max-w-full overflow-hidden">
               {quiz.channel ? (
                 <Link href={`/channel/${quiz.channel.id}`} className="flex items-center gap-3 hover:bg-[var(--card)] p-2 rounded-xl transition-all border border-transparent hover:border-[var(--border)]">
@@ -503,7 +515,7 @@ export default function WatchClient({
 
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-amber-500/20">
-                  {quiz.category}
+                  {categoryLabel}
                 </span>
                 <span className="bg-zinc-500/10 text-zinc-500 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-zinc-500/20">
                   {quiz.targetAge}{locale === 'ja' ? '歳' : locale === 'en' ? ' yrs' : '岁'}

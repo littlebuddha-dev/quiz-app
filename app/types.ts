@@ -32,6 +32,14 @@ export interface StudyRecommendations {
 export interface Quiz {
   id: string;
   category: string;
+  categoryId?: string;
+  categoryInfo?: {
+    id: string;
+    name?: string | null;
+    nameJa?: string | null;
+    nameEn?: string | null;
+    nameZh?: string | null;
+  } | null;
   targetAge: number;
   imageUrl: string;
   translations: Record<Locale, {

@@ -300,7 +300,20 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
 
   const quizData = {
     id: rawQuiz.id,
+    category:
+      rawQuiz.category
+        ? rawQuiz.category.nameJa || rawQuiz.category.name || rawQuiz.category.id
+        : rawQuiz.categoryId,
     categoryId: rawQuiz.categoryId,
+    categoryInfo: rawQuiz.category
+      ? {
+          id: rawQuiz.category.id,
+          name: rawQuiz.category.name,
+          nameJa: rawQuiz.category.nameJa,
+          nameEn: rawQuiz.category.nameEn,
+          nameZh: rawQuiz.category.nameZh,
+        }
+      : null,
     targetAge: rawQuiz.targetAge,
     imageUrl: rawQuiz.imageUrl,
     translations: translationsMap,
@@ -399,6 +412,9 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
 
   return (
     <>
+      <template
+        data-quiz-structured-data={JSON.stringify(quizStructuredData)}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(quizStructuredData) }}
