@@ -284,6 +284,7 @@ export default function QuizClient({
   const [cachedQuizzes, setCachedQuizzes] = useState<Quiz[] | null>(null);
   const [cachedCategories, setCachedCategories] = useState<QuizClientWrapperProps['categories'] | null>(null);
   const [cachedStudyRecommendations, setCachedStudyRecommendations] = useState<StudyRecommendations | undefined>(undefined);
+  const [orderedCategories, setOrderedCategories] = useState<QuizClientWrapperProps['categories']>(categories);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // パーソナライズ用の状態管理（セットを使って高速にO(1)で存在確認）
@@ -334,6 +335,11 @@ export default function QuizClient({
   const sourceQuizzes = !isOnline && cachedQuizzes?.length ? cachedQuizzes : initialQuizzes;
   const sourceCategories = !isOnline && cachedCategories?.length ? cachedCategories : categories;
   const activeStudyRecommendations = !isOnline && cachedStudyRecommendations ? cachedStudyRecommendations : studyRecommendations;
+  const isAdminMode = userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT';
+
+  useEffect(() => {
+    setOrderedCategories(sourceCategories);
+  }, [sourceCategories]);
 
   // URLクエリを更新するヘルパー
   const updateQuery = (params: Record<string, string | null>) => {
@@ -491,9 +497,11 @@ export default function QuizClient({
       {/* サイドバー */}
       <Sidebar
         locale={locale}
-        categories={sourceCategories}
+        categories={orderedCategories}
+        isAdminMode={isAdminMode}
         activeCategory={activeCategory}
         onSelectCategory={handleCategorySelect}
+        onCategoriesReordered={setOrderedCategories}
         studyMode={studyMode}
         onSelectStudyMode={setStudyMode}
         minAge={minAge}
@@ -508,9 +516,11 @@ export default function QuizClient({
         <div className="md:hidden pt-4 pb-4 -mx-4 px-4 mb-4">
           <SidebarContents
             locale={locale}
-            categories={sourceCategories}
+            categories={orderedCategories}
+            isAdminMode={isAdminMode}
             activeCategory={activeCategory}
             onSelectCategory={handleCategorySelect}
+            onCategoriesReordered={setOrderedCategories}
             studyMode={studyMode}
             onSelectStudyMode={setStudyMode}
             isMobile

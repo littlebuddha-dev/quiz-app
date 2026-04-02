@@ -5,6 +5,7 @@
 
 import { Locale } from '../types';
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 
 type SidebarCategory = {
   id: string;
@@ -18,8 +19,10 @@ type SidebarCategory = {
 interface SidebarProps {
   locale: Locale;
   categories: SidebarCategory[];
+  isAdminMode?: boolean;
   activeCategory: string;
   onSelectCategory: (category: string) => void;
+  onCategoriesReordered?: (categories: SidebarCategory[]) => void;
   studyMode?: 'all' | 'review' | 'daily' | 'mission';
   onSelectStudyMode?: (mode: 'all' | 'review' | 'daily' | 'mission') => void;
   minAge?: number;
@@ -30,8 +33,10 @@ interface SidebarProps {
 interface SidebarContentsProps {
   locale: Locale;
   categories: SidebarCategory[];
+  isAdminMode?: boolean;
   activeCategory: string;
   onSelectCategory: (category: string) => void;
+  onCategoriesReordered?: (categories: SidebarCategory[]) => void;
   studyMode?: 'all' | 'review' | 'daily' | 'mission';
   onSelectStudyMode?: (mode: 'all' | 'review' | 'daily' | 'mission') => void;
   isMobile?: boolean;
@@ -75,8 +80,10 @@ const STUDY_MODE_LABELS: Record<Locale, Record<'all' | 'review' | 'daily' | 'mis
 export function SidebarContents({
   locale,
   categories,
+  isAdminMode = false,
   activeCategory,
   onSelectCategory,
+  onCategoriesReordered,
   studyMode,
   onSelectStudyMode,
   isMobile,
@@ -84,8 +91,57 @@ export function SidebarContents({
   maxAge = 100,
   onAgeRangeChange
 }: SidebarContentsProps) {
+  const [orderedCategories, setOrderedCategories] = useState(categories);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const ageLabel = locale === 'ja' ? '対象年齢' : locale === 'en' ? 'Target Age' : '对象年龄';
   const activeAgeGroup = AGE_GROUPS.find((group) => group.min === minAge && group.max === maxAge);
+
+  useEffect(() => {
+    setOrderedCategories(categories);
+  }, [categories]);
+
+  const canReorder = isAdminMode && !isMobile;
+
+  const reorderCategories = (items: SidebarCategory[], sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return items;
+    const next = [...items];
+    const sourceIndex = next.findIndex((item) => item.id === sourceId);
+    const targetIndex = next.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return items;
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    return next;
+  };
+
+  const persistCategoryOrder = async (nextCategories: SidebarCategory[]) => {
+    if (!canReorder) return;
+    setIsSavingOrder(true);
+    try {
+      const res = await fetch('/api/admin/categories/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          updates: nextCategories.map((category, index) => ({
+            id: category.id,
+            sortOrder: index,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Failed to reorder categories');
+      }
+      onCategoriesReordered?.(nextCategories);
+    } catch (error) {
+      console.error('Failed to reorder sidebar categories:', error);
+      setOrderedCategories(categories);
+      alert(locale === 'ja' ? '並び替えの保存に失敗しました。' : locale === 'en' ? 'Failed to save category order.' : '保存分类顺序失败。');
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
 
   const ageGroupSelector = onAgeRangeChange ? (
     <div className={`${isMobile ? 'mb-2' : 'mb-8'} p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 w-full`}>
@@ -131,10 +187,10 @@ export function SidebarContents({
     </div>
   ) : null;
   // 「すべて」を追加
-  const allCategories = [
+  const allCategories = useMemo(() => [
     { id: 'すべて', ja: 'すべて', en: 'All', zh: '全部', icon: 'all.svg' },
-    ...categories
-  ];
+    ...orderedCategories
+  ], [orderedCategories]);
 
   const studyModeButtons = onSelectStudyMode && studyMode ? (
     <div className={`${isMobile ? 'flex gap-2 overflow-x-auto no-scrollbar pb-1' : 'grid grid-cols-3 gap-2 mb-3 px-1'}`}>
@@ -170,12 +226,42 @@ export function SidebarContents({
       <button
         key={cat.id}
         onClick={() => onSelectCategory(cat.id)}
+        draggable={canReorder && cat.id !== 'すべて'}
+        onDragStart={() => {
+          if (!canReorder || cat.id === 'すべて') return;
+          setDraggedId(cat.id);
+        }}
+        onDragOver={(event) => {
+          if (!canReorder || cat.id === 'すべて') return;
+          event.preventDefault();
+          setDropTargetId(cat.id);
+        }}
+        onDrop={(event) => {
+          if (!canReorder || !draggedId || cat.id === 'すべて') return;
+          event.preventDefault();
+          const next = reorderCategories(orderedCategories, draggedId, cat.id);
+          setOrderedCategories(next);
+          setDraggedId(null);
+          setDropTargetId(null);
+          void persistCategoryOrder(next);
+        }}
+        onDragEnd={() => {
+          setDraggedId(null);
+          setDropTargetId(null);
+        }}
         className={`flex items-center gap-3 text-left rounded-xl font-bold transition-all ${
           isActive
             ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-95'
             : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-[var(--foreground)]'
+        } ${canReorder && cat.id !== 'すべて' ? 'cursor-grab active:cursor-grabbing' : ''} ${
+          canReorder && dropTargetId === cat.id ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-transparent' : ''
         } ${isMobile ? 'py-2 px-4 text-sm whitespace-nowrap flex-shrink-0 bg-[var(--card)] border border-[var(--border)]' : 'px-4 py-2'}`}
       >
+        {canReorder && cat.id !== 'すべて' && (
+          <span className={`text-zinc-400 ${isActive ? 'text-white/80' : ''}`} aria-hidden="true">
+            ⋮⋮
+          </span>
+        )}
         {cat.icon ? (
           <img
             src={`/icons/${cat.icon}`}
@@ -231,6 +317,13 @@ export function SidebarContents({
       {ageGroupSelector}
       {studyModeButtons}
       {gameModeLink}
+      {canReorder && (
+        <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
+          {isSavingOrder
+            ? (locale === 'ja' ? '並び順を保存中' : locale === 'en' ? 'Saving order' : '正在保存顺序')
+            : (locale === 'ja' ? 'ドラッグで並び替え' : locale === 'en' ? 'Drag to reorder' : '拖动排序')}
+        </div>
+      )}
       {/* 区切り線 (デスクトップ) */}
       <div className="h-px bg-[var(--border)] my-2 mx-1" />
       {categoryButtons}
@@ -241,8 +334,10 @@ export function SidebarContents({
 export default function Sidebar({
   locale,
   categories,
+  isAdminMode = false,
   activeCategory,
   onSelectCategory,
+  onCategoriesReordered,
   studyMode,
   onSelectStudyMode,
   minAge,
@@ -255,8 +350,10 @@ export default function Sidebar({
         <SidebarContents
           locale={locale}
           categories={categories}
+          isAdminMode={isAdminMode}
           activeCategory={activeCategory}
           onSelectCategory={onSelectCategory}
+          onCategoriesReordered={onCategoriesReordered}
           studyMode={studyMode}
           onSelectStudyMode={onSelectStudyMode}
           minAge={minAge}
