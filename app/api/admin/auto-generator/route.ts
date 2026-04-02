@@ -15,6 +15,26 @@ import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 
 type CategorySummary = { id: string; name: string; nameJa: string | null };
 
+function normalizeSuggestedTopics(rawTopics: unknown): string[] {
+  if (!Array.isArray(rawTopics)) return [];
+
+  const topics = rawTopics
+    .map((topic) => {
+      if (typeof topic === 'string') return topic.trim();
+      if (topic && typeof topic === 'object') {
+        const candidate =
+          (typeof (topic as any).title === 'string' && (topic as any).title) ||
+          (typeof (topic as any).topic === 'string' && (topic as any).topic) ||
+          (typeof (topic as any).name === 'string' && (topic as any).name);
+        return candidate ? candidate.trim() : '';
+      }
+      return '';
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(topics));
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
@@ -119,6 +139,7 @@ export async function POST(req: NextRequest) {
     }
 
     const results = [];
+    const generationErrors: string[] = [];
     const baseUrl = new URL(req.url).origin;
 
     // 2. Process each generation unit
@@ -150,7 +171,14 @@ export async function POST(req: NextRequest) {
         });
 
         const suggestionData = JSON.parse(suggestionResponse.text || '{"topics":[]}');
-        const suggestedTopics = suggestionData.topics || [];
+        let suggestedTopics = normalizeSuggestedTopics(suggestionData.topics);
+        if (suggestedTopics.length === 0) {
+          suggestedTopics = [
+            `${category.nameJa || category.name}の基礎`,
+            `${category.nameJa || category.name}の応用`,
+            `${category.nameJa || category.name}の考え方`,
+          ].slice(0, countForThisCat);
+        }
 
         // Log Usage
         const usage = suggestionResponse.usageMetadata;
@@ -168,23 +196,46 @@ export async function POST(req: NextRequest) {
         const forwardCookie = req.headers.get('cookie');
         for (const topic of suggestedTopics) {
           try {
-            const genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
+            const buildGeneratorBody = (override: Partial<Record<string, unknown>> = {}) => ({
+              topic,
+              categoryId: category.id,
+              targetAge: targetAgeForUnit,
+              quizType: quizType || 'TEXT',
+              excludeTitles: existingTitles,
+              modelId: hybridModel.generatorId,
+              visualMode: 'image_only',
+              deferImageGeneration: true,
+              ...override,
+            });
+
+            let genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 ...(forwardCookie ? { cookie: forwardCookie } : {}),
               },
-              body: JSON.stringify({
-                topic,
-                categoryId: category.id,
-                targetAge: targetAgeForUnit,
-                quizType: quizType || 'TEXT',
-                excludeTitles: existingTitles,
-                modelId: hybridModel.generatorId,
-                visualMode: 'image_only',
-                deferImageGeneration: true,
-              })
+              body: JSON.stringify(buildGeneratorBody())
             });
+
+            if (!genRes.ok) {
+              const firstErrorText = await genRes.text();
+              console.warn(`[auto-generator] first quiz-generator attempt failed for topic "${topic}":`, genRes.status, firstErrorText);
+
+              genRes = await fetch(`${baseUrl}/api/quiz-generator`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(forwardCookie ? { cookie: forwardCookie } : {}),
+                },
+                body: JSON.stringify(
+                  buildGeneratorBody({
+                    correctionPrompt: 'JSON構造を厳守し、教育的に安定した1問に絞って生成してください。',
+                    excludeTitles: [],
+                  })
+                )
+              });
+            }
+
             if (genRes.ok) {
               const quizData = (await genRes.json()) as any;
               results.push(quizData);
@@ -217,20 +268,24 @@ export async function POST(req: NextRequest) {
             } else {
               const errBody = await genRes.text();
               console.error(`quiz-generator failed for topic "${topic}":`, genRes.status, errBody);
+              generationErrors.push(`${category.id}/${targetAgeForUnit}/${topic}: ${genRes.status} ${errBody.slice(0, 180)}`);
             }
           } catch (fetchErr) {
             console.error(`Failed to fetch quiz-generator for topic "${topic}":`, fetchErr);
+            generationErrors.push(`${category.id}/${targetAgeForUnit}/${topic}: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
           }
         }
       } catch (err) {
         console.error(`Error processing category ${category.id} age ${targetAgeForUnit}:`, err);
+        generationErrors.push(`${category.id}/${targetAgeForUnit}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
     if (results.length === 0) {
       return NextResponse.json({ 
         error: 'NO_QUIZZES_GENERATED', 
-        message: 'トピックの提案は成功しましたが、クイズの生成に失敗しました。サーバーログを確認してください。' 
+        message: 'トピックの提案は成功しましたが、クイズの生成に失敗しました。サーバーログを確認してください。',
+        details: generationErrors.slice(0, 5).join(' | '),
       }, { status: 500 });
     }
 
