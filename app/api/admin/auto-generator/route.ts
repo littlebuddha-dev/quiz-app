@@ -35,6 +35,22 @@ function normalizeSuggestedTopics(rawTopics: unknown): string[] {
   return Array.from(new Set(topics));
 }
 
+function getInternalBaseUrl(req: NextRequest) {
+  const explicitInternalUrl = process.env.INTERNAL_APP_URL?.trim();
+  if (explicitInternalUrl) {
+    return explicitInternalUrl.replace(/\/+$/, '');
+  }
+
+  const requestUrl = new URL(req.url);
+  const port = process.env.PORT || requestUrl.port || '3000';
+
+  if (process.env.NODE_ENV === 'production') {
+    return `http://127.0.0.1:${port}`;
+  }
+
+  return requestUrl.origin.replace(/\/+$/, '');
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
@@ -140,7 +156,7 @@ export async function POST(req: NextRequest) {
 
     const results = [];
     const generationErrors: string[] = [];
-    const baseUrl = new URL(req.url).origin;
+    const baseUrl = getInternalBaseUrl(req);
 
     // 2. Process each generation unit
     for (const unit of generationUnits) {
