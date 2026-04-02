@@ -360,6 +360,13 @@ export default function WatchClient({
               <span className="bg-amber-500/12 text-amber-700 dark:text-amber-300 text-[11px] font-black tracking-[0.22em] px-3 py-1.5 rounded-full border border-amber-500/20">
                 {categoryLabel}
               </span>
+              <span className="bg-zinc-500/10 text-zinc-500 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-zinc-500/20">
+                {quiz.targetAge}{locale === 'ja' ? '歳' : locale === 'en' ? ' yrs' : '岁'}
+              </span>
+              <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5 ml-1">
+                <Image src="/icons/review.svg" alt="" width={12} height={12} className="w-3 h-3 opacity-40 grayscale" />
+                {quiz.viewCount || 0}{locale === 'ja' ? ' 回視聴' : locale === 'en' ? ' views' : ' 次观看'}
+              </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-3 mb-6 pb-6 border-b border-[var(--border)] min-w-0 max-w-full overflow-hidden">
@@ -513,18 +520,6 @@ export default function WatchClient({
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-3 mt-4">
-                <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-amber-500/20">
-                  {categoryLabel}
-                </span>
-                <span className="bg-zinc-500/10 text-zinc-500 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-zinc-500/20">
-                  {quiz.targetAge}{locale === 'ja' ? '歳' : locale === 'en' ? ' yrs' : '岁'}
-                </span>
-                <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5 ml-1">
-                  <Image src="/icons/review.svg" alt="" width={12} height={12} className="w-3 h-3 opacity-40 grayscale" />
-                  {quiz.viewCount || 0}{locale === 'ja' ? ' 回視聴' : locale === 'en' ? ' views' : ' 次观看'}
-                </span>
-              </div>
             </div>
 
             {/* コメント欄 */}
