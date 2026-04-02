@@ -828,7 +828,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           autoBalance,
         })
       });
+      const contentType = res.headers.get('content-type') || '';
       if (res.ok) {
+        if (!contentType.includes('application/json')) {
+          const message = await readErrorResponseMessage(res, '自動生成のレスポンス形式が不正です');
+          console.error('Bulk quiz generation returned non-JSON success response:', message);
+          showCopyableError('自動生成に失敗しました', message);
+          setBulkLoading(false);
+          return;
+        }
+
         const data = (await res.json()) as any;
         alert(`${data.count}個のクイズを自動生成しました！`);
         fetchQuizzes();
