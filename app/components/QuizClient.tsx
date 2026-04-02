@@ -337,9 +337,36 @@ export default function QuizClient({
   const activeStudyRecommendations = !isOnline && cachedStudyRecommendations ? cachedStudyRecommendations : studyRecommendations;
   const isAdminMode = userStatus?.role === 'ADMIN' || userStatus?.role === 'PARENT';
 
+  const categoryQueryValueMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of sourceCategories) {
+      const localizedValue =
+        locale === 'en'
+          ? category.en || category.ja || category.name || category.id
+          : locale === 'zh'
+            ? category.zh || category.ja || category.name || category.id
+            : category.ja || category.name || category.id;
+      map.set(category.id, localizedValue);
+    }
+    return map;
+  }, [locale, sourceCategories]);
+
   useEffect(() => {
     setOrderedCategories(sourceCategories);
   }, [sourceCategories]);
+
+  useEffect(() => {
+    if (activeCategory === 'すべて') return;
+    const localizedCategory = categoryQueryValueMap.get(activeCategory);
+    if (!localizedCategory) return;
+    const currentCategoryParam = searchParams?.get('category');
+    if (currentCategoryParam === localizedCategory) return;
+    router.replace(`/?${(() => {
+      const nextParams = new URLSearchParams(searchParams?.toString());
+      nextParams.set('category', localizedCategory);
+      return nextParams.toString();
+    })()}`, { scroll: false });
+  }, [activeCategory, categoryQueryValueMap, router, searchParams]);
 
   // URLクエリを更新するヘルパー
   const updateQuery = (params: Record<string, string | null>) => {
@@ -368,7 +395,7 @@ export default function QuizClient({
 
   const handleCategorySelect = (category: string) => {
     setActiveCategory(category);
-    updateQuery({ category: category === 'すべて' ? null : category });
+    updateQuery({ category: category === 'すべて' ? null : (categoryQueryValueMap.get(category) || category) });
   };
 
   // スライダー操作のデバウンス処理 (URL更新とサーバーフェッチの頻度を抑える)

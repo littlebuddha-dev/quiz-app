@@ -17,6 +17,17 @@ import { getAbsoluteUrl, getDefaultOgImageUrl } from '@/lib/metadata';
 
 export const revalidate = 300; // 5分間のキャッシュを許可
 
+type HomeCategorySummary = {
+  id: string;
+  name: string;
+  nameJa: string | null;
+  nameEn: string | null;
+  nameZh: string | null;
+  minAge: number;
+  maxAge: number | null;
+  icon: string | null;
+};
+
 function getTodayLabel() {
   const now = new Date();
   return now.toISOString().slice(0, 10);
@@ -34,6 +45,31 @@ function getDefaultAgeRangeForUser(age: number | null) {
   if (age <= 18) return { min: 16, max: 18 };
   if (age <= 22) return { min: 18, max: 22 };
   return { min: 18, max: 100 };
+}
+
+function normalizeCategoryToken(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function resolveCategoryParamToId(rawValue: string | undefined, categories: HomeCategorySummary[]) {
+  if (!rawValue || rawValue === 'すべて' || rawValue.toLowerCase() === 'all' || rawValue === '全部') {
+    return 'すべて';
+  }
+
+  const normalized = normalizeCategoryToken(rawValue);
+  const matchedCategory = categories.find((category) =>
+    [
+      category.id,
+      category.name,
+      category.nameJa,
+      category.nameEn,
+      category.nameZh,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+      .some((value) => normalizeCategoryToken(value) === normalized)
+  );
+
+  return matchedCategory?.id || rawValue;
 }
 
 // Server Component (async)
@@ -132,58 +168,57 @@ export default async function Home({
   const currentMinAge = isNaN(parsedMin) ? defaultMin : parsedMin;
   const currentMaxAge = isNaN(parsedMax) ? defaultMax : parsedMax;
 
-  // 並列でデータを取得開始
-  const [allCategories, rawQuizzesResult] = await Promise.all([
-    prisma.category.findMany({
-      select: {
-        id: true,
-        name: true,
-        nameJa: true,
-        nameEn: true,
-        nameZh: true,
-        minAge: true,
-        maxAge: true,
-        icon: true,
-      },
-      orderBy: [
-        { sortOrder: 'asc' },
-        { minAge: 'asc' },
-        { createdAt: 'asc' },
-      ],
-    }),
-    prisma.quiz.findMany({
-      where: {
-        AND: [
-          { targetAge: { gte: currentMinAge, lte: currentMaxAge } },
-          activeCategory && activeCategory !== 'すべて'
-            ? { categoryId: activeCategory }
-            : {},
-          searchQuery
-            ? {
-              translations: {
-                some: {
-                  OR: [
-                    { title: { contains: searchQuery } },
-                    { question: { contains: searchQuery } },
-                  ],
-                },
+  const allCategories = await prisma.category.findMany({
+    select: {
+      id: true,
+      name: true,
+      nameJa: true,
+      nameEn: true,
+      nameZh: true,
+      minAge: true,
+      maxAge: true,
+      icon: true,
+    },
+    orderBy: [
+      { sortOrder: 'asc' },
+      { minAge: 'asc' },
+      { createdAt: 'asc' },
+    ],
+  });
+  const resolvedActiveCategory = resolveCategoryParamToId(activeCategory, allCategories);
+
+  const rawQuizzesResult = await prisma.quiz.findMany({
+    where: {
+      AND: [
+        { targetAge: { gte: currentMinAge, lte: currentMaxAge } },
+        resolvedActiveCategory && resolvedActiveCategory !== 'すべて'
+          ? { categoryId: resolvedActiveCategory }
+          : {},
+        searchQuery
+          ? {
+            translations: {
+              some: {
+                OR: [
+                  { title: { contains: searchQuery } },
+                  { question: { contains: searchQuery } },
+                ],
               },
-            }
-            : {},
-        ],
-      },
-      include: {
-        translations: true,
-        _count: {
-          select: { histories: true }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 48, // 初期表示を48件に制限して高速化
-    })
-  ]);
+            },
+          }
+          : {},
+      ],
+    },
+    include: {
+      translations: true,
+      _count: {
+        select: { histories: true }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    take: 48,
+  });
 
   const rawQuizzes = [...rawQuizzesResult];
   const websiteStructuredData = {
@@ -411,7 +446,7 @@ export default async function Home({
         userTargetAge={effectiveAge}
         userStatus={userStatus}
         initialSearchQuery={searchQuery}
-        initialCategory={activeCategory}
+        initialCategory={resolvedActiveCategory}
         initialMinAge={currentMinAge}
         initialMaxAge={currentMaxAge}
         studyRecommendations={studyRecommendations}
