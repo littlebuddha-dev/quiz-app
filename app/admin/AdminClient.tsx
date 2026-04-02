@@ -54,6 +54,40 @@ function buildApiErrorMessage(errorData: any, status: number, fallback: string) 
   return `${fallback} (Status: ${status})`;
 }
 
+async function readErrorResponseMessage(response: Response, fallback: string) {
+  const contentType = response.headers.get('content-type') || '';
+  const rawText = await response.text();
+
+  if (contentType.includes('application/json')) {
+    try {
+      const errorData = JSON.parse(rawText);
+      return buildApiErrorMessage(errorData, response.status, fallback);
+    } catch {
+      // Fall through to text handling
+    }
+  }
+
+  const compactText = rawText
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 400);
+
+  if (!compactText) {
+    return `${fallback} (Status: ${response.status})`;
+  }
+
+  return `${fallback} (Status: ${response.status})\n${compactText}`;
+}
+
+function showCopyableError(title: string, message: string) {
+  const fullMessage = `${title}\n\n${message}`;
+  try {
+    window.prompt('エラー内容をコピーしてください', fullMessage);
+  } catch {
+    alert(fullMessage);
+  }
+}
+
 export default function AdminClient({ initialQuizzes, categories, userStatus, initialComments = [] }: AdminClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [activeTab, setActiveTab] = useState<Locale>('ja');
@@ -799,13 +833,13 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         alert(`${data.count}個のクイズを自動生成しました！`);
         fetchQuizzes();
       } else {
-        const err = (await res.json()) as any;
-        console.error('Bulk quiz generation failed:', err);
-        alert(buildApiErrorMessage(err, res.status, '自動生成に失敗しました'));
+        const message = await readErrorResponseMessage(res, '自動生成に失敗しました');
+        console.error('Bulk quiz generation failed:', message);
+        showCopyableError('自動生成に失敗しました', message);
       }
     } catch (error: any) {
       console.error(error);
-      alert(`エラーが発生しました：\n${error.message || ''}`);
+      showCopyableError('エラーが発生しました', error.message || String(error));
     }
     setBulkLoading(false);
   };
