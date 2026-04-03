@@ -2114,7 +2114,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                   </div>
                 </a>
 
-                <a href="https://analytics.google.com/analytics/web/?authuser=0#/a343637851p529847963/reports/intelligenthome?params=_u..nav%3Dmaui" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
+                <a href="https://analytics.google.com/analytics/web/provision/?authuser=3#/a389789534p531136010/reports/intelligenthome?params=_u..nav%3Dmaui" target="_blank" rel="noopener noreferrer" className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group">
                   <div className="flex items-center gap-4 mb-4">
                     <span className="bg-orange-100 text-orange-600 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">📈</span>
                     <div>
