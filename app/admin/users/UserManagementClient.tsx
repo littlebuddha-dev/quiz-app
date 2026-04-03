@@ -15,6 +15,7 @@ export default function UserManagementClient({ initialUsers, userStatus, current
   const [users, setUsers] = useState(initialUsers);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -46,6 +47,70 @@ export default function UserManagementClient({ initialUsers, userStatus, current
     setLoadingId(null);
   };
 
+  const handleSyncWithClerk = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync' }),
+      });
+      if (!res.ok) {
+        alert('Clerkとの同期に失敗しました');
+        return;
+      }
+      const data = (await res.json()) as { removedCount: number; staleUsers?: Array<{ email: string; clerkId: string | null }> };
+      if (data.removedCount > 0) {
+        setUsers((current: any[]) =>
+          current.filter(
+            (user) =>
+              !data.staleUsers?.some((stale) => stale.email === user.email && stale.clerkId === user.clerkId)
+          )
+        );
+      }
+      alert(
+        data.removedCount > 0
+          ? `Clerkに存在しないユーザーを ${data.removedCount} 件、内部DBから整理しました。`
+          : 'Clerkと内部DBは同期されています。'
+      );
+    } catch (error) {
+      console.error(error);
+      alert('Clerkとの同期中にエラーが発生しました');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDeleteUser = async (user: any) => {
+    const shouldDeleteInClerk = Boolean(user.clerkId) && confirm(`Clerk と内部DBの両方から削除しますか？\n\n${user.email || user.clerkId}`);
+    if (!shouldDeleteInClerk) {
+      const shouldDeleteLocalOnly = confirm(`内部データベースからのみ削除しますか？\n\n${user.email || user.clerkId}`);
+      if (!shouldDeleteLocalOnly) return;
+    }
+
+    setLoadingId(user.id);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user.id,
+          deleteInClerk: shouldDeleteInClerk,
+        }),
+      });
+      if (!res.ok) {
+        alert('削除に失敗しました');
+        return;
+      }
+      setUsers((current: any[]) => current.filter((item) => item.id !== user.id));
+    } catch (error) {
+      console.error(error);
+      alert('削除中にエラーが発生しました');
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   return (
     <div className="pt-20 text-[var(--foreground)] min-h-screen bg-[var(--background)]">
       <Header locale={locale} setLocale={setLocale} userStatus={userStatus} hideSearch={true} />
@@ -57,6 +122,16 @@ export default function UserManagementClient({ initialUsers, userStatus, current
           <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-xs font-bold text-zinc-500">
             <span className="text-[10px] uppercase tracking-[0.2em] text-amber-500">Current Clerk ID</span>
             <code className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-zinc-700">{currentClerkId}</code>
+          </div>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleSyncWithClerk}
+              disabled={isSyncing}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-xs font-black text-zinc-700 transition-all hover:border-amber-300 hover:text-amber-600 disabled:opacity-60"
+            >
+              {isSyncing ? 'Clerkと同期中...' : 'Clerkと再同期して削除済みユーザーを整理'}
+            </button>
           </div>
         </div>
 
@@ -119,16 +194,26 @@ export default function UserManagementClient({ initialUsers, userStatus, current
                       </span>
                     </td>
                     <td className="px-6 py-5 text-right">
-                      <select 
-                        value={user.role} 
-                        onChange={(e) => handleUpdateRole(user.id, e.target.value)}
-                        disabled={loadingId === user.id}
-                        className="bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none cursor-pointer disabled:opacity-50"
-                      >
-                        <option value="CHILD">CHILD</option>
-                        <option value="PARENT">PARENT</option>
-                        <option value="ADMIN">ADMIN</option>
-                      </select>
+                      <div className="flex items-center justify-end gap-2">
+                        <select 
+                          value={user.role} 
+                          onChange={(e) => handleUpdateRole(user.id, e.target.value)}
+                          disabled={loadingId === user.id}
+                          className="bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none cursor-pointer disabled:opacity-50"
+                        >
+                          <option value="CHILD">CHILD</option>
+                          <option value="PARENT">PARENT</option>
+                          <option value="ADMIN">ADMIN</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUser(user)}
+                          disabled={loadingId === user.id}
+                          className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-black text-red-600 transition-all hover:bg-red-100 disabled:opacity-50"
+                        >
+                          削除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
