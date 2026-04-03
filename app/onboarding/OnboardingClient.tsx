@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 type OnboardingCategory = {
   id: string;
@@ -26,6 +27,7 @@ type OnboardingClientProps = {
 };
 
 export default function OnboardingClient({ initialData, categories }: OnboardingClientProps) {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: initialData.name || '',
@@ -68,6 +70,8 @@ export default function OnboardingClient({ initialData, categories }: Onboarding
       if (res.ok) {
         setHasCompletedProfile(true);
         setSaveMessage('プロフィールを保存しました。あとからこのページを開いても、同じ設定を確認できます。');
+        router.push('/');
+        router.refresh();
       } else {
         alert('保存に失敗しました');
       }
