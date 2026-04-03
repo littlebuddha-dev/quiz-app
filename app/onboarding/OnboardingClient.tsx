@@ -83,6 +83,31 @@ export default function OnboardingClient({ initialData, categories }: Onboarding
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const firstConfirm = window.confirm('本当にアカウントを削除しますか？プロフィール、学習履歴、保存情報が削除されます。');
+    if (!firstConfirm) return;
+
+    const secondConfirm = window.confirm('この操作は元に戻せません。退会を実行しますか？');
+    if (!secondConfirm) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/onboarding', {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        alert('アカウント削除に失敗しました');
+        return;
+      }
+      window.location.href = '/';
+    } catch (error) {
+      console.error(error);
+      alert('アカウント削除中にエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center p-4" suppressHydrationWarning>
       {!mounted ? (
@@ -209,6 +234,23 @@ export default function OnboardingClient({ initialData, categories }: Onboarding
               <div className={`w-2 h-2 rounded-full transition-all ${step === 1 ? 'w-6 bg-amber-500' : 'bg-zinc-200'}`} />
               <div className={`w-2 h-2 rounded-full transition-all ${step === 2 ? 'w-6 bg-amber-500' : 'bg-zinc-200'}`} />
             </div>
+
+            {hasCompletedProfile && (
+              <div className="mt-8 rounded-3xl border border-red-200 bg-red-50/80 p-5">
+                <div className="text-[11px] font-black uppercase tracking-[0.24em] text-red-600">Danger Zone</div>
+                <p className="mt-3 text-sm font-bold leading-relaxed text-red-950">
+                  退会すると、プロフィール、学習履歴、いいね、保存情報などのアカウントデータが削除されます。
+                </p>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={loading}
+                  className="mt-4 w-full rounded-2xl border border-red-300 bg-white px-5 py-4 text-sm font-black text-red-600 transition-all hover:bg-red-100 disabled:opacity-60"
+                >
+                  {loading ? '処理中...' : 'アカウントを削除して退会する'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

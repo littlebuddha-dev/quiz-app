@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import {
   ensureLocalUser,
@@ -58,6 +58,42 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(updatedUser);
   } catch (error) {
     console.error('Error in onboarding API:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+function isClerkNotFound(error: unknown) {
+  const status = (error as { status?: number })?.status;
+  const message = String((error as { message?: string })?.message || '');
+  return status === 404 || message.includes('404') || message.toLowerCase().includes('not found');
+}
+
+export async function DELETE() {
+  try {
+    const { env } = getCloudflareContext();
+    const prisma = createPrisma(env);
+    const { userId: clerkId } = await auth();
+
+    if (!clerkId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const client = await clerkClient();
+    try {
+      await client.users.deleteUser(clerkId);
+    } catch (error) {
+      if (!isClerkNotFound(error)) {
+        throw error;
+      }
+    }
+
+    await prisma.user.deleteMany({
+      where: { clerkId },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting account:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
