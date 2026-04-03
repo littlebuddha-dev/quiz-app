@@ -24,7 +24,7 @@ const OG_LOCALE: Record<Locale, string> = {
   zh: 'zh_CN',
 };
 
-const DEFAULT_OG_IMAGE_PATH = '/og-image.png';
+const DEFAULT_OG_IMAGE_PATH = '/screenshot.png';
 
 export function getAbsoluteUrl(path = '') {
   const siteUrl = getSiteUrl();

@@ -392,6 +392,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     inLanguage: locale,
     url: getAbsoluteUrl(`/watch/${id}`),
     image: [seoImageUrl],
+    thumbnailUrl: seoImageUrl,
     isAccessibleForFree: true,
     educationalUse: 'practice',
     learningResourceType: 'quiz',
