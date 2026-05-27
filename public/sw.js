@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'cue-offline-v1';
+const CACHE_VERSION = 'cue-offline-v2';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL_URLS = ['/', '/favicon.ico', '/apple-touch-icon.png', '/manifest.webmanifest'];
@@ -23,19 +23,36 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-function shouldSkip(requestUrl) {
-  return requestUrl.pathname.startsWith('/api/') || requestUrl.pathname.startsWith('/admin');
+function shouldHandle(request, requestUrl) {
+  if (request.method !== 'GET') {
+    return false;
+  }
+
+  if (!['http:', 'https:'].includes(requestUrl.protocol)) {
+    return false;
+  }
+
+  if (requestUrl.origin !== self.location.origin) {
+    return false;
+  }
+
+  return !requestUrl.pathname.startsWith('/api/') && !requestUrl.pathname.startsWith('/admin');
+}
+
+async function putRuntimeCache(request, response) {
+  if (!response || !response.ok || response.type !== 'basic') {
+    return;
+  }
+
+  const cache = await caches.open(RUNTIME_CACHE);
+  await cache.put(request, response.clone());
 }
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET') {
-    return;
-  }
-
   const requestUrl = new URL(request.url);
 
-  if (shouldSkip(requestUrl)) {
+  if (!shouldHandle(request, requestUrl)) {
     return;
   }
 
@@ -43,14 +60,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+          event.waitUntil(putRuntimeCache(request, response));
           return response;
         })
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
-          return caches.match('/');
+          return (await caches.match('/')) || Response.error();
         })
     );
     return;
@@ -60,11 +76,10 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cachedResponse) => {
       const networkFetch = fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+          event.waitUntil(putRuntimeCache(request, response));
           return response;
         })
-        .catch(() => cachedResponse);
+        .catch(() => cachedResponse || Response.error());
 
       return cachedResponse || networkFetch;
     })
