@@ -163,7 +163,7 @@ export default function Header({
                   <SignedIn>
                     <UserButton
                       {...userButtonProps}
-                      appearance={{ elements: { avatarBox: "w-8 h-8 border-2 border-amber-400 shadow-sm" } }}
+                      appearance={{ elements: { avatarBox: "w-8 h-8 bg-white border border-white shadow-sm" } }}
                     >
                       <UserButton.MenuItems>
                         <UserButton.Link

@@ -105,6 +105,15 @@ button:disabled, input:disabled {
   cursor: not-allowed;
 }
 
+.cl-rootBox .cl-avatarBox,
+.cl-rootBox .cl-userButtonAvatarBox,
+.cl-rootBox .cl-userButtonPopoverActionButtonIconBox,
+.cl-rootBox .cl-userButtonPopoverCustomItemButtonIconBox,
+.cl-rootBox .cl-socialButtonsIconButton {
+  background-color: #ffffff !important;
+  border: 1px solid #ffffff !important;
+}
+
 @media (hover: none) and (pointer: coarse) {
   a,
   button,
