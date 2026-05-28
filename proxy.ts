@@ -30,6 +30,7 @@ const isPublicRoute = createRouteMatcher([
   '/courses(.*)',
   '/watch/(.*)',
   '/api/comments(.*)',
+  '/api/admin/adsense',
   '/api/webhooks(.*)',
   '/api/quiz-generator(.*)',
   '/api/topic-planner(.*)',
