@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from '@/app/components/Header';
 import { usePreferredLocale } from '@/app/hooks/usePreferredLocale';
 import type { AdSenseSettings } from '@/lib/adsense';
@@ -10,12 +10,26 @@ type AdSenseAdminClientProps = {
   userStatus: { xp: number; level: number; role: string };
 };
 
+function toAdSensePublisherId(clientId: string) {
+  const value = clientId.trim();
+  if (!value) return '';
+  if (/^pub-\d+$/.test(value)) return value;
+  if (/^ca-pub-\d+$/.test(value)) return value.replace(/^ca-/, '');
+
+  const numericId = value.match(/\d{8,}/)?.[0];
+  return numericId ? `pub-${numericId}` : '';
+}
+
 export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [settings, setSettings] = useState<AdSenseSettings>(DEFAULT_ADSENSE_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const adsensePublisherId = useMemo(() => toAdSensePublisherId(settings.clientId), [settings.clientId]);
+  const adsenseOnboardingUrl = adsensePublisherId
+    ? `https://adsense.google.com/adsense/u/2/${adsensePublisherId}/onboarding`
+    : '';
 
   useEffect(() => {
     fetch('/api/admin/adsense')
@@ -107,7 +121,7 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
                 <input
                   type="text"
                   className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-[var(--border)] rounded-2xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                  placeholder="ca-pub-1234567890123456"
+                  placeholder="ca-pub-9727369467796946"
                   value={settings.clientId}
                   onChange={(e) => setSettings({ ...settings, clientId: e.target.value.trim() })}
                 />
@@ -115,6 +129,16 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
               <p className="text-xs text-zinc-500">
                 以前のスニペット直貼り方式より安全で安定した運用に切り替えています。公開者 ID は `ca-pub-...` の形式です。
               </p>
+              {adsenseOnboardingUrl && (
+                <a
+                  href={adsenseOnboardingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-700 transition-colors hover:bg-amber-100 sm:w-auto"
+                >
+                  AdSense のオンボーディングを開く
+                </a>
+              )}
             </div>
           </section>
 
