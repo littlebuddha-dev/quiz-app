@@ -379,7 +379,7 @@ export default async function Home({
           return { id: quiz.id, score };
         })
         .sort((a, b) => b.score - a.score)
-        .slice(0, 3)
+        .slice(0, 4)
         .map((quiz) => quiz.id);
 
       const missionQuizIds = rawQuizzes

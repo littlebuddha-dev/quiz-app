@@ -16,6 +16,10 @@ import AdSense from './AdSense';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
+const RECOMMENDED_GRID_QUERY = '(min-width: 1280px)';
+const COMPACT_RECOMMENDED_COUNT = 3;
+const WIDE_RECOMMENDED_COUNT = 4;
+
 // 定数・辞書は元のpage.tsxから移行
 const DICTIONARY: Record<Locale, { search: string; hint: string; answer: string; submit: string; age: string; close: string; typeAnswer: string; }> = {
   ja: { search: '検索...', hint: 'ヒントを見る', answer: 'こたえ', submit: '回答する', age: '歳向け', close: '閉じる', typeAnswer: '答えを入力してください' },
@@ -285,6 +289,7 @@ export default function QuizClient({
   const [cachedCategories, setCachedCategories] = useState<QuizClientWrapperProps['categories'] | null>(null);
   const [cachedStudyRecommendations, setCachedStudyRecommendations] = useState<StudyRecommendations | undefined>(undefined);
   const [orderedCategories, setOrderedCategories] = useState<QuizClientWrapperProps['categories']>(categories);
+  const [recommendedQuizCount, setRecommendedQuizCount] = useState(COMPACT_RECOMMENDED_COUNT);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // パーソナライズ用の状態管理（セットを使って高速にO(1)で存在確認）
@@ -354,6 +359,17 @@ export default function QuizClient({
   useEffect(() => {
     setOrderedCategories(sourceCategories);
   }, [sourceCategories]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(RECOMMENDED_GRID_QUERY);
+    const syncRecommendedCount = () => {
+      setRecommendedQuizCount(mediaQuery.matches ? WIDE_RECOMMENDED_COUNT : COMPACT_RECOMMENDED_COUNT);
+    };
+
+    syncRecommendedCount();
+    mediaQuery.addEventListener('change', syncRecommendedCount);
+    return () => mediaQuery.removeEventListener('change', syncRecommendedCount);
+  }, []);
 
   useEffect(() => {
     if (activeCategory === 'すべて') return;
@@ -490,9 +506,9 @@ export default function QuizClient({
 
     const recommendedIds = activeStudyRecommendations?.dailyQuizIds?.length
       ? activeStudyRecommendations.dailyQuizIds
-      : sortedQuizzes.slice(0, 3).map((quiz) => quiz.id);
+      : sortedQuizzes.slice(0, recommendedQuizCount).map((quiz) => quiz.id);
     const recommendedSet = new Set(recommendedIds);
-    const recommendedQuizzes = sortedQuizzes.filter((quiz) => recommendedSet.has(quiz.id)).slice(0, 3);
+    const recommendedQuizzes = sortedQuizzes.filter((quiz) => recommendedSet.has(quiz.id)).slice(0, recommendedQuizCount);
     const latestQuizzes = sortedQuizzes.filter((quiz) => !recommendedSet.has(quiz.id)).slice(0, 8);
     const latestSet = new Set(latestQuizzes.map((quiz) => quiz.id));
     const archiveQuizzes = sortedQuizzes.filter((quiz) => !recommendedSet.has(quiz.id) && !latestSet.has(quiz.id));
@@ -502,7 +518,7 @@ export default function QuizClient({
       { key: 'latest', title: studyText.latestSection, quizzes: latestQuizzes },
       { key: 'archive', title: studyText.archiveSection, quizzes: archiveQuizzes },
     ].filter((section) => section.quizzes.length > 0);
-  }, [activeStudyRecommendations?.dailyQuizIds, displayQuizzes, sortedQuizzes, studyMode, studyText.archiveSection, studyText.latestSection, studyText.recommendedSection]);
+  }, [activeStudyRecommendations?.dailyQuizIds, displayQuizzes, recommendedQuizCount, sortedQuizzes, studyMode, studyText.archiveSection, studyText.latestSection, studyText.recommendedSection]);
   const dailyGoalProgress = activeStudyRecommendations
     ? Math.min(activeStudyRecommendations.solvedTodayCount / Math.max(activeStudyRecommendations.dailyGoalTarget, 1), 1)
     : 0;
