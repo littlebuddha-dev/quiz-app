@@ -6,7 +6,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { Locale } from '../types';
 import LatexRenderer from '../components/LatexRenderer';
-import { AI_MODELS, DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import { AI_MODELS, DEFAULT_MODEL_ID } from '@/lib/ai-models';
 import { getDefaultEducationalGuidelines, getEducationalGuidelinesValidation, normalizeEducationalGuidelines } from '@/lib/ai-prompts';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import { restoreBackupAction } from './backup-actions';
@@ -586,7 +586,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           imageUrl: aiImageUrl,
           systemPrompt,
           correctionPrompt,
-          modelId: getModelById(selectedModel).generatorId,
+          modelId: selectedModel,
           locale,
           deferImageGeneration: true,
         })
@@ -610,7 +610,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         setCorrectionPrompt('');
 
         if (data?.id) {
-          const imageGenerated = await triggerDeferredImageGeneration(data.id, locale);
+          const imageGenerated = await triggerDeferredImageGeneration(data.id, locale, selectedModel);
           if (!imageGenerated) {
             alert('クイズ本文は作成できましたが、画像生成がまだ完了していないか失敗しました。ログを確認してください。');
           } else {
@@ -669,7 +669,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             options: ja.type === 'CHOICE' ? ja.options : null
           },
           targetAge: formData.targetAge,
-          categoryId: formData.categoryId
+          categoryId: formData.categoryId,
+          modelId: selectedModel,
         })
       });
       if (res.ok) {
@@ -987,7 +988,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     }
   };
 
-  const triggerDeferredImageGeneration = async (quizId: string, targetLocale: Locale, retries = 2): Promise<boolean> => {
+  const triggerDeferredImageGeneration = async (quizId: string, targetLocale: Locale, modelId: string, retries = 2): Promise<boolean> => {
     try {
       const imageRes = await fetchWithRetry('/api/admin/quiz/generate-image', {
         method: 'POST',
@@ -996,6 +997,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
           quizId,
           locale: 'all',
           force: true,
+          modelId,
         }),
       });
 
@@ -1029,7 +1031,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       console.warn('Deferred image generation failed:', error);
       if (retries > 0) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        return triggerDeferredImageGeneration(quizId, targetLocale, retries - 1);
+        return triggerDeferredImageGeneration(quizId, targetLocale, modelId, retries - 1);
       }
       return false;
     }
@@ -1771,7 +1773,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                                       quizId: (formData as any).id,
                                       locale: activeTab,
                                       title: currentTranslation.title || 'Untitled',
-                                      baseImageUrl
+                                      baseImageUrl,
+                                      modelId: selectedModel,
                                     })
                                   });
                                   const data = (await res.json()) as any;
@@ -2154,6 +2157,34 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     </a>
                     <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
                       料金・クォータ制限 <span>💰</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] hover:scale-[1.02] hover:shadow-xl transition-all group relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 -mr-8 -mt-8 rotate-45"></div>
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="bg-emerald-100 text-emerald-700 p-3 rounded-2xl text-2xl group-hover:rotate-12 transition-transform">AI</span>
+                    <div>
+                      <h3 className="text-lg font-black">OpenAI Platform</h3>
+                      <p className="text-xs font-bold text-zinc-500">Responses API / GPT Image</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 font-medium leading-relaxed">
+                    OpenAI APIキー、テキスト生成モデル、画像生成モデルの管理と公式ドキュメントを確認できます。
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                    <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-emerald-50 dark:bg-emerald-900/10 text-[11px] font-black text-emerald-700 dark:text-emerald-500 rounded-xl hover:bg-emerald-600 hover:text-white transition-all">
+                      APIキーの発行・管理 <span>Key</span>
+                    </a>
+                    <a href="https://developers.openai.com/api/docs" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      APIドキュメント <span>Docs</span>
+                    </a>
+                    <a href="https://platform.openai.com/playground" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      Playground <span>Test</span>
+                    </a>
+                    <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-400 rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 hover:text-white transition-all">
+                      料金・利用量 <span>USD</span>
                     </a>
                   </div>
                 </div>

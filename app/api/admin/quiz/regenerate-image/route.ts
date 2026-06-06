@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
-import { GoogleGenAI } from '@google/genai';
-import { editNanobananaImage, resolveInlineImageData } from '@/lib/nanobanana';
+import { resolveInlineImageData } from '@/lib/nanobanana';
 import { storeImageBuffer } from '@/lib/image-storage';
+import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import { generateAIImage, hasAIProvider, inferAIProvider } from '@/lib/ai-provider';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,22 +23,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { quizId, locale, title, baseImageUrl } = (await req.json()) as { 
+    const { quizId, locale, title, baseImageUrl, modelId = DEFAULT_MODEL_ID } = (await req.json()) as {
       quizId: string; 
       locale: string; 
       title: string; 
-      baseImageUrl: string; 
+      baseImageUrl: string;
+      modelId?: string;
     };
 
     if (!quizId || !locale || !title || !baseImageUrl) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const apiKey = env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 });
+    const runtimeEnv = env as unknown as Record<string, unknown>;
+    const selectedModel = getModelById(modelId);
+    let provider = modelId.startsWith('hybrid-')
+      ? selectedModel.provider
+      : inferAIProvider(modelId);
+    if (!hasAIProvider(provider, runtimeEnv)) {
+      const fallbackProvider = provider === 'openai' ? 'gemini' : 'openai';
+      if (!hasAIProvider(fallbackProvider, runtimeEnv)) {
+        return NextResponse.json({ error: 'No image provider API key is configured' }, { status: 500 });
+      }
+      provider = fallbackProvider;
     }
-    const ai = new GoogleGenAI({ apiKey });
 
     const sourceImage = await resolveInlineImageData(baseImageUrl);
 
@@ -51,7 +60,13 @@ Embed the new text naturally in the same design position and treatment as the or
 Do not add subtitles, labels, UI, borders, or any extra text.
 Return one finished localized image.`;
 
-    const localizedImage = await editNanobananaImage(ai, sourceImage, localizedPrompt);
+    const localizedImage = await generateAIImage({
+      provider,
+      model: selectedModel.provider === provider ? selectedModel.imageModelId : undefined,
+      sourceImage,
+      prompt: localizedPrompt,
+      env: runtimeEnv,
+    });
     if (!localizedImage?.data) {
       throw new Error('Image generation failed');
     }

@@ -55,6 +55,10 @@ CLERK_WEBHOOK_SECRET=whsec_xxxx...
 ADMIN_EMAILS="admin@example.com,owner@example.com"
 
 GEMINI_API_KEY=AIzaSy...
+OPENAI_API_KEY=sk-...
+
+# AI画像生成を有効にする場合
+ENABLE_AI_IMAGE_GENERATION=true
 
 NODE_ENV=production
 PORT=3000
@@ -65,6 +69,8 @@ PORT=3000
 - `DATABASE_URL` は絶対パス推奨です
 - `ADMIN_EMAILS` に入れたメールアドレスは、Clerk 同期時に自動で `ADMIN` 扱いになります
 - `CLERK_WEBHOOK_SECRET` が無いと Prisma 側のユーザー同期に失敗します
+- `GEMINI_API_KEY` と `OPENAI_API_KEY` の両方を設定すると、管理画面で Gemini / OpenAI を選択でき、クイズ生成時は利用可能な別プロバイダーへフォールバックできます
+- `ENABLE_AI_IMAGE_GENERATION=true` は Gemini / OpenAI 共通の画像生成フラグです。未設定時は従来の `ENABLE_GEMINI_IMAGE_GENERATION` も参照します
 
 ## 5. Clerk Webhook の設定
 

@@ -3,7 +3,6 @@
 // Title: Quiz Generator API Route
 // Purpose: Generates quiz text and illustration using Google Gen AI based on topic, category, age, and type.
 
-import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createPrisma } from '@/lib/prisma';
@@ -24,7 +23,14 @@ import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import { createDataUrlFromBuffer, storeDataUrl, storeImageBuffer } from '@/lib/image-storage';
-import { editNanobananaImage, generateNanobananaImage } from '@/lib/nanobanana';
+import {
+  generateAIImage,
+  generateAIText,
+  hasAnyAIProvider,
+  inferAIProvider,
+  isRetryableAIError,
+  type AITextResult,
+} from '@/lib/ai-provider';
 
 type MultiLangQuiz = {
   ja: {
@@ -1108,12 +1114,12 @@ function buildQualityFeedback(params: {
 }
 
 async function generateQuizPayload(params: {
-  ai: GoogleGenAI;
   modelsToTry: string[];
   prompt: string;
   categoryName: string;
+  env?: Record<string, unknown>;
 }) {
-  const { ai, modelsToTry, prompt, categoryName } = params;
+  const { modelsToTry, prompt, categoryName, env } = params;
   let lastError: unknown;
 
   for (const model of modelsToTry) {
@@ -1128,19 +1134,17 @@ async function generateQuizPayload(params: {
 - 答え・解説は断定しすぎず、教育的に正確な表現にしてください。`;
 
       try {
-        const response = await ai.models.generateContent({
+        const response = await generateAIText({
           model,
-          contents: attemptPrompt,
-          config: { responseMimeType: 'application/json' },
+          prompt: attemptPrompt,
+          systemInstruction: 'Return only valid JSON. Do not wrap the JSON in markdown fences.',
+          env,
         });
 
         return { response, model };
-      } catch (error: any) {
+      } catch (error) {
         lastError = error;
-        const status = error?.status || error?.response?.status;
-        const message = String(error?.message || '');
-        const isQuotaError = status === 429 || message.includes('quota') || message.includes('RESOURCE_EXHAUSTED');
-        if (!isQuotaError) {
+        if (!isRetryableAIError(error)) {
           throw error;
         }
         break;
@@ -1171,12 +1175,11 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.warn("GEMINI_API_KEY is not set. Skipping AI generation.");
+    const runtimeEnv = env as unknown as Record<string, unknown>;
+    if (!hasAnyAIProvider(runtimeEnv)) {
+      console.warn('No AI provider API key is configured. Skipping AI generation.');
       return NextResponse.json({ error: 'CONFIG_ERROR', message: 'APIキーが設定されていません。' }, { status: 500 });
     }
-    const ai = new GoogleGenAI({ apiKey });
 
     const body = (await req.json()) as any;
     const {
@@ -1209,7 +1212,7 @@ export async function POST(req: NextRequest) {
     const parsedAge = parseInt(targetAge) || 8;
     const hybridModelId = modelId || DEFAULT_MODEL_ID;
     const hybridModel = getModelById(hybridModelId);
-    // If modelId is already a raw Gemini model name (passed from auto-generator), use it.
+    // Raw provider model IDs are accepted for backward compatibility.
     // Otherwise use the generatorId from the hybrid config.
     selectedModel = (modelId && !modelId.startsWith('hybrid-')) ? modelId : hybridModel.generatorId;
     // deferred admin生成でもユーザー選択モデルを優先（lite モデルは構造不正リスクあり）
@@ -1312,36 +1315,28 @@ ${finalSystemInstruction}
       textPrompt += `\n\n## ユーザーからの追加指示（補正）:\n${correctionPrompt}`;
     }
 
-    const modelCandidates = isDeferredAdminGeneration
-      ? Array.from(
-          new Set([
-            selectedModel,
-            hybridModel.generatorId,
-            'gemini-2.5-flash',
-            'gemini-2.5-flash-lite',
-            'gemini-flash-latest',
-          ])
-        )
-      : Array.from(
-          new Set([
-            selectedModel,
-            hybridModel.generatorId,
-            'gemini-2.5-flash',
-            'gemini-2.5-flash-lite',
-            'gemini-flash-latest',
-          ])
-        );
+    const selectedProvider = inferAIProvider(selectedModel);
+    const providerFallbacks = selectedProvider === 'openai'
+      ? ['gpt-5.4-mini', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
+      : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gpt-5.4-mini'];
+    const modelCandidates = Array.from(
+      new Set([
+        selectedModel,
+        hybridModel.generatorId,
+        ...providerFallbacks,
+      ])
+    );
 
-    let textResponse;
+    let textResponse: AITextResult;
     {
       console.log(
         `[quiz-generator] text generation start modelCandidates=${modelCandidates.join(',')} deferred=${isDeferredAdminGeneration}`
       );
       const generation = await generateQuizPayload({
-        ai,
         modelsToTry: modelCandidates,
         prompt: textPrompt,
         categoryName: categoryName || categoryId || '未指定',
+        env: runtimeEnv,
       });
       textResponse = generation.response;
       selectedModel = generation.model;
@@ -1395,13 +1390,14 @@ ${finalSystemInstruction}
       console.log('[quiz-generator] retrying text generation due to invalid structure...');
       try {
         const retryGeneration = await generateQuizPayload({
-          ai,
           modelsToTry: modelCandidates.filter(m => m !== 'gemini-2.5-flash-lite'),
           prompt: textPrompt + '\n\n## 再生成指示\n必ず {"ja": {...}, "en": {...}, "zh": {...}} の構造でJSONを返してください。各ロケールには title, question, hint, answer, explanation フィールドを含めてください。',
           categoryName: categoryName || categoryId || '未指定',
+          env: runtimeEnv,
         });
         const retryText = retryGeneration.response.text || '{}';
         selectedModel = retryGeneration.model;
+        textResponse = retryGeneration.response;
         multiLangData = parseAiJsonResponse(retryText);
         multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
         if (multiLangData && !multiLangData.ja) {
@@ -1456,12 +1452,13 @@ ${finalSystemInstruction}
       textPrompt += `\n\n## 品質修正指示\n${qualityIssues.map((issue) => `- ${issue}`).join('\n')}`;
 
       const retryGeneration = await generateQuizPayload({
-        ai,
         modelsToTry: modelCandidates,
         prompt: `${textPrompt}\n\n## ユーザーからの追加指示（補正）:\n${correctionPromptWithIssues}`,
         categoryName: categoryName || categoryId || '未指定',
+        env: runtimeEnv,
       });
       selectedModel = retryGeneration.model;
+      textResponse = retryGeneration.response;
       const retryText = retryGeneration.response.text || '{}';
       try {
         multiLangData = parseAiJsonResponse(retryText);
@@ -1492,12 +1489,11 @@ ${finalSystemInstruction}
     }
 
     // AI Usage Logging
-    const usage = textResponse.usageMetadata;
-    if (usage) {
+    if (textResponse.usage.promptTokens || textResponse.usage.candidateTokens) {
       await logApiUsage(prisma, {
         modelId: selectedModel,
-        promptTokens: usage.promptTokenCount || 0,
-        candidateTokens: usage.candidatesTokenCount || 0,
+        promptTokens: textResponse.usage.promptTokens,
+        candidateTokens: textResponse.usage.candidateTokens,
         purpose: 'QUIZ_GEN'
       });
     }
@@ -1511,12 +1507,17 @@ ${finalSystemInstruction}
     };
     let imageUrl = normalizedProvidedImageUrl || '/images/no-image.png';
 
-    const imageGenerationFlag = process.env.ENABLE_GEMINI_IMAGE_GENERATION?.trim().toLowerCase();
+    const imageGenerationFlag = process.env.ENABLE_AI_IMAGE_GENERATION?.trim().toLowerCase()
+      || process.env.ENABLE_GEMINI_IMAGE_GENERATION?.trim().toLowerCase();
     const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
     const imageTimeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
+    const imageProvider = inferAIProvider(selectedModel);
+    const imageModel = hybridModel.provider === imageProvider
+      ? hybridModel.imageModelId
+      : undefined;
     
     if (!deferImageGeneration && !normalizedProvidedImageUrl && imageGenerationEnabled) {
-      console.log('Generating localized educational images with nanobanana...');
+      console.log(`[quiz-generator] generating images provider=${imageProvider}`);
       const isProgrammingSubject = detectProgrammingSubject(categoryNames);
       const basePrompt = buildBaseIllustrationPrompt({
         age: parsedAge,
@@ -1531,21 +1532,28 @@ ${finalSystemInstruction}
       let baseImage;
       try {
         baseImage = await withTimeout(
-          generateNanobananaImage(ai, basePrompt),
+          generateAIImage({
+            provider: imageProvider,
+            model: imageModel,
+            prompt: basePrompt,
+            env: runtimeEnv,
+          }),
           imageTimeoutMs,
           'Base image generation'
         );
         if (!baseImage && isProgrammingSubject) {
           baseImage = await withTimeout(
-            generateNanobananaImage(
-              ai,
-              buildProgrammingImageFallbackPrompt({
+            generateAIImage({
+              provider: imageProvider,
+              model: imageModel,
+              prompt: buildProgrammingImageFallbackPrompt({
                 age: parsedAge,
                 topic: topicForAi,
                 imageStyle: persona.imageStyle,
                 categoryName: categoryName || finalCategoryId || '未指定',
-              })
-            ),
+              }),
+              env: runtimeEnv,
+            }),
             Math.max(6000, Math.floor(imageTimeoutMs * 0.8)),
             'Programming fallback image generation'
           );
@@ -1571,10 +1579,11 @@ ${finalSystemInstruction}
             try {
               const localizedImage =
                 (await withTimeout(
-                  editNanobananaImage(
-                    ai,
-                    baseImage,
-                    buildLocalizedImageEditPrompt({
+                  generateAIImage({
+                    provider: imageProvider,
+                    model: imageModel,
+                    sourceImage: baseImage,
+                    prompt: buildLocalizedImageEditPrompt({
                       age: parsedAge,
                       locale: finalLocale,
                       topic: topicForAi,
@@ -1583,8 +1592,9 @@ ${finalSystemInstruction}
                       categoryName: categoryName || finalCategoryId || '未指定',
                       categoryNames,
                       quiz: multiLangData as MultiLangQuiz,
-                    })
-                  ),
+                    }),
+                    env: runtimeEnv,
+                  }),
                   Math.max(6000, Math.floor(imageTimeoutMs * 0.8)),
                   `${finalLocale} localized image generation`
                 )) || baseImage;

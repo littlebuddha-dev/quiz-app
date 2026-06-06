@@ -3,7 +3,6 @@
 // Title: Admin Quiz Translation API
 // Purpose: Multi-language translation for manually created quizzes using AI.
 
-import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
@@ -13,6 +12,42 @@ import {
   BASE_SYSTEM_INSTRUCTION,
 } from '@/lib/ai-prompts';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
+import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import {
+  generateAIText,
+  hasAnyAIProvider,
+  inferAIProvider,
+  isRetryableAIError,
+  type AITextResult,
+} from '@/lib/ai-provider';
+
+async function generateTranslation(params: {
+  preferredModel: string;
+  prompt: string;
+  env: Record<string, unknown>;
+}): Promise<AITextResult> {
+  const provider = inferAIProvider(params.preferredModel);
+  const candidates = provider === 'openai'
+    ? [params.preferredModel, 'gpt-5.4-mini', 'gemini-2.5-flash']
+    : [params.preferredModel, 'gemini-2.5-flash', 'gpt-5.4-mini'];
+  let lastError: unknown;
+
+  for (const model of Array.from(new Set(candidates))) {
+    try {
+      return await generateAIText({
+        model,
+        prompt: params.prompt,
+        systemInstruction: 'Return only valid JSON with en and zh objects.',
+        env: params.env,
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableAIError(error)) throw error;
+    }
+  }
+
+  throw lastError;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,14 +63,14 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    const runtimeEnv = env as unknown as Record<string, unknown>;
+    if (!hasAnyAIProvider(runtimeEnv)) {
       return NextResponse.json({ error: 'CONFIG_ERROR', message: 'APIキーが設定されていません。' }, { status: 500 });
     }
-    const ai = new GoogleGenAI({ apiKey });
 
     const body = (await req.json()) as any;
-    const { ja, targetAge, categoryId } = body;
+    const { ja, targetAge, categoryId, modelId = DEFAULT_MODEL_ID } = body;
+    const selectedModel = getModelById(modelId);
 
     // カテゴリ名を取得
     let categoryNames: Array<string | null | undefined> = [];
@@ -76,17 +111,20 @@ ${JSON.stringify(ja, null, 2)}
 ${systemInstruction}
 `;
 
-    const modelName = 'gemini-2.0-flash';
-    const result = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: { responseMimeType: 'application/json' },
+    const modelName = selectedModel.generatorId;
+    const result = await generateTranslation({
+      preferredModel: modelName,
+      prompt,
+      env: runtimeEnv,
     });
 
     const resultText = result.text;
     let translatedData: any;
     try {
-      translatedData = JSON.parse(resultText || '{}');
+      const raw = resultText || '{}';
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      translatedData = JSON.parse(start >= 0 && end > start ? raw.slice(start, end + 1) : raw);
     } catch (e) {
       console.error('Initial JSON parse failed. Attempting to sanitize...', e);
       const sanitized = (resultText || '{}').replace(/\\(?![/"\\bfnrtu])/g, '\\\\');
@@ -94,12 +132,11 @@ ${systemInstruction}
     }
 
     // AI Usage Logging
-    const usage = result.usageMetadata;
-    if (usage) {
+    if (result.usage.promptTokens || result.usage.candidateTokens) {
       await logApiUsage(prisma, {
-        modelId: 'gemini-2.0-flash',
-        promptTokens: usage.promptTokenCount || 0,
-        candidateTokens: usage.candidatesTokenCount || 0,
+        modelId: result.model,
+        promptTokens: result.usage.promptTokens,
+        candidateTokens: result.usage.candidateTokens,
         purpose: 'QUIZ_TRANSLATION'
       });
     }

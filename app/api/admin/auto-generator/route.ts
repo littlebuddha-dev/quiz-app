@@ -3,7 +3,6 @@
 // Title: Automated Bulk Quiz Generator API
 // Purpose: Automatically suggests unique topics and generates multiple quizzes for a category and age.
 
-import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
@@ -12,6 +11,13 @@ import { buildTopicPlannerPrompt } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
+import {
+  generateAIText,
+  hasAnyAIProvider,
+  inferAIProvider,
+  isRetryableAIError,
+  type AITextResult,
+} from '@/lib/ai-provider';
 
 type CategorySummary = { id: string; name: string; nameJa: string | null };
 type CategoryCountRow = {
@@ -38,6 +44,44 @@ function normalizeSuggestedTopics(rawTopics: unknown): string[] {
     .filter(Boolean);
 
   return Array.from(new Set(topics));
+}
+
+function parseJsonObject(raw: string) {
+  const trimmed = raw.trim();
+  const unfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '');
+  const start = unfenced.indexOf('{');
+  const end = unfenced.lastIndexOf('}');
+  return JSON.parse(start >= 0 && end > start ? unfenced.slice(start, end + 1) : unfenced);
+}
+
+async function generateTopicSuggestions(params: {
+  preferredModel: string;
+  prompt: string;
+  env: Record<string, unknown>;
+}): Promise<AITextResult> {
+  const provider = inferAIProvider(params.preferredModel);
+  const candidates = provider === 'openai'
+    ? [params.preferredModel, 'gpt-5.4-mini', 'gemini-2.5-flash']
+    : [params.preferredModel, 'gemini-2.5-flash', 'gpt-5.4-mini'];
+  let lastError: unknown;
+
+  for (const model of Array.from(new Set(candidates))) {
+    try {
+      return await generateAIText({
+        model,
+        prompt: params.prompt,
+        systemInstruction: 'Return only valid JSON with a topics array.',
+        env: params.env,
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableAIError(error)) throw error;
+    }
+  }
+
+  throw lastError;
 }
 
 function getInternalBaseUrl(req: NextRequest) {
@@ -101,12 +145,13 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as any;
     const { categoryId, targetAge, quantity, quizType, modelId, autoBalance } = body;
     const hybridModel = getModelById(modelId || DEFAULT_MODEL_ID);
-    let parsedAge = parseInt(targetAge) || 8;
+    const parsedAge = parseInt(targetAge) || 8;
     const count = Math.min(parseInt(quantity) || 3, 10); // Max 10 at once
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: 'API_KEY_MISSING' }, { status: 500 });
-    const ai = new GoogleGenAI({ apiKey });
+    const runtimeEnv = env as unknown as Record<string, unknown>;
+    if (!hasAnyAIProvider(runtimeEnv)) {
+      return NextResponse.json({ error: 'API_KEY_MISSING' }, { status: 500 });
+    }
 
     // 1. Get Categories to process
     let categoriesToProcess: CategorySummary[] = [];
@@ -215,13 +260,13 @@ export async function POST(req: NextRequest) {
       );
 
       try {
-        const suggestionResponse = await ai.models.generateContent({
-          model: hybridModel.plannerId,
-          contents: topicSuggestionPrompt,
-          config: { responseMimeType: "application/json" },
+        const suggestionResponse = await generateTopicSuggestions({
+          preferredModel: hybridModel.plannerId,
+          prompt: topicSuggestionPrompt,
+          env: runtimeEnv,
         });
 
-        const suggestionData = JSON.parse(suggestionResponse.text || '{"topics":[]}');
+        const suggestionData = parseJsonObject(suggestionResponse.text || '{"topics":[]}');
         let suggestedTopics = normalizeSuggestedTopics(suggestionData.topics);
         if (suggestedTopics.length === 0) {
           suggestedTopics = [
@@ -232,12 +277,11 @@ export async function POST(req: NextRequest) {
         }
 
         // Log Usage
-        const usage = suggestionResponse.usageMetadata;
-        if (usage) {
+        if (suggestionResponse.usage.promptTokens || suggestionResponse.usage.candidateTokens) {
           await logApiUsage(prisma, {
-            modelId: hybridModel.plannerId,
-            promptTokens: usage.promptTokenCount || 0,
-            candidateTokens: usage.candidatesTokenCount || 0,
+            modelId: suggestionResponse.model,
+            promptTokens: suggestionResponse.usage.promptTokens,
+            candidateTokens: suggestionResponse.usage.candidateTokens,
             purpose: 'TOPIC_SUGGEST'
           });
         }
@@ -253,7 +297,7 @@ export async function POST(req: NextRequest) {
               targetAge: targetAgeForUnit,
               quizType: quizType || 'TEXT',
               excludeTitles: existingTitles,
-              modelId: hybridModel.generatorId,
+              modelId: hybridModel.id,
               visualMode: 'image_only',
               deferImageGeneration: true,
               ...override,
@@ -304,6 +348,7 @@ export async function POST(req: NextRequest) {
                       quizId: quizData.id,
                       locale: 'all',
                       force: true,
+                      modelId: hybridModel.id,
                     }),
                   });
                   if (!imageRes.ok) {

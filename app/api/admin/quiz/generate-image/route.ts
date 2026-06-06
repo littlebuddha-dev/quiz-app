@@ -5,12 +5,19 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { GoogleGenAI } from '@google/genai';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { createDataUrlFromBuffer, storeImageBuffer } from '@/lib/image-storage';
-import { editNanobananaImage, generateNanobananaImage, resolveInlineImageData } from '@/lib/nanobanana';
+import { resolveInlineImageData } from '@/lib/nanobanana';
 import { detectLanguageSubjectRule, getPersonaByAge } from '@/lib/ai-prompts';
+import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import {
+  generateAIImage,
+  generateAIText,
+  hasAIProvider,
+  inferAIProvider,
+  type AIProviderName,
+} from '@/lib/ai-provider';
 
 type QuizLocale = 'ja' | 'en' | 'zh';
 type RequestedLocale = QuizLocale | 'all';
@@ -253,13 +260,15 @@ type ImageValidationResult = {
 };
 
 async function validateLocalizedImage(params: {
-  ai: GoogleGenAI;
   image: { data: string; mimeType: string };
   locale: QuizLocale;
   subjectLocale: QuizLocale;
   isLanguageSubject: boolean;
+  provider: AIProviderName;
+  textModel: string;
+  env?: Record<string, unknown>;
 }) {
-  const { ai, image, locale, subjectLocale, isLanguageSubject } = params;
+  const { image, locale, subjectLocale, isLanguageSubject, provider, textModel, env } = params;
   const validationPrompt = isLanguageSubject
     ? `Inspect this quiz image and answer in JSON.
 Rules:
@@ -279,29 +288,20 @@ Rules:
 Return exactly:
 {"ok":true|false,"issues":["..."]}`;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          {
-            inlineData: {
-              data: image.data,
-              mimeType: image.mimeType,
-            },
-          },
-          { text: validationPrompt },
-        ],
-      },
-    ],
-    config: {
-      responseMimeType: 'application/json',
-    },
+  const validationModel = provider === 'openai' ? textModel : 'gemini-2.5-flash';
+  const response = await generateAIText({
+    model: validationModel,
+    prompt: validationPrompt,
+    image,
+    systemInstruction: 'Return only valid JSON.',
+    env,
   });
 
   try {
-    const parsed = JSON.parse(response.text || '{}') as Partial<ImageValidationResult>;
+    const raw = response.text || '{}';
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    const parsed = JSON.parse(start >= 0 && end > start ? raw.slice(start, end + 1) : raw) as Partial<ImageValidationResult>;
     return {
       ok: Boolean(parsed.ok),
       issues: Array.isArray(parsed.issues) ? parsed.issues.filter((issue): issue is string => typeof issue === 'string') : [],
@@ -343,10 +343,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { quizId, locale = 'ja', force = false } = (await req.json()) as {
+    const { quizId, locale = 'ja', force = false, modelId = DEFAULT_MODEL_ID } = (await req.json()) as {
       quizId?: string;
       locale?: RequestedLocale;
       force?: boolean;
+      modelId?: string;
     };
 
     if (!quizId) {
@@ -355,9 +356,17 @@ export async function POST(req: NextRequest) {
 
     console.log(`[generate-image] start quizId=${quizId} locale=${locale} force=${force}`);
 
-    const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 });
+    const runtimeEnv = env as unknown as Record<string, unknown>;
+    const selectedModel = getModelById(modelId);
+    let provider = modelId.startsWith('hybrid-')
+      ? selectedModel.provider
+      : inferAIProvider(modelId);
+    if (!hasAIProvider(provider, runtimeEnv)) {
+      const fallbackProvider: AIProviderName = provider === 'openai' ? 'gemini' : 'openai';
+      if (!hasAIProvider(fallbackProvider, runtimeEnv)) {
+        return NextResponse.json({ error: 'No image provider API key is configured' }, { status: 500 });
+      }
+      provider = fallbackProvider;
     }
 
     const quiz = await prisma.quiz.findUnique({
@@ -385,7 +394,10 @@ export async function POST(req: NextRequest) {
     const localesToGenerate = locale === 'all' ? ALL_LOCALES : [locale];
     const translationsByLocale = new Map(quiz.translations.map((entry) => [entry.locale as QuizLocale, entry]));
 
-    const ai = new GoogleGenAI({ apiKey });
+    const imageModel = selectedModel.provider === provider ? selectedModel.imageModelId : undefined;
+    const validationTextModel = selectedModel.provider === provider
+      ? selectedModel.generatorId
+      : (provider === 'openai' ? 'gpt-5.4-mini' : 'gemini-2.5-flash');
     const persona = getPersonaByAge(quiz.targetAge || 8);
     const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     const categoryName = quiz.category?.nameJa || quiz.category?.name || quiz.categoryId;
@@ -407,17 +419,19 @@ export async function POST(req: NextRequest) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
           masterJaImage = await withTimeout(
-            generateNanobananaImage(
-              ai,
-              buildJapaneseMasterPrompt({
+            generateAIImage({
+              provider,
+              model: imageModel,
+              prompt: buildJapaneseMasterPrompt({
                 age: quiz.targetAge || 8,
                 categoryName,
                 title: normalizeText(jaTranslation.title) || 'Quiz',
                 question: normalizeText(jaTranslation.question),
                 hint: normalizeText(jaTranslation.hint),
                 imageStyle: persona.imageStyle,
-              })
-            ),
+              }),
+              env: runtimeEnv,
+            }),
             timeoutMs,
             'ja master image generation'
           );
@@ -433,16 +447,18 @@ export async function POST(req: NextRequest) {
       if (!masterJaImage?.data && isProgrammingSubject) {
         try {
           masterJaImage = await withTimeout(
-            generateNanobananaImage(
-              ai,
-              buildProgrammingFallbackPrompt({
+            generateAIImage({
+              provider,
+              model: imageModel,
+              prompt: buildProgrammingFallbackPrompt({
                 age: quiz.targetAge || 8,
                 categoryName,
                 title: normalizeText(jaTranslation.title) || 'Programming Quiz',
                 question: normalizeText(jaTranslation.question),
                 imageStyle: persona.imageStyle,
-              })
-            ),
+              }),
+              env: runtimeEnv,
+            }),
             Math.max(8000, Math.floor(timeoutMs * 0.8)),
             'ja programming fallback image generation'
           );
@@ -527,7 +543,13 @@ export async function POST(req: NextRequest) {
 
         try {
           localizedImage = await withTimeout(
-            editNanobananaImage(ai, sourceImage, prompt),
+            generateAIImage({
+              provider,
+              model: imageModel,
+              sourceImage,
+              prompt,
+              env: runtimeEnv,
+            }),
             timeoutMs,
             `${currentLocale} localized image generation`
           );
@@ -538,11 +560,13 @@ export async function POST(req: NextRequest) {
 
           const validation = await withTimeout(
             validateLocalizedImage({
-              ai,
               image: localizedImage,
               locale: currentLocale,
               subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
               isLanguageSubject: Boolean(languageSubjectRule),
+              provider,
+              textModel: validationTextModel,
+              env: runtimeEnv,
             }),
             Math.max(8000, Math.floor(timeoutMs * 0.5)),
             `${currentLocale} image validation`
