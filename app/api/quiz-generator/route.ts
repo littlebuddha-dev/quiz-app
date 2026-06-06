@@ -26,6 +26,7 @@ import { createDataUrlFromBuffer, storeDataUrl, storeImageBuffer } from '@/lib/i
 import {
   generateAIImage,
   generateAIText,
+  hasAIProvider,
   hasAnyAIProvider,
   inferAIProvider,
   isRetryableAIError,
@@ -45,6 +46,16 @@ type MultiLangQuiz = {
   en: Record<string, unknown>;
   zh: Record<string, unknown>;
 };
+
+type AIQuizQualityReview = {
+  pass: boolean;
+  score: number;
+  issues: string[];
+  summary: string;
+};
+
+const AI_QUIZ_QUALITY_GATE_KEY = 'ai_quiz_quality_gate_enabled';
+const AI_QUIZ_QUALITY_MAX_ATTEMPTS = 5;
 
 type CategoryQualityRule = {
   focusKeywords: string[];
@@ -1155,6 +1166,88 @@ async function generateQuizPayload(params: {
   throw lastError;
 }
 
+function parseQuizQualityReview(raw: string): AIQuizQualityReview {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  const parsed = JSON.parse(start >= 0 && end > start ? raw.slice(start, end + 1) : raw) as Partial<AIQuizQualityReview>;
+  const score = Math.max(0, Math.min(100, Number(parsed.score) || 0));
+  const issues = Array.isArray(parsed.issues)
+    ? parsed.issues.filter((issue): issue is string => typeof issue === 'string' && Boolean(issue.trim())).map((issue) => issue.trim())
+    : [];
+
+  return {
+    pass: parsed.pass === true && score >= 80 && issues.length === 0,
+    score,
+    issues,
+    summary: typeof parsed.summary === 'string' ? parsed.summary.trim() : '',
+  };
+}
+
+async function reviewQuizQuality(params: {
+  quiz: MultiLangQuiz;
+  age: number;
+  categoryName: string;
+  topic: string;
+  requestedQuizType: 'TEXT' | 'CHOICE';
+  generatedModel: string;
+  env: Record<string, unknown>;
+}): Promise<{ review: AIQuizQualityReview; response: AITextResult }> {
+  const generatedProvider = inferAIProvider(params.generatedModel);
+  const candidates = generatedProvider === 'openai'
+    ? [
+        ...(hasAIProvider('gemini', params.env) ? ['gemini-2.5-flash'] : []),
+        params.generatedModel,
+        'gpt-5.4-mini',
+      ]
+    : [
+        ...(hasAIProvider('openai', params.env) ? ['gpt-5.4-mini'] : []),
+        params.generatedModel,
+        'gemini-2.5-flash',
+      ];
+  const prompt = `あなたは教育クイズの厳格な校閲者です。次のクイズを、画像生成や公開へ進めてよいか審査してください。
+
+## 前提
+- ジャンル: ${params.categoryName}
+- テーマ: ${params.topic}
+- 対象年齢: ${params.age}歳
+- 指定形式: ${params.requestedQuizType}
+
+## 審査対象
+${JSON.stringify(params.quiz, null, 2)}
+
+## 必須審査項目
+1. 問題文から導かれる答えが事実・計算・論理として正しい。
+2. 正答が一意で、問題文に不足条件や解釈の曖昧さがない。
+3. CHOICEではanswerがoptionsに完全一致し、誤答が明確に誤りで、複数正解がない。
+4. hintが答えを直接明かさず、explanationが正答の根拠を正しく説明している。
+5. 対象年齢とジャンルに適し、教育クイズとして十分な質がある。
+6. ja/en/zhで問題の条件・正答・意味が一致している。
+7. 検証できない雑学、時期で変わる情報、危険または誤解を招く説明を含まない。
+
+少しでも正答性を確認できない、複数解釈が可能、説明に誤りがある場合は不合格にしてください。
+合格はscore 80以上かつissuesが空の場合だけです。
+JSONのみを返してください:
+{"pass":true|false,"score":0-100,"issues":["修正すべき具体的な問題"],"summary":"短い審査結果"}`;
+
+  let lastError: unknown;
+  for (const model of Array.from(new Set(candidates))) {
+    try {
+      const response = await generateAIText({
+        model,
+        prompt,
+        systemInstruction: 'Return only strict JSON. Be conservative: reject any quiz whose answer cannot be verified from the stated conditions.',
+        env: params.env,
+      });
+      return { review: parseQuizQualityReview(response.text), response };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableAIError(error)) throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 export async function POST(req: NextRequest) {
   let selectedModel = DEFAULT_MODEL_ID;
   try {
@@ -1486,6 +1579,101 @@ ${finalSystemInstruction}
       }
     } else if (qualityIssues.length > 0) {
       console.warn('[quiz-generator] skipping quality retry for deferred admin generation:', qualityIssues);
+    }
+
+    const qualityGateSetting = await prisma.setting.findUnique({
+      where: { key: AI_QUIZ_QUALITY_GATE_KEY },
+      select: { value: true },
+    });
+    const qualityGateEnabled = qualityGateSetting?.value !== 'false';
+
+    if (qualityGateEnabled) {
+      let passedQualityGate = false;
+      let lastReview: AIQuizQualityReview | null = null;
+
+      for (let attempt = 1; attempt <= AI_QUIZ_QUALITY_MAX_ATTEMPTS; attempt += 1) {
+        const { review, response: reviewResponse } = await reviewQuizQuality({
+          quiz: multiLangData as MultiLangQuiz,
+          age: parsedAge,
+          categoryName: categoryName || finalCategoryId || '未指定',
+          topic: topicForAi,
+          requestedQuizType: (quizType || 'TEXT') as 'TEXT' | 'CHOICE',
+          generatedModel: selectedModel,
+          env: runtimeEnv,
+        });
+        lastReview = review;
+
+        if (reviewResponse.usage.promptTokens || reviewResponse.usage.candidateTokens) {
+          await logApiUsage(prisma, {
+            modelId: reviewResponse.model,
+            promptTokens: reviewResponse.usage.promptTokens,
+            candidateTokens: reviewResponse.usage.candidateTokens,
+            purpose: 'QUIZ_QUALITY_REVIEW',
+          });
+        }
+
+        console.log(
+          `[quiz-generator] AI quality review attempt=${attempt} pass=${review.pass} score=${review.score} model=${reviewResponse.model}`
+        );
+
+        if (review.pass) {
+          passedQualityGate = true;
+          break;
+        }
+
+        if (attempt === AI_QUIZ_QUALITY_MAX_ATTEMPTS) {
+          break;
+        }
+
+        const reviewIssues = review.issues.length > 0
+          ? review.issues
+          : [review.summary || '正答性と問題品質を再確認し、条件から一意に導ける問題へ作り直してください。'];
+        const deterministicIssues = buildQualityFeedback({
+          quiz: multiLangData as MultiLangQuiz,
+          age: parsedAge,
+          categoryName: categoryName || finalCategoryId || '未指定',
+          categoryNames,
+          requestedQuizType: (quizType || 'TEXT') as 'TEXT' | 'CHOICE',
+          topic: topicForAi,
+          correctionPrompt,
+          excludeTitles: Array.isArray(excludeTitles) ? excludeTitles : undefined,
+        });
+        const regenerationPrompt = `${textPrompt}
+
+## AI校閲による再生成指示（審査 ${attempt} 回目）
+前回のクイズは公開基準に達しませんでした。前回案を部分修正するのではなく、問題・答え・選択肢・解説を条件から再検証して作り直してください。
+${Array.from(new Set([...reviewIssues, ...deterministicIssues])).map((issue) => `- ${issue}`).join('\n')}
+
+前回案:
+${JSON.stringify(multiLangData, null, 2)}`;
+        const retryGeneration = await generateQuizPayload({
+          modelsToTry: modelCandidates,
+          prompt: regenerationPrompt,
+          categoryName: categoryName || finalCategoryId || '未指定',
+          env: runtimeEnv,
+        });
+        selectedModel = retryGeneration.model;
+        textResponse = retryGeneration.response;
+        multiLangData = coerceMultiLangQuizResponse(parseAiJsonResponse(textResponse.text || '{}'));
+        if (!multiLangData?.ja?.question) {
+          throw new Error('AI品質審査後の再生成結果が不完全でした。');
+        }
+        multiLangData = normalizeJapaneseQuizFields(multiLangData as MultiLangQuiz);
+        if (detectLanguageSubjectRule(categoryNames)) {
+          multiLangData = normalizeLanguageSubjectQuizFields(multiLangData as MultiLangQuiz);
+        }
+      }
+
+      if (!passedQualityGate) {
+        console.error('[quiz-generator] AI quality gate failed:', lastReview);
+        return NextResponse.json({
+          error: 'QUIZ_QUALITY_REJECTED',
+          message: `${AI_QUIZ_QUALITY_MAX_ATTEMPTS}回再生成しましたが、問題と答えの正確性チェックに合格しませんでした。画像生成と保存は行っていません。`,
+          review: lastReview,
+        }, { status: 422 });
+      }
+    } else {
+      console.log('[quiz-generator] AI quality gate is disabled by admin setting');
     }
 
     // AI Usage Logging

@@ -812,6 +812,8 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [autoGenerationSchedule, setAutoGenerationSchedule] = useState<AutoGenerationSchedule>(DEFAULT_AUTO_GENERATION_SCHEDULE);
   const [autoGenerationLastRunAt, setAutoGenerationLastRunAt] = useState<string | null>(null);
   const [autoGenerationSettingsLoading, setAutoGenerationSettingsLoading] = useState(false);
+  const [quizQualityGateEnabled, setQuizQualityGateEnabled] = useState(true);
+  const [quizQualityGateSaving, setQuizQualityGateSaving] = useState(false);
 
   const handleBulkGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -870,9 +872,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const fetchAutoGenerationSettings = async () => {
     setAutoGenerationSettingsLoading(true);
     try {
-      const [scheduleRes, lastRunRes] = await Promise.all([
+      const [scheduleRes, lastRunRes, qualityGateRes] = await Promise.all([
         fetch('/api/admin/settings?key=auto_generation_schedule'),
         fetch('/api/admin/settings?key=auto_generation_last_run_at'),
+        fetch('/api/admin/settings?key=ai_quiz_quality_gate_enabled'),
       ]);
 
       if (scheduleRes.ok) {
@@ -899,6 +902,11 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (lastRunRes.ok) {
         const lastRunData = (await lastRunRes.json()) as { value?: string } | null;
         setAutoGenerationLastRunAt(lastRunData?.value || null);
+      }
+
+      if (qualityGateRes.ok) {
+        const qualityGateData = (await qualityGateRes.json()) as { value?: string } | null;
+        setQuizQualityGateEnabled(qualityGateData?.value !== 'false');
       }
     } catch (error) {
       console.error('Failed to fetch auto generation settings:', error);
@@ -967,6 +975,31 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       alert(`エラーが発生しました：\n${error.message || ''}`);
     }
     setLoading(false);
+  };
+
+  const handleToggleQuizQualityGate = async () => {
+    const nextValue = !quizQualityGateEnabled;
+    setQuizQualityGateEnabled(nextValue);
+    setQuizQualityGateSaving(true);
+    try {
+      const res = await fetchWithRetry('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'ai_quiz_quality_gate_enabled',
+          value: nextValue,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(await readErrorResponseMessage(res, '品質チェック設定の保存に失敗しました'));
+      }
+    } catch (error) {
+      setQuizQualityGateEnabled(!nextValue);
+      console.error('Failed to save quiz quality gate setting:', error);
+      alert(error instanceof Error ? error.message : '品質チェック設定の保存に失敗しました');
+    } finally {
+      setQuizQualityGateSaving(false);
+    }
   };
 
   const fetchWithRetry = async (url: string, options: RequestInit, retries = 1): Promise<Response> => {
@@ -1219,6 +1252,28 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
           {mainTab === 'ai' && (
             <div className="space-y-8">
+              <section className="flex flex-col gap-4 border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-black text-emerald-900 dark:text-emerald-200">生成前のAI品質チェック</h2>
+                  <p className="mt-1 text-xs font-bold leading-relaxed text-emerald-800/80 dark:text-emerald-300/80">
+                    問題と答えの正確性・一意性・年齢適合を画像生成前に審査し、合格するまで最大5回再生成します。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleQuizQualityGate}
+                  disabled={autoGenerationSettingsLoading || quizQualityGateSaving}
+                  className={`relative inline-flex h-9 w-16 shrink-0 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-50 ${quizQualityGateEnabled ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+                  aria-label="生成前のAI品質チェック"
+                  aria-pressed={quizQualityGateEnabled}
+                  title={quizQualityGateEnabled ? 'AI品質チェックを無効にする' : 'AI品質チェックを有効にする'}
+                >
+                  <span
+                    className={`inline-block h-7 w-7 transform rounded-full bg-white shadow-sm transition-transform ${quizQualityGateEnabled ? 'translate-x-8' : 'translate-x-1'}`}
+                  />
+                </button>
+              </section>
+
               <div className="bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)]">
                 <h2 className="text-xl font-black mb-6 flex items-center gap-2">
                   <span className="bg-amber-100 text-amber-600 p-2 rounded-xl text-lg">✨</span>

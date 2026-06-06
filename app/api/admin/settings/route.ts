@@ -8,6 +8,8 @@ import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { getDefaultEducationalGuidelines, normalizeEducationalGuidelines } from '@/lib/ai-prompts';
 
+const AI_QUIZ_QUALITY_GATE_KEY = 'ai_quiz_quality_gate_enabled';
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Internal Server Error';
 }
@@ -41,6 +43,8 @@ export async function POST(req: NextRequest) {
         }
       }
       normalizedValue = JSON.stringify(normalizeEducationalGuidelines(parsedValue));
+    } else if (key === AI_QUIZ_QUALITY_GATE_KEY) {
+      normalizedValue = String(value === true || value === 'true');
     }
 
     const setting = await prisma.setting.upsert({
@@ -80,6 +84,9 @@ export async function GET(req: NextRequest) {
           key,
           value: JSON.stringify(getDefaultEducationalGuidelines()),
         });
+      }
+      if (!setting && key === AI_QUIZ_QUALITY_GATE_KEY) {
+        return NextResponse.json({ key, value: 'true' });
       }
       if (setting && key === 'educational_guidelines') {
         let parsedValue: unknown = null;
