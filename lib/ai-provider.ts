@@ -76,7 +76,7 @@ export function hasAnyAIProvider(env?: RuntimeEnv) {
 export function getDefaultImageModel(provider: AIProviderName) {
   return provider === 'openai'
     ? process.env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-2'
-    : process.env.GEMINI_IMAGE_MODEL?.trim() || 'gemini-3.1-flash-image-preview';
+    : process.env.GEMINI_IMAGE_MODEL?.trim() || 'gemini-3.1-flash-image';
 }
 
 function extractOpenAIText(payload: Record<string, unknown>) {

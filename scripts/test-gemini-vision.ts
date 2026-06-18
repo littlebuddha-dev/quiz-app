@@ -3,22 +3,20 @@ import { GoogleGenAI } from '@google/genai';
 async function main() {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   // Generate a base image
-  const response1 = await ai.models.generateImages({
-    model: 'imagen-4.0-generate-001',
-    prompt: 'A wide illustration of a solar system without any text.',
+  const response1 = await ai.models.generateContent({
+    model: 'gemini-3.1-flash-image',
+    contents: 'A wide illustration of a solar system without any text.',
     config: {
-      numberOfImages: 1,
-      aspectRatio: '16:9',
-      outputMimeType: 'image/jpeg',
-    }
+      responseModalities: ['IMAGE'],
+    },
   });
 
-  const baseImageBytes = response1.generatedImages?.[0]?.image?.imageBytes;
+  const baseImageBytes = response1.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData)?.inlineData?.data;
   if (!baseImageBytes) return console.log('Base image generation failed');
 
   try {
     const response2 = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-image-preview', // Or nano-banana-pro-preview
+      model: 'gemini-3.1-flash-image',
       contents: [
         {
           role: 'user',

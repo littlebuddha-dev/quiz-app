@@ -22,7 +22,7 @@ export const AI_MODELS: AIModel[] = [
     provider: "gemini",
     plannerId: "gemini-3-pro-preview",
     generatorId: "gemini-3-pro-preview",
-    imageModelId: "gemini-3.1-flash-image-preview"
+    imageModelId: "gemini-3.1-flash-image"
   },
   {
     id: "hybrid-gemini2-flash",
@@ -31,7 +31,7 @@ export const AI_MODELS: AIModel[] = [
     provider: "gemini",
     plannerId: "gemini-2.5-flash",
     generatorId: "gemini-2.5-flash",
-    imageModelId: "gemini-3.1-flash-image-preview"
+    imageModelId: "gemini-3.1-flash-image"
   },
   {
     id: "hybrid-gemini-flash-latest",
@@ -40,7 +40,7 @@ export const AI_MODELS: AIModel[] = [
     provider: "gemini",
     plannerId: "gemini-2.5-flash-lite",
     generatorId: "gemini-2.5-flash-lite",
-    imageModelId: "gemini-3.1-flash-image-preview"
+    imageModelId: "gemini-3.1-flash-image"
   },
   {
     id: "hybrid-openai-gpt5.5",

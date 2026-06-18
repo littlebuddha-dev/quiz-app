@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Path: app/api/admin/quiz/generate-image/route.ts
 // Title: Deferred Quiz Image Generator API
-// Purpose: Generates educational images for existing quizzes using nanobanana (gemini-3.1-flash-image-preview).
+// Purpose: Generates educational images for existing quizzes using nanobanana (gemini-3.1-flash-image).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';

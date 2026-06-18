@@ -6,7 +6,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { readImageUrlAsBase64 } from './image-storage';
 
-export const NANOBANANA_MODEL = 'gemini-3.1-flash-image-preview';
+export const NANOBANANA_MODEL = 'gemini-3.1-flash-image';
 
 export type InlineImageData = {
   data: string;

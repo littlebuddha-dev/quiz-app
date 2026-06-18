@@ -10,17 +10,15 @@ async function main() {
 
   for (const prompt of prompts) {
     try {
-      const response = await ai.models.generateImages({
-        model: 'imagen-4.0-generate-001',
-        prompt,
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-image',
+        contents: prompt,
         config: {
-          numberOfImages: 1,
-          aspectRatio: '16:9',
-          outputMimeType: 'image/jpeg',
-        } as any // Using any to pass potential undocumented parameters like seed
+          responseModalities: ['IMAGE'],
+        }
       });
 
-      const imgBase64 = response.generatedImages?.[0]?.image?.imageBytes;
+      const imgBase64 = response.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData)?.inlineData?.data;
       if (imgBase64) {
         console.log(`SUCCESS! Generated image for prompt with length: ${imgBase64.length}`);
       }
