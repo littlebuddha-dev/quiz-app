@@ -102,8 +102,6 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [aiTargetAge, setAiTargetAge] = useState(6);
   const [aiType, setAiType] = useState<'TEXT' | 'CHOICE'>('TEXT');
   const [aiImageUrl, setAiImageUrl] = useState('');
-  const [lastGeneratedAiQuizId, setLastGeneratedAiQuizId] = useState<string | null>(null);
-  const [selectedAiRegenerateQuizId, setSelectedAiRegenerateQuizId] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
   const [usageData, setUsageData] = useState<any>(null);
   const [newBudget, setNewBudget] = useState<number>(10);
@@ -119,16 +117,6 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const reloadAdminPage = () => {
     window.location.reload();
   };
-
-  const aiRegenerateQuizOptions = useMemo(() => {
-    return (quizzes || []).map((quiz: any) => ({
-      id: quiz.id,
-      title:
-        quiz?.translations?.ja?.title ||
-        quiz?.title ||
-        '無題のクイズ',
-    }));
-  }, [quizzes]);
 
   // サーバーサイドからのデータ更新を反映
   useEffect(() => {
@@ -203,6 +191,65 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     return result;
   }, [quizzes, searchQuery, selectedCategory, sortBy]);
 
+  const loadQuizIntoForm = async (quizId: string) => {
+    const res = await fetch(`/api/admin/quiz/${quizId}`);
+    if (!res.ok) {
+      throw new Error('クイズ詳細の取得に失敗しました');
+    }
+
+    const fullQuiz = (await res.json()) as any;
+    const newTranslations: any = { ...initialForm.translations };
+    const translationKeys = Object.keys(fullQuiz.translations);
+    translationKeys.forEach((locale: string) => {
+      const t = fullQuiz.translations[locale];
+      const parsedOptions = (() => {
+        if (!t.options) return '';
+        if (Array.isArray(t.options)) return t.options.join(', ');
+        if (typeof t.options === 'string') {
+          try {
+            const parsed = JSON.parse(t.options);
+            if (Array.isArray(parsed)) return parsed.join(', ');
+            if (typeof parsed === 'string') {
+              try {
+                const nested = JSON.parse(parsed);
+                return Array.isArray(nested) ? nested.join(', ') : parsed;
+              } catch {
+                return parsed;
+              }
+            }
+            return t.options;
+          } catch {
+            return t.options;
+          }
+        }
+        return '';
+      })();
+
+      newTranslations[locale as Locale] = {
+        title: t.title || '',
+        question: t.question || '',
+        hint: t.hint || '',
+        answer: t.answer || '',
+        explanation: t.explanation || '',
+        detailedExplanation: t.detailedExplanation || '',
+        learningPoints: t.learningPoints || '',
+        relatedKnowledge: t.relatedKnowledge || '',
+        sources: t.sources || '',
+        references: t.references || '',
+        type: t.type || 'TEXT',
+        options: parsedOptions,
+        imageUrl: t.imageUrl || '',
+        visualMode: t.visualMode || 'image_only',
+      };
+    });
+
+    setFormData({
+      categoryId: fullQuiz.categoryId,
+      targetAge: fullQuiz.targetAge,
+      imageUrl: fullQuiz.imageUrl || '',
+      translations: newTranslations
+    });
+  };
 
   const handleEdit = async (quiz: any) => {
     setEditingId(quiz.id);
@@ -210,67 +257,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/admin/quiz/${quiz.id}`);
-      if (res.ok) {
-        const fullQuiz = (await res.json()) as any;
-        const newTranslations: any = { ...initialForm.translations };
-        const translationKeys = Object.keys(fullQuiz.translations);
-        translationKeys.forEach((locale: string) => {
-          const t = fullQuiz.translations[locale];
-          const parsedOptions = (() => {
-            if (!t.options) return '';
-            if (Array.isArray(t.options)) return t.options.join(', ');
-            if (typeof t.options === 'string') {
-              try {
-                const parsed = JSON.parse(t.options);
-                if (Array.isArray(parsed)) return parsed.join(', ');
-                if (typeof parsed === 'string') {
-                  try {
-                    const nested = JSON.parse(parsed);
-                    return Array.isArray(nested) ? nested.join(', ') : parsed;
-                  } catch {
-                    return parsed;
-                  }
-                }
-                return t.options;
-              } catch {
-                return t.options;
-              }
-            }
-            return '';
-          })();
-
-          newTranslations[locale as Locale] = {
-            title: t.title || '',
-            question: t.question || '',
-            hint: t.hint || '',
-            answer: t.answer || '',
-            explanation: t.explanation || '',
-            detailedExplanation: t.detailedExplanation || '',
-            learningPoints: t.learningPoints || '',
-            relatedKnowledge: t.relatedKnowledge || '',
-            sources: t.sources || '',
-            references: t.references || '',
-            type: t.type || 'TEXT',
-            options: parsedOptions,
-            imageUrl: t.imageUrl || '',
-            visualMode: t.visualMode || 'image_only',
-          };
-        });
-
-        setFormData({
-          categoryId: fullQuiz.categoryId,
-          targetAge: fullQuiz.targetAge,
-          imageUrl: fullQuiz.imageUrl || '',
-          translations: newTranslations
-        });
-      } else {
-        alert('クイズ詳細の取得に失敗しました');
-        setEditingId(null);
-      }
+      await loadQuizIntoForm(quiz.id);
     } catch (error) {
       console.error(error);
-      alert('エラーが発生しました');
+      alert(error instanceof Error ? error.message : 'エラーが発生しました');
       setEditingId(null);
     }
     setLoading(false);
@@ -639,10 +629,6 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
       if (res.ok) {
         const data = (await res.json()) as any;
-        setLastGeneratedAiQuizId(data?.id || null);
-        if (data?.id) {
-          setSelectedAiRegenerateQuizId(data.id);
-        }
 
         // クイズ本体（テキスト）が作成されたら、まず即座にリストを更新する
         fetchQuizzes();
@@ -674,19 +660,19 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     setLoading(false);
   };
 
-  const handleRegenerateAiPageImage = async () => {
-    const targetQuizId = selectedAiRegenerateQuizId || lastGeneratedAiQuizId;
-    if (!targetQuizId) {
-      alert('再作成するクイズを選択してください。AI生成直後のクイズか、過去に登録済みのクイズを対象にできます。');
+  const handleRegenerateEditingQuizImage = async () => {
+    if (!editingId) {
+      alert('先に既存クイズを開いてください。');
       return;
     }
 
     setLoading(true);
     try {
-      const imageGenerated = await triggerDeferredImageGeneration(targetQuizId, locale, selectedModel);
+      const imageGenerated = await triggerDeferredImageGeneration(editingId, locale, selectedModel);
       if (!imageGenerated) {
         alert('画像の再作成に失敗しました。ログを確認してください。');
       } else {
+        await loadQuizIntoForm(editingId);
         alert('画像を再作成しました。');
       }
     } catch (error) {
@@ -1490,37 +1476,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           <label htmlFor="ai-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.ai ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
                             {uploading.ai ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
-                          <button
-                            type="button"
-                            onClick={handleRegenerateAiPageImage}
-                            disabled={loading || !lastGeneratedAiQuizId}
-                            className={`ml-2 inline-block px-6 py-2 rounded-xl text-xs font-black transition-all ${loading || !lastGeneratedAiQuizId ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-600'}`}
-                          >
-                            {loading ? '再作成中...' : '画像を再作成'}
-                          </button>
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
-                            再作成対象クイズ
-                          </label>
-                          <select
-                            value={selectedAiRegenerateQuizId}
-                            onChange={(e) => setSelectedAiRegenerateQuizId(e.target.value)}
-                            className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900"
-                          >
-                            <option value="">直前にAI生成したクイズを使う</option>
-                            {aiRegenerateQuizOptions.map((quiz: { id: string; title: string }) => (
-                              <option key={quiz.id} value={quiz.id}>
-                                {quiz.title}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {!lastGeneratedAiQuizId && !selectedAiRegenerateQuizId && (
-                          <p className="text-[11px] font-bold text-zinc-400">
-                            AIクイズ生成後の最新クイズ、または上で選んだ過去の登録済みクイズに対して画像を再作成できます。
-                          </p>
-                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -1915,7 +1871,22 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           <label htmlFor="global-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.global ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
                             {uploading.global ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
+                          {editingId && (
+                            <button
+                              type="button"
+                              onClick={handleRegenerateEditingQuizImage}
+                              disabled={loading}
+                              className={`ml-2 inline-block px-6 py-2 rounded-xl text-xs font-black transition-all ${loading ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-600'}`}
+                            >
+                              {loading ? '再作成中...' : 'このクイズの画像を再作成'}
+                            </button>
+                          )}
                         </div>
+                        {editingId && (
+                          <p className="text-[11px] font-bold text-zinc-400">
+                            いま開いている登録済みクイズを対象に、共通サムネイル画像をAIで再作成します。
+                          </p>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
