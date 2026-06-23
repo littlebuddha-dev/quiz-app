@@ -571,7 +571,7 @@ export default function WatchClient({
                             type="button"
                             key={i}
                             onClick={() => handleAnswerSubmit(opt === t.answer)}
-                            className={`bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-semibold ${isOptLatex ? 'py-8 text-2xl' : 'py-4'} rounded-2xl transition-all active:scale-[0.98] text-center safari-no-faux-bold`}
+                            className={`bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 hover:bg-amber-500/5 font-semibold ${isOptLatex ? 'py-8' : 'py-4'} rounded-2xl transition-all active:scale-[0.98] text-center safari-no-faux-bold`}
                           >
                             <LatexRenderer text={opt} />
                           </button>
