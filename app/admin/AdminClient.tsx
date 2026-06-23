@@ -2057,6 +2057,10 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                               type="button"
                               onClick={async () => {
                                 if (uploading[activeTab]) return;
+                                if (!editingId) {
+                                  alert('先に登録済みクイズを開いてください。');
+                                  return;
+                                }
                                 const baseImageUrl = formData.translations.ja?.imageUrl || formData.imageUrl;
                                 if (!baseImageUrl) {
                                   alert('日本語の画像が設定されていません。一度日本語版を保存するか、画像をアップロードしてください。');
@@ -2069,9 +2073,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                      quizId: (formData as any).id,
+                                      quizId: editingId,
                                       locale: activeTab,
-                                      title: currentTranslation.title || 'Untitled',
+                                      title: currentTranslation.title || formData.translations.ja?.title || 'Untitled',
                                       baseImageUrl,
                                       modelId: selectedModel,
                                     })
@@ -2095,7 +2099,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                                   setUploading(prev => ({ ...prev, [activeTab]: false }));
                                 }
                               }}
-                              className={`inline-block px-6 py-2 rounded-xl text-xs font-black transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+                              className={`inline-block px-6 py-2 rounded-xl text-xs font-black transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-400'}`}
                               disabled={uploading[activeTab]}
                             >
                               {uploading[activeTab] ? 'AI生成中...' : 'AIでこの言語の画像を再生成'}
