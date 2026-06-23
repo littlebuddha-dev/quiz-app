@@ -550,6 +550,41 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     return normalizedTranslations;
   };
 
+  const mergeAiTranslationResponse = (
+    baseTranslations: typeof formData.translations,
+    data: any,
+  ) => ({
+    ...baseTranslations,
+    en: {
+      ...baseTranslations.en,
+      ...data.en,
+      detailedExplanation: Array.isArray(data.en?.detailedExplanation) ? data.en.detailedExplanation.join('\n') : (data.en?.detailedExplanation || ''),
+      learningPoints: Array.isArray(data.en?.learningPoints) ? data.en.learningPoints.join('\n') : (data.en?.learningPoints || ''),
+      relatedKnowledge: Array.isArray(data.en?.relatedKnowledge) ? data.en.relatedKnowledge.join('\n') : (data.en?.relatedKnowledge || ''),
+      sources: Array.isArray(data.en?.sources) ? data.en.sources.join('\n') : (data.en?.sources || ''),
+      references: Array.isArray(data.en?.references) ? data.en.references.join('\n') : (data.en?.references || ''),
+      options: Array.isArray(data.en?.options) ? data.en.options.join(', ') : (data.en?.options || ''),
+    },
+    zh: {
+      ...baseTranslations.zh,
+      ...data.zh,
+      detailedExplanation: Array.isArray(data.zh?.detailedExplanation) ? data.zh.detailedExplanation.join('\n') : (data.zh?.detailedExplanation || ''),
+      learningPoints: Array.isArray(data.zh?.learningPoints) ? data.zh.learningPoints.join('\n') : (data.zh?.learningPoints || ''),
+      relatedKnowledge: Array.isArray(data.zh?.relatedKnowledge) ? data.zh.relatedKnowledge.join('\n') : (data.zh?.relatedKnowledge || ''),
+      sources: Array.isArray(data.zh?.sources) ? data.zh.sources.join('\n') : (data.zh?.sources || ''),
+      references: Array.isArray(data.zh?.references) ? data.zh.references.join('\n') : (data.zh?.references || ''),
+      options: Array.isArray(data.zh?.options) ? data.zh.options.join(', ') : (data.zh?.options || ''),
+    }
+  });
+
+  const hasLocalizedQuizContent = (translation: typeof formData.translations.en) => {
+    return Boolean(
+      translation.title?.trim() &&
+      translation.question?.trim() &&
+      translation.answer?.trim()
+    );
+  };
+
   const saveQuiz = async (
     translations: typeof formData.translations,
     options?: { successMessage?: string }
@@ -576,6 +611,72 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     alert(options?.successMessage || (editingId ? '更新しました' : '作成しました'));
     if (!editingId) handleCancelEdit();
     fetchQuizzes();
+  };
+
+  const persistQuizSilently = async (translations: typeof formData.translations) => {
+    if (!editingId) return;
+
+    const submitData = {
+      id: editingId,
+      categoryId: formData.categoryId,
+      targetAge: formData.targetAge,
+      imageUrl: formData.imageUrl,
+      translations: buildNormalizedTranslations(translations),
+    };
+
+    const res = await fetchWithRetry('/api/admin/quiz', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(submitData)
+    });
+
+    if (!res.ok) {
+      const err = (await res.json()) as any;
+      throw new Error(err.error || '不明なエラー');
+    }
+  };
+
+  const ensureTranslationsReadyForImageGeneration = async () => {
+    const ja = formData.translations.ja;
+    if (!ja.title || !ja.question || !ja.answer) {
+      throw new Error('日本語のタイトル、問題文、正解が不足しているため、翻訳を補完できません。');
+    }
+
+    const needsTranslation =
+      !hasLocalizedQuizContent(formData.translations.en) ||
+      !hasLocalizedQuizContent(formData.translations.zh);
+
+    if (!needsTranslation) {
+      return formData.translations;
+    }
+
+    const res = await fetchWithRetry('/api/admin/quiz/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ja: {
+          ...ja,
+          options: ja.type === 'CHOICE' ? ja.options : null
+        },
+        targetAge: formData.targetAge,
+        categoryId: formData.categoryId,
+        modelId: selectedModel,
+      })
+    });
+
+    if (!res.ok) {
+      const err = (await res.json()) as any;
+      throw new Error(err.message || err.error || '翻訳の補完に失敗しました');
+    }
+
+    const data = (await res.json()) as any;
+    const nextTranslations = mergeAiTranslationResponse(formData.translations, data);
+    setFormData(prev => ({
+      ...prev,
+      translations: nextTranslations,
+    }));
+    await persistQuizSilently(nextTranslations);
+    return nextTranslations;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -668,6 +769,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
     setLoading(true);
     try {
+      await ensureTranslationsReadyForImageGeneration();
       const imageGenerated = await triggerDeferredImageGeneration(editingId, locale, selectedModel);
       if (!imageGenerated) {
         alert('画像の再作成に失敗しました。ログを確認してください。');
@@ -677,7 +779,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       }
     } catch (error) {
       console.error(error);
-      alert('画像の再作成中に通信エラーが発生しました');
+      alert(`画像の再作成に失敗しました: ${error instanceof Error ? error.message : '通信エラーが発生しました'}`);
     }
     setLoading(false);
   };
@@ -725,29 +827,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         const data = (await res.json()) as any;
         setFormData(prev => ({
           ...prev,
-          translations: {
-            ...prev.translations,
-            en: {
-              ...prev.translations.en,
-              ...data.en,
-              detailedExplanation: Array.isArray(data.en?.detailedExplanation) ? data.en.detailedExplanation.join('\n') : (data.en?.detailedExplanation || ''),
-              learningPoints: Array.isArray(data.en?.learningPoints) ? data.en.learningPoints.join('\n') : (data.en?.learningPoints || ''),
-              relatedKnowledge: Array.isArray(data.en?.relatedKnowledge) ? data.en.relatedKnowledge.join('\n') : (data.en?.relatedKnowledge || ''),
-              sources: Array.isArray(data.en?.sources) ? data.en.sources.join('\n') : (data.en?.sources || ''),
-              references: Array.isArray(data.en?.references) ? data.en.references.join('\n') : (data.en?.references || ''),
-              options: Array.isArray(data.en?.options) ? data.en.options.join(', ') : (data.en?.options || '')
-            },
-            zh: {
-              ...prev.translations.zh,
-              ...data.zh,
-              detailedExplanation: Array.isArray(data.zh?.detailedExplanation) ? data.zh.detailedExplanation.join('\n') : (data.zh?.detailedExplanation || ''),
-              learningPoints: Array.isArray(data.zh?.learningPoints) ? data.zh.learningPoints.join('\n') : (data.zh?.learningPoints || ''),
-              relatedKnowledge: Array.isArray(data.zh?.relatedKnowledge) ? data.zh.relatedKnowledge.join('\n') : (data.zh?.relatedKnowledge || ''),
-              sources: Array.isArray(data.zh?.sources) ? data.zh.sources.join('\n') : (data.zh?.sources || ''),
-              references: Array.isArray(data.zh?.references) ? data.zh.references.join('\n') : (data.zh?.references || ''),
-              options: Array.isArray(data.zh?.options) ? data.zh.options.join(', ') : (data.zh?.options || '')
-            }
-          }
+          translations: mergeAiTranslationResponse(prev.translations, data),
         }));
         alert('AI翻訳が完了し、英語と中国語のタブに反映しました！');
       } else {
