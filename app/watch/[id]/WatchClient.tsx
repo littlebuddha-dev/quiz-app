@@ -19,6 +19,7 @@ import CorrectEffect from '../../components/CorrectEffect';
 import AdSense from '../../components/AdSense';
 import { usePreferredLocale } from '../../hooks/usePreferredLocale';
 import { buildGentleExplanation } from '@/lib/explanation-mode';
+import { detectLanguageSubjectRule } from '@/lib/ai-prompts';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
 type WatchComment = {
@@ -114,8 +115,33 @@ export default function WatchClient({
     };
   }, []);
 
-  // 現在の言語の翻訳を取得。なければ日本語、それもなければ最初の翻訳をフォールバックに。
-  const t = quiz.translations[locale] || quiz.translations['ja'] || Object.values(quiz.translations)[0];
+  const languageSubjectRule = useMemo(
+    () =>
+      detectLanguageSubjectRule([
+        quiz.categoryInfo?.name,
+        quiz.categoryInfo?.nameJa,
+        quiz.categoryInfo?.nameEn,
+        quiz.categoryInfo?.nameZh,
+        quiz.category,
+        quiz.categoryId,
+      ]),
+    [quiz.categoryInfo, quiz.category, quiz.categoryId]
+  );
+  const contentLocale = languageSubjectRule?.subjectLocale || locale;
+  const localeTranslation = quiz.translations[locale] || quiz.translations['ja'] || Object.values(quiz.translations)[0];
+  const contentTranslation = quiz.translations[contentLocale] || quiz.translations['ja'] || localeTranslation;
+  const t = languageSubjectRule
+    ? {
+        ...contentTranslation,
+        hint: localeTranslation?.hint || contentTranslation?.hint,
+        explanation: localeTranslation?.explanation || contentTranslation?.explanation,
+        detailedExplanation: localeTranslation?.detailedExplanation || contentTranslation?.detailedExplanation,
+        learningPoints: localeTranslation?.learningPoints || contentTranslation?.learningPoints,
+        relatedKnowledge: localeTranslation?.relatedKnowledge || contentTranslation?.relatedKnowledge,
+        sources: localeTranslation?.sources || contentTranslation?.sources,
+        references: localeTranslation?.references || contentTranslation?.references,
+      }
+    : localeTranslation;
   const categoryLabel =
     locale === 'en'
       ? quiz.categoryInfo?.nameEn || quiz.categoryInfo?.nameJa || quiz.categoryInfo?.name || quiz.category || quiz.categoryId

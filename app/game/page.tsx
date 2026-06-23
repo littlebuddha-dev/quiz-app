@@ -62,6 +62,17 @@ export default async function GamePage() {
 
   const rawQuizzes = await prisma.quiz.findMany({
     where: { id: { in: selectedIds } },
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          nameJa: true,
+          nameEn: true,
+          nameZh: true,
+        },
+      },
+    },
   });
 
   const rawTranslations = await prisma.$queryRawUnsafe<RawQuizTranslation[]>(
@@ -118,6 +129,15 @@ export default async function GamePage() {
     return {
       id: q.id,
       category: q.categoryId,
+      categoryInfo: q.category
+        ? {
+            id: q.category.id,
+            name: q.category.name,
+            nameJa: q.category.nameJa,
+            nameEn: q.category.nameEn,
+            nameZh: q.category.nameZh,
+          }
+        : null,
       targetAge: q.targetAge,
       imageUrl: q.imageUrl,
       translations: translationsMap,

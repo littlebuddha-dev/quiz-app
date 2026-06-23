@@ -7,6 +7,7 @@ import { Quiz } from '../types';
 import LatexRenderer from '../components/LatexRenderer';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import QuizVisual from '../components/QuizVisual';
+import { detectLanguageSubjectRule } from '@/lib/ai-prompts';
 
 const TIME_LIMIT = 10000; // 10 seconds per question
 
@@ -84,7 +85,16 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
     e.preventDefault();
     if (feedback !== null) return;
     const currentQuiz = quizzes[currentIndex];
-    const t = currentQuiz.translations[locale] || currentQuiz.translations['ja'];
+    const languageSubjectRule = detectLanguageSubjectRule([
+      currentQuiz.categoryInfo?.name,
+      currentQuiz.categoryInfo?.nameJa,
+      currentQuiz.categoryInfo?.nameEn,
+      currentQuiz.categoryInfo?.nameZh,
+      currentQuiz.category,
+      currentQuiz.categoryId,
+    ]);
+    const contentLocale = languageSubjectRule?.subjectLocale || locale;
+    const t = currentQuiz.translations[contentLocale] || currentQuiz.translations['ja'];
     const isCorrect = normalizeAnswer(textAnswer) === normalizeAnswer(t.answer);
     handleSubmit(isCorrect);
   };
@@ -101,8 +111,25 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
   }
 
   const currentQuiz = quizzes[currentIndex];
+  const languageSubjectRule = detectLanguageSubjectRule([
+    currentQuiz.categoryInfo?.name,
+    currentQuiz.categoryInfo?.nameJa,
+    currentQuiz.categoryInfo?.nameEn,
+    currentQuiz.categoryInfo?.nameZh,
+    currentQuiz.category,
+    currentQuiz.categoryId,
+  ]);
+  const contentLocale = languageSubjectRule?.subjectLocale || locale;
+  const localeTranslation: any = currentQuiz?.translations[locale] || currentQuiz?.translations['ja'];
+  const contentTranslation: any = currentQuiz?.translations[contentLocale] || currentQuiz?.translations['ja'] || localeTranslation;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const t: any = currentQuiz?.translations[locale] || currentQuiz?.translations['ja'];
+  const t: any = languageSubjectRule
+    ? {
+        ...contentTranslation,
+        hint: localeTranslation?.hint || contentTranslation?.hint,
+        explanation: localeTranslation?.explanation || contentTranslation?.explanation,
+      }
+    : localeTranslation;
   
   // Merge split LaTeX fragments if they exist (defensive fix for potential serialization/translation issues)
   const mergedOptions = useMemo(() => {

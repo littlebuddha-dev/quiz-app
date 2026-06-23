@@ -2069,28 +2069,28 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
                                 setUploading(prev => ({ ...prev, [activeTab]: true }));
                                 try {
-                                  const translations = await ensureTranslationsReadyForImageGeneration();
-                                  const localizedTranslation = translations[activeTab];
-                                  const res = await fetch('/api/admin/quiz/regenerate-image', {
+                                  await ensureTranslationsReadyForImageGeneration();
+                                  const res = await fetch('/api/admin/quiz/generate-image', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                       quizId: editingId,
                                       locale: activeTab,
-                                      title: localizedTranslation.title || formData.translations.ja?.title || 'Untitled',
-                                      baseImageUrl,
+                                      force: true,
                                       modelId: selectedModel,
                                     })
                                   });
                                   const data = (await res.json()) as any;
-                                  if (data.imageUrl) {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      translations: {
-                                        ...prev.translations,
-                                        [activeTab]: { ...prev.translations[activeTab], imageUrl: data.imageUrl }
-                                      }
-                                    }));
+                                  const imageUrl = data.imageUrls?.[activeTab] || data.imageUrl;
+                                  if (imageUrl) {
+                                    await loadQuizIntoForm(editingId);
+                                    const localeStatus = data.localeResults?.[activeTab];
+                                    if (localeStatus?.status === 'fallback_ja' || localeStatus?.status === 'missing_translation') {
+                                      const issues = Array.isArray(localeStatus?.issues) && localeStatus.issues.length > 0
+                                        ? `\n${localeStatus.issues.join('\n')}`
+                                        : '';
+                                      alert(`この言語の画像生成は日本語画像にフォールバックしました。${issues}`);
+                                    }
                                   } else {
                                     alert('生成に失敗しました: ' + (data.error || '不明なエラー'));
                                   }
