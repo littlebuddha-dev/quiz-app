@@ -103,6 +103,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const [aiType, setAiType] = useState<'TEXT' | 'CHOICE'>('TEXT');
   const [aiImageUrl, setAiImageUrl] = useState('');
   const [lastGeneratedAiQuizId, setLastGeneratedAiQuizId] = useState<string | null>(null);
+  const [selectedAiRegenerateQuizId, setSelectedAiRegenerateQuizId] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
   const [usageData, setUsageData] = useState<any>(null);
   const [newBudget, setNewBudget] = useState<number>(10);
@@ -118,6 +119,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   const reloadAdminPage = () => {
     window.location.reload();
   };
+
+  const aiRegenerateQuizOptions = useMemo(() => {
+    return (quizzes || []).map((quiz: any) => ({
+      id: quiz.id,
+      title:
+        quiz?.translations?.ja?.title ||
+        quiz?.title ||
+        '無題のクイズ',
+    }));
+  }, [quizzes]);
 
   // サーバーサイドからのデータ更新を反映
   useEffect(() => {
@@ -629,6 +640,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
       if (res.ok) {
         const data = (await res.json()) as any;
         setLastGeneratedAiQuizId(data?.id || null);
+        if (data?.id) {
+          setSelectedAiRegenerateQuizId(data.id);
+        }
 
         // クイズ本体（テキスト）が作成されたら、まず即座にリストを更新する
         fetchQuizzes();
@@ -661,14 +675,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
   };
 
   const handleRegenerateAiPageImage = async () => {
-    if (!lastGeneratedAiQuizId) {
-      alert('先にAIクイズを生成してください。生成直後のクイズ画像を再作成できます。');
+    const targetQuizId = selectedAiRegenerateQuizId || lastGeneratedAiQuizId;
+    if (!targetQuizId) {
+      alert('再作成するクイズを選択してください。AI生成直後のクイズか、過去に登録済みのクイズを対象にできます。');
       return;
     }
 
     setLoading(true);
     try {
-      const imageGenerated = await triggerDeferredImageGeneration(lastGeneratedAiQuizId, locale, selectedModel);
+      const imageGenerated = await triggerDeferredImageGeneration(targetQuizId, locale, selectedModel);
       if (!imageGenerated) {
         alert('画像の再作成に失敗しました。ログを確認してください。');
       } else {
@@ -1484,9 +1499,26 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                             {loading ? '再作成中...' : '画像を再作成'}
                           </button>
                         </div>
-                        {!lastGeneratedAiQuizId && (
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                            再作成対象クイズ
+                          </label>
+                          <select
+                            value={selectedAiRegenerateQuizId}
+                            onChange={(e) => setSelectedAiRegenerateQuizId(e.target.value)}
+                            className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900"
+                          >
+                            <option value="">直前にAI生成したクイズを使う</option>
+                            {aiRegenerateQuizOptions.map((quiz: { id: string; title: string }) => (
+                              <option key={quiz.id} value={quiz.id}>
+                                {quiz.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {!lastGeneratedAiQuizId && !selectedAiRegenerateQuizId && (
                           <p className="text-[11px] font-bold text-zinc-400">
-                            AIクイズ生成後、この場所から最新の生成クイズ画像を再作成できます。
+                            AIクイズ生成後の最新クイズ、または上で選んだ過去の登録済みクイズに対して画像を再作成できます。
                           </p>
                         )}
                         <button
