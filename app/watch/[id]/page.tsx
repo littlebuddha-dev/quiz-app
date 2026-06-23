@@ -127,7 +127,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       channel: true,
       comments: {
         include: { user: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'asc' },
       },
       _count: {
         select: { histories: true }
@@ -377,12 +377,29 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     };
   });
 
-  const initialComments = rawQuiz.comments.map((c) => ({
-    id: c.id,
-    content: c.content,
-    userName: c.user.name || 'ゲスト',
-    createdAt: c.createdAt.toISOString(),
-  }));
+  const commentNodeById = new Map<string, any>();
+  for (const comment of rawQuiz.comments) {
+    commentNodeById.set(comment.id, {
+      id: comment.id,
+      parentCommentId: (comment as any).parentCommentId || null,
+      content: comment.content,
+      userName: comment.user.name || 'ゲスト',
+      createdAt: comment.createdAt.toISOString(),
+      replies: [],
+    });
+  }
+
+  const initialComments: any[] = [];
+  for (const comment of rawQuiz.comments) {
+    const node = commentNodeById.get(comment.id);
+    if (!node) continue;
+    const parentId = (comment as any).parentCommentId || null;
+    if (parentId && commentNodeById.has(parentId)) {
+      commentNodeById.get(parentId).replies.push(node);
+    } else {
+      initialComments.push(node);
+    }
+  }
 
   const localizedQuiz =
     rawTranslations.find((translation) => translation.locale === locale) ||

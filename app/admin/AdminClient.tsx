@@ -2554,10 +2554,25 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           <span className="text-sm font-black text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-md">
                             {comment.userName}
                           </span>
+                          {comment.parentCommentId && (
+                            <span className="text-[10px] font-black text-fuchsia-600 bg-fuchsia-50 dark:bg-fuchsia-900/20 px-2 py-0.5 rounded-md">
+                              返信
+                            </span>
+                          )}
                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
                             {formatAdminTimestamp(comment.createdAt)}
                           </span>
                         </div>
+                        {comment.parentCommentId && (
+                          <div className="rounded-xl border border-fuchsia-100 bg-fuchsia-50/60 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+                            <div className="font-black text-fuchsia-600 mb-1">
+                              返信先: {comment.parentUserName || '不明'}
+                            </div>
+                            <div className="line-clamp-2 whitespace-pre-wrap break-words">
+                              {comment.parentContent || '元コメントは取得できませんでした'}
+                            </div>
+                          </div>
+                        )}
                         <p className="text-sm font-bold leading-relaxed break-words whitespace-pre-wrap text-zinc-700 dark:text-zinc-200">
                           {comment.content}
                         </p>

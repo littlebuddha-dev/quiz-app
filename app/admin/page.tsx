@@ -50,9 +50,16 @@ export default async function AdminPage() {
     select: {
       id: true,
       content: true,
+      parentCommentId: true,
       quizId: true,
       createdAt: true,
       user: { select: { name: true } },
+      parentComment: {
+        select: {
+          content: true,
+          user: { select: { name: true } },
+        },
+      },
       quiz: {
         select: {
           translations: {
@@ -69,6 +76,9 @@ export default async function AdminPage() {
     id: c.id,
     content: c.content,
     userName: c.user?.name || 'ゲスト',
+    parentCommentId: c.parentCommentId,
+    parentUserName: c.parentComment?.user?.name || null,
+    parentContent: c.parentComment?.content || null,
     quizId: c.quizId,
     quizTitle: c.quiz.translations[0]?.title || '無題のクイズ',
     createdAt: c.createdAt.toISOString(),

@@ -23,9 +23,11 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
 type WatchComment = {
   id: string;
+  parentCommentId?: string | null;
   content: string;
   userName: string;
   createdAt: string;
+  replies: WatchComment[];
 };
 
 type RelatedQuiz = {
@@ -85,9 +87,12 @@ export default function WatchClient({
 
   const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState('');
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [textAnswer, setTextAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replySubmittingId, setReplySubmittingId] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<'correct' | 'incorrect' | null>(null);
   const [explanationMode, setExplanationMode] = useState<'gentle' | 'full'>('gentle');
   const [missionSolvedCount, setMissionSolvedCount] = useState(missionProgress?.solvedCount || 0);
@@ -219,23 +224,57 @@ export default function WatchClient({
     }
   };
 
-  const submitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim() || !isAuthenticated || !isOnline) return;
+  const countComments = (items: WatchComment[]): number =>
+    items.reduce((total, item) => total + 1 + countComments(item.replies || []), 0);
 
-    setIsSubmitting(true);
+  const totalCommentCount = countComments(comments);
+
+  const insertReply = (items: WatchComment[], parentId: string, reply: WatchComment): WatchComment[] =>
+    items.map((item) => {
+      if (item.id === parentId) {
+        return {
+          ...item,
+          replies: [...(item.replies || []), reply],
+        };
+      }
+      return {
+        ...item,
+        replies: insertReply(item.replies || [], parentId, reply),
+      };
+    });
+
+  const submitComment = async (e: React.FormEvent, parentCommentId?: string | null) => {
+    e.preventDefault();
+    const content = parentCommentId ? (replyDrafts[parentCommentId] || '').trim() : newComment.trim();
+    if (!content || !isAuthenticated || !isOnline) return;
+
+    if (parentCommentId) {
+      setReplySubmittingId(parentCommentId);
+    } else {
+      setIsSubmitting(true);
+    }
     const res = await fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quizId: quiz.id, content: newComment })
+      body: JSON.stringify({ quizId: quiz.id, content, parentCommentId: parentCommentId || null })
     });
 
     if (res.ok) {
       const addedComment = (await res.json()) as { comment: WatchComment };
-      setComments([addedComment.comment, ...comments]);
-      setNewComment('');
+      if (parentCommentId) {
+        setComments((prev) => insertReply(prev, parentCommentId, addedComment.comment));
+        setReplyDrafts((prev) => ({ ...prev, [parentCommentId]: '' }));
+        setActiveReplyId(null);
+      } else {
+        setComments((prev) => [...prev, addedComment.comment]);
+        setNewComment('');
+      }
     }
-    setIsSubmitting(false);
+    if (parentCommentId) {
+      setReplySubmittingId(null);
+    } else {
+      setIsSubmitting(false);
+    }
   };
 
   const isLatex = (text: string) => {
@@ -246,6 +285,78 @@ export default function WatchClient({
       .replace(/\\\[/g, '$$')
       .replace(/\\\]/g, '$$');
     return /\$\$[\s\S]*?\$\$|\$[\s\S]*?\$/.test(normalized) || normalized.includes('\\');
+  };
+
+  const renderComment = (comment: WatchComment, depth = 0) => {
+    const canReply = depth < 1;
+    const replyDraft = replyDrafts[comment.id] || '';
+    const isReplySubmitting = replySubmittingId === comment.id;
+
+    return (
+      <div key={comment.id} className={`${depth > 0 ? 'ml-6 sm:ml-10 mt-5 border-l border-[var(--border)] pl-4 sm:pl-6' : ''}`}>
+        <div className="flex gap-4">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-black flex-shrink-0 text-sm shadow-md">
+            {comment.userName.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="font-black text-sm">{comment.userName}</span>
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{comment.createdAt.split('T')[0]}</span>
+            </div>
+            <p className="text-sm leading-relaxed text-[var(--foreground)]/80 break-words [overflow-wrap:anywhere] [word-break:break-all] whitespace-pre-wrap">{comment.content}</p>
+            {canReply && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveReplyId((current) => current === comment.id ? null : comment.id)}
+                  className="text-xs font-black text-amber-600 hover:text-amber-700 transition-colors"
+                >
+                  {activeReplyId === comment.id
+                    ? (locale === 'ja' ? '返信を閉じる' : locale === 'en' ? 'Close reply' : '收起回复')
+                    : (locale === 'ja' ? '返信する' : locale === 'en' ? 'Reply' : '回复')}
+                </button>
+              </div>
+            )}
+            {activeReplyId === comment.id && (
+              <form onSubmit={(e) => submitComment(e, comment.id)} className="mt-4">
+                <textarea
+                  value={replyDraft}
+                  onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [comment.id]: e.target.value }))}
+                  placeholder={locale === 'ja' ? 'このコメントに返信する...' : locale === 'en' ? 'Reply to this comment...' : '回复这条评论...'}
+                  className="w-full rounded-2xl border border-[var(--border)] bg-transparent px-4 py-3 text-sm leading-relaxed focus:outline-none focus:border-amber-500 min-h-[104px]"
+                />
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveReplyId(null);
+                      setReplyDrafts((prev) => ({ ...prev, [comment.id]: '' }));
+                    }}
+                    className="px-4 py-2 text-xs font-black rounded-full border border-[var(--border)] text-zinc-500 hover:text-zinc-800 transition-colors"
+                  >
+                    {locale === 'ja' ? 'キャンセル' : locale === 'en' ? 'Cancel' : '取消'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isReplySubmitting || !replyDraft.trim() || !isOnline}
+                    className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-semibold py-2 px-5 rounded-full text-xs transition-all shadow-lg shadow-amber-500/20 active:scale-95 safari-no-faux-bold"
+                  >
+                    {isReplySubmitting
+                      ? (locale === 'ja' ? '送信中...' : locale === 'en' ? 'Posting...' : '发送中...')
+                      : (locale === 'ja' ? '返信を送る' : locale === 'en' ? 'Post reply' : '发送回复')}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+        {comment.replies?.length > 0 && (
+          <div className="mt-1">
+            {comment.replies.map((reply) => renderComment(reply, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -619,13 +730,13 @@ export default function WatchClient({
 
             {/* コメント欄 */}
             <div>
-              <h2 className="text-xl font-semibold mb-6 safari-no-faux-bold">{comments.length} {locale === 'ja' ? '件のコメント' : locale === 'en' ? 'Comments' : '条评论'}</h2>
+              <h2 className="text-xl font-semibold mb-6 safari-no-faux-bold">{totalCommentCount} {locale === 'ja' ? '件のコメント' : locale === 'en' ? 'Comments' : '条评论'}</h2>
 
               {isAuthenticated ? (
                 <form onSubmit={submitComment} className="flex gap-4 mb-10">
                   <div className="w-10 h-10 rounded-full bg-[var(--card)] border border-[var(--border)] flex-shrink-0" />
                   <div className="flex-1">
-                    <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={locale === 'ja' ? '質問や感想を書いてみよう...' : locale === 'en' ? 'Write a comment...' : '写点什么吧...'} className="w-full border-b-2 border-[var(--border)] p-2 focus:outline-none focus:border-amber-500 bg-transparent transition-colors" />
+                    <textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={locale === 'ja' ? '質問や感想を書いてみよう...' : locale === 'en' ? 'Write a comment...' : '写点什么吧...'} className="w-full rounded-2xl border border-[var(--border)] p-4 focus:outline-none focus:border-amber-500 bg-transparent transition-colors min-h-[120px]" />
                     <div className="flex justify-end mt-3">
                       <button type="submit" disabled={isSubmitting || !newComment.trim() || !isOnline} className="bg-amber-500 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 hover:bg-amber-600 text-white font-semibold py-2.5 px-8 rounded-full text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95 safari-no-faux-bold">
                         {locale === 'ja' ? 'コメントする' : locale === 'en' ? 'Post' : '发布'}
@@ -640,20 +751,7 @@ export default function WatchClient({
               )}
 
               <div className="flex flex-col gap-8">
-                {comments.map((c) => (
-                  <div key={c.id} className="flex gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-black flex-shrink-0 text-sm shadow-md">
-                      {c.userName.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="font-black text-sm">{c.userName}</span>
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{c.createdAt.split('T')[0]}</span>
-                      </div>
-                      <p className="text-sm leading-relaxed text-[var(--foreground)]/80 break-words [overflow-wrap:anywhere] [word-break:break-all]">{c.content}</p>
-                    </div>
-                  </div>
-                ))}
+                {comments.map((c) => renderComment(c))}
               </div>
             </div>
           </div>

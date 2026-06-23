@@ -13,6 +13,7 @@ const INDEX_QUERIES = [
   'CREATE INDEX IF NOT EXISTS "QuizHistory_quizId_createdAt_idx" ON "QuizHistory"("quizId", "createdAt" DESC)',
   'CREATE INDEX IF NOT EXISTS "QuizHistory_userId_quizId_isCorrect_idx" ON "QuizHistory"("userId", "quizId", "isCorrect")',
   'CREATE INDEX IF NOT EXISTS "Comment_quizId_createdAt_idx" ON "Comment"("quizId", "createdAt" DESC)',
+  'CREATE INDEX IF NOT EXISTS "Comment_parentCommentId_createdAt_idx" ON "Comment"("parentCommentId", "createdAt" DESC)',
   'CREATE INDEX IF NOT EXISTS "Category_sortOrder_minAge_createdAt_idx" ON "Category"("sortOrder", "minAge", "createdAt" ASC)',
 ];
 

@@ -7,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 import { ensureCategoryLocalizationColumns } from "./category-localization";
 import { ensureAppIndexes } from "./db-indexes";
 import { ensureManagedImageStorageMigration } from "./image-migration";
+import { ensureCommentReplyColumns } from "./comment-replies";
 import { ensureQuizTranslationExplanationColumn } from "./quiz-translation-explanation";
 import { ensureQuizTranslationLearningContentColumns } from "./quiz-translation-learning-content";
 import { ensureQuizTranslationVisualColumns } from "./quiz-translation-visual";
@@ -42,6 +43,9 @@ ensureAppIndexes(prisma as any).catch(err => {
 });
 ensureManagedImageStorageMigration(prisma as any).catch(err => {
   console.error('Failed to migrate managed image storage:', err);
+});
+ensureCommentReplyColumns(prisma as any).catch(err => {
+  console.error('Failed to ensure comment reply columns:', err);
 });
 
 /**

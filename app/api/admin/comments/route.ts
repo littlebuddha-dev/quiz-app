@@ -6,11 +6,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { auth } from '@clerk/nextjs/server';
+import { ensureCommentReplyColumns } from '@/lib/comment-replies';
 
 export async function GET() {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureCommentReplyColumns(prisma as any);
     const { userId } = await auth();
 
     if (!userId) {
@@ -29,6 +31,12 @@ export async function GET() {
     const comments = await prisma.comment.findMany({
       include: {
         user: { select: { name: true } },
+        parentComment: {
+          select: {
+            content: true,
+            user: { select: { name: true } },
+          },
+        },
         quiz: {
           include: {
             translations: {
@@ -45,6 +53,9 @@ export async function GET() {
       id: c.id,
       content: c.content,
       userName: c.user?.name || 'ゲスト',
+      parentCommentId: c.parentCommentId,
+      parentUserName: c.parentComment?.user?.name || null,
+      parentContent: c.parentComment?.content || null,
       quizId: c.quizId,
       quizTitle: c.quiz.translations[0]?.title || '無題のクイズ',
       createdAt: c.createdAt.toISOString(),
@@ -61,6 +72,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    await ensureCommentReplyColumns(prisma as any);
     const { userId } = await auth();
 
     if (!userId) {
@@ -83,8 +95,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Missing comment ID' }, { status: 400 });
     }
 
-    await prisma.comment.delete({
-      where: { id },
+    await prisma.comment.deleteMany({
+      where: {
+        OR: [
+          { id },
+          { parentCommentId: id },
+        ],
+      },
     });
 
     return NextResponse.json({ success: true });
