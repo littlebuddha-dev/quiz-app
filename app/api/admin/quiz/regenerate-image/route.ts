@@ -8,6 +8,21 @@ import { storeImageBuffer } from '@/lib/image-storage';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { generateAIImage, hasAIProvider, inferAIProvider } from '@/lib/ai-provider';
 
+const LOCALE_RULES: Record<string, { languageName: string; scriptRule: string }> = {
+  ja: {
+    languageName: 'Japanese',
+    scriptRule: 'All visible text must be written in natural Japanese only.',
+  },
+  en: {
+    languageName: 'English',
+    scriptRule: 'All visible text must be written in natural English only. Do not use any Japanese, hiragana, katakana, kanji, or Chinese characters. If clean English text cannot be rendered, use no text instead of Japanese.',
+  },
+  zh: {
+    languageName: 'Chinese',
+    scriptRule: 'All visible text must be written in natural Simplified Chinese only. Do not use Japanese kana or English text unless it is part of a proper noun.',
+  },
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
@@ -51,13 +66,19 @@ export async function POST(req: NextRequest) {
     const sourceImage = await resolveInlineImageData(baseImageUrl);
 
     console.log(`Regenerating ${locale} image for quiz ${quizId} from Japanese base...`);
-    const langNames: Record<string, string> = { en: 'English', zh: 'Chinese', ja: 'Japanese' };
+    const localeRule = LOCALE_RULES[locale] || {
+      languageName: locale,
+      scriptRule: `All visible text must be written in ${locale} only.`,
+    };
     const localizedPrompt = `Use the attached Japanese quiz image as the visual source.
 
 Keep the composition, characters, objects, background, lighting, colors, and style as consistent as possible.
-Remove the current text and replace it with only this ${langNames[locale] || locale} title text: "${title}".
+Remove every existing Japanese text element from the image.
+Replace the main title with exactly this ${localeRule.languageName} text: "${title}".
+${localeRule.scriptRule}
 Embed the new text naturally in the same design position and treatment as the original artwork.
-Do not add subtitles, labels, UI, borders, or any extra text.
+Do not leave any Japanese text in the final image.
+Do not add subtitles, labels, UI, borders, or any extra text beyond the requested localized title.
 Return one finished localized image.`;
 
     const localizedImage = await generateAIImage({

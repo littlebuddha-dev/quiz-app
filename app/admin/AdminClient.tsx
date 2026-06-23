@@ -2069,13 +2069,15 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
 
                                 setUploading(prev => ({ ...prev, [activeTab]: true }));
                                 try {
+                                  const translations = await ensureTranslationsReadyForImageGeneration();
+                                  const localizedTranslation = translations[activeTab];
                                   const res = await fetch('/api/admin/quiz/regenerate-image', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                       quizId: editingId,
                                       locale: activeTab,
-                                      title: currentTranslation.title || formData.translations.ja?.title || 'Untitled',
+                                      title: localizedTranslation.title || formData.translations.ja?.title || 'Untitled',
                                       baseImageUrl,
                                       modelId: selectedModel,
                                     })
