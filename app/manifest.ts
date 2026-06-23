@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: '自由に学べるクイズ学習プラットフォーム',
     start_url: '/',
     display: 'standalone',
-    background_color: '#faf8f4',
+    background_color: '#ffffff',
     theme_color: '#f59e0b',
     icons: [
       {

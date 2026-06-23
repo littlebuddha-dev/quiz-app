@@ -522,6 +522,8 @@ Visual direction: ${imageStyle}
 Requirements:
 - Show the programming idea visually: flow, sequence, branching, repetition, variables, inputs, outputs, or data movement.
 - Use friendly educational metaphors such as blocks, arrows, cards, robots, screens, sensors, charts, or highlighted steps.
+- The learner should be able to roughly understand the problem even if all text is removed from the image.
+- Make the key inputs, process, and expected outcome visually obvious through layout, grouping, arrows, motion cues, and contrast.
 - Do not render exact source code, code fences, terminal text, letters, words, numbers, filenames, keyboard shortcuts, or UI chrome.
 - Represent logic with shapes, color grouping, icons, motion cues, and diagram-like structure instead of text.
 - Match the age level precisely and keep the scene exciting, clear, and easy to understand at a glance.
@@ -538,6 +540,9 @@ Visual direction: ${imageStyle}
 Requirements:
 - The image must teach or support the quiz concept at a glance.
 - Show concrete objects, relationships, counts, labels, or cause-and-effect cues that help solve the quiz.
+- The learner should still grasp the rough question scenario even if the overlaid text is hidden.
+- Prefer explanatory scenes or diagram-like compositions over decorative or atmospheric art.
+- Include the minimum necessary visual evidence to infer what is being compared, counted, classified, ordered, or explained.
 - Match the age level precisely: neither babyish nor too advanced.
 - Keep composition clean, readable, and focused on one clear learning idea.
 - Do not include any letters, words, numbers, subtitles, captions, speech bubbles, UI, watermark, or logo.
@@ -583,6 +588,7 @@ Visible text rules:
 - The headline should be visually primary. The supporting text should be shorter and secondary.
 - Integrate the typography naturally into the scene while preserving legibility.
 - Underlying concept: ${buildImageQuestionSummary({ question, isProgrammingSubject })}
+- The underlying illustration must still communicate the rough question scenario even if the text blocks are hidden.
 - Avoid turning the image into a screenshot. Keep it as a high-quality educational illustration.
 ${programmingRules.map((rule) => `- ${rule}`).join('\n')}
 - No extra text, no subtitles, no fake app chrome, no watermark, no logo.`;
@@ -603,6 +609,7 @@ Visual direction: ${imageStyle}
 Requirements:
 - Show a programming concept using colorful blocks, arrows, nodes, cards, robots, or diagram pieces.
 - Emphasize order, logic, debugging, output prediction, or algorithm flow.
+- The learner should be able to roughly infer the challenge from the illustration alone, even without text.
 - No code text, no letters, no words, no numbers, no UI chrome, no screenshots, no watermark.
 - Make it clear, inviting, and highly readable for study use.`;
 }
