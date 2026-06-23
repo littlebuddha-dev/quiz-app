@@ -2046,9 +2046,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                           onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], imageUrl: e.target.value } } }))}
                           className="w-full border p-2.5 rounded-xl text-[11px] font-bold bg-white dark:bg-zinc-900 shadow-sm"
                         />
-                        <div className="relative">
+                        <div className="relative flex flex-col items-start gap-2">
                           <input type="file" accept="image/*" onChange={(e) => handleUpload(e, activeTab)} className="hidden" id={`tab-image-upload-${activeTab}`} />
-                          <label htmlFor={`tab-image-upload-${activeTab}`} className={`inline-block px-4 py-1.5 rounded-lg text-[9px] font-black cursor-pointer transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-700 text-white hover:bg-black'}`}>
+                          <label htmlFor={`tab-image-upload-${activeTab}`} className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
                             {uploading[activeTab] ? 'アップロード中...' : 'ファイルを選択...'}
                           </label>
 
@@ -2095,7 +2095,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                                   setUploading(prev => ({ ...prev, [activeTab]: false }));
                                 }
                               }}
-                              className={`ml-2 inline-block px-4 py-1.5 rounded-lg text-[9px] font-black transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+                              className={`inline-block px-6 py-2 rounded-xl text-xs font-black transition-all ${uploading[activeTab] ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
                               disabled={uploading[activeTab]}
                             >
                               {uploading[activeTab] ? 'AI生成中...' : 'AIでこの言語の画像を再生成'}
