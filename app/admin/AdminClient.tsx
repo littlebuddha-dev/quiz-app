@@ -1866,7 +1866,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       </div>
                       <div className="flex-1 w-full space-y-3">
                         <input type="text" placeholder="画像URL (任意)" value={formData.imageUrl} onChange={e => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))} className="w-full border p-3 rounded-xl text-sm font-bold bg-white dark:bg-zinc-900" />
-                        <div className="relative">
+                        <div className="relative flex flex-col items-start gap-2">
                           <input type="file" accept="image/*" onChange={(e) => handleUpload(e)} className="hidden" id="global-image-upload" />
                           <label htmlFor="global-image-upload" className={`inline-block px-6 py-2 rounded-xl text-xs font-black cursor-pointer transition-all ${uploading.global ? 'bg-zinc-200 text-zinc-400' : 'bg-zinc-800 text-white hover:bg-black'}`}>
                             {uploading.global ? 'アップロード中...' : 'ファイルを選択...'}
@@ -1876,7 +1876,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                               type="button"
                               onClick={handleRegenerateEditingQuizImage}
                               disabled={loading}
-                              className={`ml-2 inline-block px-6 py-2 rounded-xl text-xs font-black transition-all ${loading ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-600'}`}
+                              className={`inline-block px-6 py-2 rounded-xl text-xs font-black transition-all ${loading ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-600'}`}
                             >
                               {loading ? '再作成中...' : 'このクイズの画像を再作成'}
                             </button>
