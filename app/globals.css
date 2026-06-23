@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  /* Slate 50 equivalent */
+  --background: #faf8f4;
+  /* warm beige */
   --foreground: #0f172a;
   /* Slate 900 equivalent */
-  --card: #ffffff;
+  --card: #fffdf9;
   --card-foreground: #0f172a;
-  --border: #e2e8f0;
-  /* Slate 200 */
+  --border: #e8dfd2;
+  /* warm beige border */
   --header-height: 9.5rem;
 }
 
