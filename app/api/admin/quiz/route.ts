@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
-import { PrismaClient } from '@prisma/client/edge';
+import { PrismaClient } from '@prisma/client';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { storeDataUrl } from '@/lib/image-storage';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { ensureQuizTranslationLearningContentColumns } from '@/lib/quiz-translation-learning-content';
 import { buildDefaultOverlayVisualData, ensureQuizTranslationVisualColumns, serializeQuizVisualData } from '@/lib/quiz-translation-visual';
 
 const SUPPORTED_LOCALES = ['ja', 'en', 'zh'] as const;
@@ -26,6 +27,11 @@ function normalizeTranslations(translations: Record<string, any>) {
       hint: data.hint || '',
       answer: data.answer || '',
       explanation: data.explanation || null,
+      detailedExplanation: data.detailedExplanation || null,
+      learningPoints: data.learningPoints || null,
+      relatedKnowledge: data.relatedKnowledge || null,
+      sources: data.sources || null,
+      references: data.references || null,
       type: data.type || 'TEXT',
       options: data.type === 'CHOICE' ? data.options : null,
       imageUrl: data.imageUrl || null,
@@ -108,6 +114,11 @@ export async function GET(req: NextRequest) {
                 hint: true,
                 answer: true,
                 explanation: true,
+                detailedExplanation: true,
+                learningPoints: true,
+                relatedKnowledge: true,
+                sources: true,
+                references: true,
                 type: true,
                 options: true,
                 imageUrl: true,
@@ -125,6 +136,11 @@ export async function GET(req: NextRequest) {
         hint: '',
         answer: '',
         explanation: null,
+        detailedExplanation: null,
+        learningPoints: null,
+        relatedKnowledge: null,
+        sources: null,
+        references: null,
         type: 'TEXT',
         options: null,
         imageUrl: null,
@@ -144,6 +160,11 @@ export async function GET(req: NextRequest) {
               hint: t?.hint || jaT.hint,
               answer: t?.answer || jaT.answer,
               explanation: t?.explanation || jaT.explanation || null,
+              detailedExplanation: t?.detailedExplanation || jaT.detailedExplanation || null,
+              learningPoints: t?.learningPoints || jaT.learningPoints || null,
+              relatedKnowledge: t?.relatedKnowledge || jaT.relatedKnowledge || null,
+              sources: t?.sources || jaT.sources || null,
+              references: t?.references || jaT.references || null,
               type: (t?.type || jaT.type) as 'CHOICE' | 'TEXT',
               options: t?.options ?? jaT.options,
               imageUrl: t?.imageUrl || null,
@@ -167,6 +188,11 @@ export async function GET(req: NextRequest) {
               hint: jaT.hint,
               answer: jaT.answer,
               explanation: jaT.explanation || null,
+              detailedExplanation: jaT.detailedExplanation || null,
+              learningPoints: jaT.learningPoints || null,
+              relatedKnowledge: jaT.relatedKnowledge || null,
+              sources: jaT.sources || null,
+              references: jaT.references || null,
               options: jaT.options,
             }),
       };
@@ -184,6 +210,7 @@ export async function POST(req: NextRequest) {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationLearningContentColumns(prisma as any);
     await ensureQuizTranslationVisualColumns(prisma as any);
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
@@ -212,7 +239,7 @@ export async function POST(req: NextRequest) {
     for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
       const persistedTranslationImageUrl = await persistManagedImageUrl(data.imageUrl);
       await prisma.$executeRawUnsafe(
-        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "detailedExplanation", "learningPoints", "relatedKnowledge", "sources", "references", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         crypto.randomUUID(),
         newQuiz.id,
         locale,
@@ -221,6 +248,11 @@ export async function POST(req: NextRequest) {
         data.hint,
         data.answer,
         data.explanation,
+        data.detailedExplanation,
+        data.learningPoints,
+        data.relatedKnowledge,
+        data.sources,
+        data.references,
         data.type,
         data.options ? JSON.stringify(data.options) : null,
         persistedTranslationImageUrl,
@@ -241,6 +273,7 @@ export async function PATCH(req: NextRequest) {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationLearningContentColumns(prisma as any);
     await ensureQuizTranslationVisualColumns(prisma as any);
     const isAuthorized = await isAdminOrParent(prisma);
     if (!isAuthorized) {
@@ -271,7 +304,7 @@ export async function PATCH(req: NextRequest) {
     for (const [locale, data] of Object.entries(normalizedTranslations) as [string, any][]) {
       const persistedTranslationImageUrl = await persistManagedImageUrl(data.imageUrl);
       await prisma.$executeRawUnsafe(
-        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT("quizId", "locale") DO UPDATE SET "title" = excluded."title", "question" = excluded."question", "hint" = excluded."hint", "answer" = excluded."answer", "explanation" = excluded."explanation", "type" = excluded."type", "options" = excluded."options", "imageUrl" = excluded."imageUrl", "visualMode" = excluded."visualMode", "visualData" = excluded."visualData"',
+        'INSERT INTO "QuizTranslation" ("id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "detailedExplanation", "learningPoints", "relatedKnowledge", "sources", "references", "type", "options", "imageUrl", "visualMode", "visualData") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT("quizId", "locale") DO UPDATE SET "title" = excluded."title", "question" = excluded."question", "hint" = excluded."hint", "answer" = excluded."answer", "explanation" = excluded."explanation", "detailedExplanation" = excluded."detailedExplanation", "learningPoints" = excluded."learningPoints", "relatedKnowledge" = excluded."relatedKnowledge", "sources" = excluded."sources", "references" = excluded."references", "type" = excluded."type", "options" = excluded."options", "imageUrl" = excluded."imageUrl", "visualMode" = excluded."visualMode", "visualData" = excluded."visualData"',
         crypto.randomUUID(),
         id,
         locale,
@@ -280,6 +313,11 @@ export async function PATCH(req: NextRequest) {
         data.hint,
         data.answer,
         data.explanation,
+        data.detailedExplanation,
+        data.learningPoints,
+        data.relatedKnowledge,
+        data.sources,
+        data.references,
         data.type,
         data.options ? JSON.stringify(data.options) : null,
         persistedTranslationImageUrl,

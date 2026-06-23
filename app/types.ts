@@ -48,6 +48,11 @@ export interface Quiz {
     hint: string;
     answer: string;
     explanation?: string | null;
+    detailedExplanation?: string | null;
+    learningPoints?: string | null;
+    relatedKnowledge?: string | null;
+    sources?: string | null;
+    references?: string | null;
     type: 'CHOICE' | 'TEXT';
     options?: string[];
     imageUrl?: string | null;

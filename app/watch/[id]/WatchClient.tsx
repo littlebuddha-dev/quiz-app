@@ -37,6 +37,13 @@ type RelatedQuiz = {
   viewCount?: number;
 };
 
+function splitContentLines(value: string | null | undefined) {
+  return (value || '')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^[\-\u2022\u30fb\s]+/, '').trim())
+    .filter(Boolean);
+}
+
 export interface WatchClientProps {
   quiz: Quiz;
   initialComments: WatchComment[];
@@ -130,6 +137,11 @@ export default function WatchClient({
   if (!t) return null; // 基本的にありえないが、安全のため
 
   const explanation = t.explanation?.trim();
+  const detailedExplanation = t.detailedExplanation?.trim();
+  const relatedKnowledge = t.relatedKnowledge?.trim();
+  const learningPoints = splitContentLines(t.learningPoints);
+  const sourceLines = splitContentLines(t.sources);
+  const referenceLines = splitContentLines(t.references);
   const gentleExplanation = buildGentleExplanation(locale, t.answer, explanation);
   const displayedExplanation = explanationMode === 'gentle' ? gentleExplanation : explanation;
 
@@ -518,6 +530,89 @@ export default function WatchClient({
                     <LatexRenderer text={displayedExplanation || explanation} />
                   </div>
                 </div>
+              )}
+
+              {(detailedExplanation || relatedKnowledge || learningPoints.length > 0 || sourceLines.length > 0 || referenceLines.length > 0) && (
+                <section className="mt-8 rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
+                  <div className="mb-6">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">
+                      {locale === 'ja' ? 'Learning Guide' : locale === 'en' ? 'Learning Guide' : '学习指南'}
+                    </p>
+                    <h3 className="mt-2 text-xl font-black">
+                      {locale === 'ja' ? 'この問題をもっと深く学ぶ' : locale === 'en' ? 'Learn Beyond This Quiz' : '从这道题继续深入学习'}
+                    </h3>
+                  </div>
+
+                  {detailedExplanation && (
+                    <div className="mb-6">
+                      <h4 className="mb-2 text-sm font-black text-zinc-500">
+                        {locale === 'ja' ? '詳細解説' : locale === 'en' ? 'Detailed Explanation' : '详细解析'}
+                      </h4>
+                      <div className="text-sm leading-7 text-[var(--foreground)]/90 break-words [overflow-wrap:anywhere]">
+                        <LatexRenderer text={detailedExplanation} />
+                      </div>
+                    </div>
+                  )}
+
+                  {learningPoints.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="mb-2 text-sm font-black text-zinc-500">
+                        {locale === 'ja' ? '学習ポイント' : locale === 'en' ? 'Key Takeaways' : '学习要点'}
+                      </h4>
+                      <ul className="space-y-2 text-sm leading-7 text-[var(--foreground)]/90">
+                        {learningPoints.map((point, index) => (
+                          <li key={`${point}-${index}`} className="flex items-start gap-3">
+                            <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                            <LatexRenderer text={point} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {relatedKnowledge && (
+                    <div className="mb-6">
+                      <h4 className="mb-2 text-sm font-black text-zinc-500">
+                        {locale === 'ja' ? '関連知識' : locale === 'en' ? 'Related Knowledge' : '相关知识'}
+                      </h4>
+                      <div className="text-sm leading-7 text-[var(--foreground)]/90 break-words [overflow-wrap:anywhere]">
+                        <LatexRenderer text={relatedKnowledge} />
+                      </div>
+                    </div>
+                  )}
+
+                  {sourceLines.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="mb-2 text-sm font-black text-zinc-500">
+                        {locale === 'ja' ? '出典' : locale === 'en' ? 'Sources' : '资料来源'}
+                      </h4>
+                      <ul className="space-y-2 text-sm leading-7 text-[var(--foreground)]/90">
+                        {sourceLines.map((line, index) => (
+                          <li key={`${line}-${index}`} className="flex items-start gap-3">
+                            <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-zinc-400" />
+                            <span>{line}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {referenceLines.length > 0 && (
+                    <div>
+                      <h4 className="mb-2 text-sm font-black text-zinc-500">
+                        {locale === 'ja' ? '参考文献・参考資料' : locale === 'en' ? 'References' : '参考资料'}
+                      </h4>
+                      <ul className="space-y-2 text-sm leading-7 text-[var(--foreground)]/90">
+                        {referenceLines.map((line, index) => (
+                          <li key={`${line}-${index}`} className="flex items-start gap-3">
+                            <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-zinc-400" />
+                            <span>{line}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
               )}
 
             </div>

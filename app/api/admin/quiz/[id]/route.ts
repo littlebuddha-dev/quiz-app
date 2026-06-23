@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, NextRequest } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
-import { PrismaClient } from '@prisma/client/edge';
+import { PrismaClient } from '@prisma/client';
 import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { ensureQuizTranslationLearningContentColumns } from '@/lib/quiz-translation-learning-content';
 import { ensureQuizTranslationVisualColumns, parseQuizVisualData } from '@/lib/quiz-translation-visual';
 
 async function isAdminOrParent(prisma: PrismaClient) {
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
     await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationLearningContentColumns(prisma as any);
     await ensureQuizTranslationVisualColumns(prisma as any);
     const { id } = await context.params;
     const isAuthorized = await isAdminOrParent(prisma);
@@ -46,13 +48,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       hint: string;
       answer: string;
       explanation: string | null;
+      detailedExplanation: string | null;
+      learningPoints: string | null;
+      relatedKnowledge: string | null;
+      sources: string | null;
+      references: string | null;
       type: string;
       options: unknown;
       imageUrl: string | null;
       visualMode: string | null;
       visualData: string | null;
     }>>(
-      'SELECT "id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "type", "options", "imageUrl", "visualMode", "visualData" FROM "QuizTranslation" WHERE "quizId" = ?',
+      'SELECT "id", "quizId", "locale", "title", "question", "hint", "answer", "explanation", "detailedExplanation", "learningPoints", "relatedKnowledge", "sources", "references", "type", "options", "imageUrl", "visualMode", "visualData" FROM "QuizTranslation" WHERE "quizId" = ?',
       id
     );
 

@@ -152,9 +152,9 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     targetAge: 6,
     imageUrl: '',
     translations: {
-      ja: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
-      en: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
-      zh: { title: '', question: '', hint: '', answer: '', explanation: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
+      ja: { title: '', question: '', hint: '', answer: '', explanation: '', detailedExplanation: '', learningPoints: '', relatedKnowledge: '', sources: '', references: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
+      en: { title: '', question: '', hint: '', answer: '', explanation: '', detailedExplanation: '', learningPoints: '', relatedKnowledge: '', sources: '', references: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
+      zh: { title: '', question: '', hint: '', answer: '', explanation: '', detailedExplanation: '', learningPoints: '', relatedKnowledge: '', sources: '', references: '', type: 'TEXT' as 'TEXT' | 'CHOICE', options: '', imageUrl: '', visualMode: 'image_only' },
     }
   };
 
@@ -234,6 +234,11 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             hint: t.hint || '',
             answer: t.answer || '',
             explanation: t.explanation || '',
+            detailedExplanation: t.detailedExplanation || '',
+            learningPoints: t.learningPoints || '',
+            relatedKnowledge: t.relatedKnowledge || '',
+            sources: t.sources || '',
+            references: t.references || '',
             type: t.type || 'TEXT',
             options: parsedOptions,
             imageUrl: t.imageUrl || '',
@@ -534,6 +539,11 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         hint: data.hint || '',
         answer: data.answer || '',
         explanation: data.explanation || '',
+        detailedExplanation: data.detailedExplanation || '',
+        learningPoints: data.learningPoints || '',
+        relatedKnowledge: data.relatedKnowledge || '',
+        sources: data.sources || '',
+        references: data.references || '',
         type: data.type || 'TEXT',
         imageUrl: data.imageUrl || '',
         visualMode: 'image_only',
@@ -682,11 +692,21 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
             en: {
               ...prev.translations.en,
               ...data.en,
+              detailedExplanation: Array.isArray(data.en?.detailedExplanation) ? data.en.detailedExplanation.join('\n') : (data.en?.detailedExplanation || ''),
+              learningPoints: Array.isArray(data.en?.learningPoints) ? data.en.learningPoints.join('\n') : (data.en?.learningPoints || ''),
+              relatedKnowledge: Array.isArray(data.en?.relatedKnowledge) ? data.en.relatedKnowledge.join('\n') : (data.en?.relatedKnowledge || ''),
+              sources: Array.isArray(data.en?.sources) ? data.en.sources.join('\n') : (data.en?.sources || ''),
+              references: Array.isArray(data.en?.references) ? data.en.references.join('\n') : (data.en?.references || ''),
               options: Array.isArray(data.en?.options) ? data.en.options.join(', ') : (data.en?.options || '')
             },
             zh: {
               ...prev.translations.zh,
               ...data.zh,
+              detailedExplanation: Array.isArray(data.zh?.detailedExplanation) ? data.zh.detailedExplanation.join('\n') : (data.zh?.detailedExplanation || ''),
+              learningPoints: Array.isArray(data.zh?.learningPoints) ? data.zh.learningPoints.join('\n') : (data.zh?.learningPoints || ''),
+              relatedKnowledge: Array.isArray(data.zh?.relatedKnowledge) ? data.zh.relatedKnowledge.join('\n') : (data.zh?.relatedKnowledge || ''),
+              sources: Array.isArray(data.zh?.sources) ? data.zh.sources.join('\n') : (data.zh?.sources || ''),
+              references: Array.isArray(data.zh?.references) ? data.zh.references.join('\n') : (data.zh?.references || ''),
               options: Array.isArray(data.zh?.options) ? data.zh.options.join(', ') : (data.zh?.options || '')
             }
           }
@@ -696,6 +716,81 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
         const err = (await res.json()) as any;
         alert('翻訳に失敗しました: ' + (err.message || '不明なエラー'));
       }
+    } catch (error) {
+      console.error(error);
+      alert('通信エラーが発生しました');
+    }
+    setLoading(false);
+  };
+
+  const handleAiImproveContent = async () => {
+    const ja = formData.translations.ja;
+    if (!ja.title || !ja.question || !ja.answer) {
+      alert('日本語のタイトル、問題文、正解を入力してください');
+      setActiveTab('ja');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetchWithRetry('/api/admin/quiz/improve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ja: {
+            ...ja,
+            options: ja.type === 'CHOICE' ? ja.options : null,
+          },
+          targetAge: formData.targetAge,
+          categoryId: formData.categoryId,
+          modelId: selectedModel,
+        }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as any;
+        alert(`改善に失敗しました: ${err.message || err.error || '不明なエラー'}`);
+        setLoading(false);
+        return;
+      }
+
+      const data = (await res.json()) as any;
+      setFormData((prev) => ({
+        ...prev,
+        translations: {
+          ...prev.translations,
+          ja: {
+            ...prev.translations.ja,
+            ...data.ja,
+            detailedExplanation: Array.isArray(data.ja?.detailedExplanation) ? data.ja.detailedExplanation.join('\n') : (data.ja?.detailedExplanation || ''),
+            learningPoints: Array.isArray(data.ja?.learningPoints) ? data.ja.learningPoints.join('\n') : (data.ja?.learningPoints || ''),
+            relatedKnowledge: Array.isArray(data.ja?.relatedKnowledge) ? data.ja.relatedKnowledge.join('\n') : (data.ja?.relatedKnowledge || ''),
+            sources: Array.isArray(data.ja?.sources) ? data.ja.sources.join('\n') : (data.ja?.sources || ''),
+            references: Array.isArray(data.ja?.references) ? data.ja.references.join('\n') : (data.ja?.references || ''),
+            options: Array.isArray(data.ja?.options) ? data.ja.options.join(', ') : (data.ja?.options || ''),
+          },
+          en: {
+            ...prev.translations.en,
+            ...data.en,
+            detailedExplanation: Array.isArray(data.en?.detailedExplanation) ? data.en.detailedExplanation.join('\n') : (data.en?.detailedExplanation || ''),
+            learningPoints: Array.isArray(data.en?.learningPoints) ? data.en.learningPoints.join('\n') : (data.en?.learningPoints || ''),
+            relatedKnowledge: Array.isArray(data.en?.relatedKnowledge) ? data.en.relatedKnowledge.join('\n') : (data.en?.relatedKnowledge || ''),
+            sources: Array.isArray(data.en?.sources) ? data.en.sources.join('\n') : (data.en?.sources || ''),
+            references: Array.isArray(data.en?.references) ? data.en.references.join('\n') : (data.en?.references || ''),
+            options: Array.isArray(data.en?.options) ? data.en.options.join(', ') : (data.en?.options || ''),
+          },
+          zh: {
+            ...prev.translations.zh,
+            ...data.zh,
+            detailedExplanation: Array.isArray(data.zh?.detailedExplanation) ? data.zh.detailedExplanation.join('\n') : (data.zh?.detailedExplanation || ''),
+            learningPoints: Array.isArray(data.zh?.learningPoints) ? data.zh.learningPoints.join('\n') : (data.zh?.learningPoints || ''),
+            relatedKnowledge: Array.isArray(data.zh?.relatedKnowledge) ? data.zh.relatedKnowledge.join('\n') : (data.zh?.relatedKnowledge || ''),
+            sources: Array.isArray(data.zh?.sources) ? data.zh.sources.join('\n') : (data.zh?.sources || ''),
+            references: Array.isArray(data.zh?.references) ? data.zh.references.join('\n') : (data.zh?.references || ''),
+            options: Array.isArray(data.zh?.options) ? data.zh.options.join(', ') : (data.zh?.options || ''),
+          },
+        },
+      }));
+      alert('問題文・解説・学習コンテンツをAIで改善しました。内容を確認して保存してください。');
+      setActiveTab('ja');
     } catch (error) {
       console.error(error);
       alert('通信エラーが発生しました');
@@ -1703,6 +1798,16 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       <span className="text-sm">✨</span> AIで他言語に翻訳・反映
                     </button>
                   )}
+                  {activeTab === 'ja' && (
+                    <button
+                      type="button"
+                      onClick={handleAiImproveContent}
+                      disabled={loading || !formData.translations.ja.title || !formData.translations.ja.question || !formData.translations.ja.answer}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-600/20 hover:scale-[1.02] active:scale-95"
+                    >
+                      <span className="text-sm">🛠</span> AIで問題と学習内容を改善
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1947,6 +2052,30 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                     <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">解説 (任意)</label>
                     <textarea placeholder="答えの理由や考え方、途中式などを入力..." value={currentTranslation.explanation} onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], explanation: e.target.value } } }))} className="w-full border p-4 rounded-2xl font-bold min-h-[120px]" />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">詳細解説</label>
+                    <textarea placeholder="学習記事の本文のように、背景・考え方・誤解しやすい点まで詳しく入力..." value={currentTranslation.detailedExplanation} onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], detailedExplanation: e.target.value } } }))} className="w-full border p-4 rounded-2xl font-bold min-h-[220px]" />
+                  </div>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">学習ポイント</label>
+                      <textarea placeholder={'1行ごとに要点を入力\n例: 定義を押さえる\n例: 典型的な間違いに注意'} value={currentTranslation.learningPoints} onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], learningPoints: e.target.value } } }))} className="w-full border p-4 rounded-2xl font-bold min-h-[180px]" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">関連知識</label>
+                      <textarea placeholder="この問題の前後で知っておくと理解が深まる内容を入力..." value={currentTranslation.relatedKnowledge} onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], relatedKnowledge: e.target.value } } }))} className="w-full border p-4 rounded-2xl font-bold min-h-[180px]" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">出典</label>
+                      <textarea placeholder={'1行ごとに出典を入力\n例: 学習指導要領 理科 第2分野\n例: 文部科学省 中学校学習指導要領解説'} value={currentTranslation.sources} onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], sources: e.target.value } } }))} className="w-full border p-4 rounded-2xl font-bold min-h-[150px]" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-widest ml-1">参考文献・参考資料</label>
+                      <textarea placeholder={'1行ごとに参考資料を入力\n例: 高校生物 基礎教科書 第3章\n例: NHK for School DNA特集'} value={currentTranslation.references} onChange={e => setFormData(prev => ({ ...prev, translations: { ...prev.translations, [activeTab]: { ...prev.translations[activeTab], references: e.target.value } } }))} className="w-full border p-4 rounded-2xl font-bold min-h-[150px]" />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-4 pt-4">
@@ -1989,6 +2118,18 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
                       <div className="bg-white dark:bg-zinc-800 p-4 rounded-xl shadow-sm">
                         <p className="text-[10px] font-bold text-zinc-400 mb-1 uppercase">Explanation</p>
                         <LatexRenderer text={currentTranslation.explanation} className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300" />
+                      </div>
+                    )}
+                    {currentTranslation.detailedExplanation && (
+                      <div className="bg-white dark:bg-zinc-800 p-4 rounded-xl shadow-sm">
+                        <p className="text-[10px] font-bold text-zinc-400 mb-1 uppercase">Detailed Explanation</p>
+                        <LatexRenderer text={currentTranslation.detailedExplanation} className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300" />
+                      </div>
+                    )}
+                    {currentTranslation.learningPoints && (
+                      <div className="bg-white dark:bg-zinc-800 p-4 rounded-xl shadow-sm">
+                        <p className="text-[10px] font-bold text-zinc-400 mb-1 uppercase">Learning Points</p>
+                        <LatexRenderer text={currentTranslation.learningPoints} className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300" />
                       </div>
                     )}
                   </div>

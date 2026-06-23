@@ -148,6 +148,11 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       hint: true,
       answer: true,
       explanation: true,
+      detailedExplanation: true,
+      learningPoints: true,
+      relatedKnowledge: true,
+      sources: true,
+      references: true,
       type: true,
       options: true,
       imageUrl: true,
@@ -289,6 +294,11 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
         hint: t.hint,
         answer: t.answer,
         explanation: t.explanation,
+        detailedExplanation: t.detailedExplanation,
+        learningPoints: t.learningPoints,
+        relatedKnowledge: t.relatedKnowledge,
+        sources: t.sources,
+        references: t.references,
         type: t.type,
         options: normalizeOptions(t.options),
         imageUrl: t.imageUrl,
@@ -387,6 +397,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     name: localizedQuiz?.title || 'Cue Quiz',
     description:
       toPlainText(localizedQuiz?.question, 180) ||
+      toPlainText((localizedQuiz as any)?.detailedExplanation, 180) ||
       toPlainText(localizedQuiz?.explanation, 180) ||
       'Cue quiz detail page',
     inLanguage: locale,

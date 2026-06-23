@@ -70,20 +70,25 @@ model Quiz {
 }
 
 model QuizTranslation {
-  id       String  @id @default(cuid())
-  quizId   String
-  locale   String
-  title    String
-  question String
-  hint     String
-  answer   String
-  explanation String?
-  type     String
-  options  Json?
-  imageUrl String?
-  visualMode String?
-  visualData String?
-  quiz     Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  id                  String  @id @default(cuid())
+  quizId              String
+  locale              String
+  title               String
+  question            String
+  hint                String
+  answer              String
+  explanation         String?
+  detailedExplanation String?
+  learningPoints      String?
+  relatedKnowledge    String?
+  sources             String?
+  references          String?
+  type                String
+  options             Json?
+  imageUrl            String?
+  visualMode          String?
+  visualData          String?
+  quiz                Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@unique([quizId, locale])
   @@index([title])

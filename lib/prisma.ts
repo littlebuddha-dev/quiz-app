@@ -8,6 +8,7 @@ import { ensureCategoryLocalizationColumns } from "./category-localization";
 import { ensureAppIndexes } from "./db-indexes";
 import { ensureManagedImageStorageMigration } from "./image-migration";
 import { ensureQuizTranslationExplanationColumn } from "./quiz-translation-explanation";
+import { ensureQuizTranslationLearningContentColumns } from "./quiz-translation-learning-content";
 import { ensureQuizTranslationVisualColumns } from "./quiz-translation-visual";
 
 const globalForPrisma = globalThis as unknown as {
@@ -29,6 +30,9 @@ ensureCategoryLocalizationColumns(prisma as any).catch(err => {
 });
 ensureQuizTranslationExplanationColumn(prisma as any).catch(err => {
   console.error('Failed to ensure quiz translation explanation column:', err);
+});
+ensureQuizTranslationLearningContentColumns(prisma as any).catch(err => {
+  console.error('Failed to ensure quiz translation learning content columns:', err);
 });
 ensureQuizTranslationVisualColumns(prisma as any).catch(err => {
   console.error('Failed to ensure quiz translation visual columns:', err);

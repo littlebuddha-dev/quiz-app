@@ -1,15 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Path: app/api/admin/quiz/translate/route.ts
-// Title: Admin Quiz Translation API
-// Purpose: Multi-language translation for manually created quizzes using AI.
-
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import {
+  BASE_SYSTEM_INSTRUCTION,
   buildAgePromptBlock,
   buildEducationalContextPrompt,
-  BASE_SYSTEM_INSTRUCTION,
 } from '@/lib/ai-prompts';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
@@ -21,7 +18,7 @@ import {
   type AITextResult,
 } from '@/lib/ai-provider';
 
-async function generateTranslation(params: {
+async function generateImprovedQuiz(params: {
   preferredModel: string;
   prompt: string;
   env: Record<string, unknown>;
@@ -37,7 +34,7 @@ async function generateTranslation(params: {
       return await generateAIText({
         model,
         prompt: params.prompt,
-        systemInstruction: 'Return only valid JSON with en and zh objects.',
+        systemInstruction: 'Return only valid JSON with ja, en, and zh objects.',
         env: params.env,
       });
     } catch (error) {
@@ -53,13 +50,24 @@ export async function POST(req: NextRequest) {
   try {
     const { env } = getCloudflareContext();
     const prisma = createPrisma(env);
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Budget Check
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { role: true },
+    });
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'PARENT')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const budget = await checkApiBudget(prisma);
     if (budget.exceeded) {
       return NextResponse.json({
         error: 'BUDGET_EXCEEDED',
-        message: `月間のAPI制約額 ($${budget.limit}) に達しました。`
+        message: `月間のAPI制約額 ($${budget.limit}) に達しました。`,
       }, { status: 403 });
     }
 
@@ -70,81 +78,75 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json()) as any;
     const { ja, targetAge, categoryId, modelId = DEFAULT_MODEL_ID } = body;
-    const selectedModel = getModelById(modelId);
+    if (!ja?.title || !ja?.question || !ja?.answer) {
+      return NextResponse.json({ error: 'MISSING_REQUIRED_FIELDS' }, { status: 400 });
+    }
 
-    // カテゴリ名を取得
+    const selectedModel = getModelById(modelId);
     let categoryNames: Array<string | null | undefined> = [];
+    let categoryLabel = categoryId || '未指定';
     if (categoryId) {
-      const category: any = await prisma.category.findUnique({
+      const category = await prisma.category.findUnique({
         where: { id: categoryId },
-        select: { name: true, nameJa: true, nameEn: true, nameZh: true }
+        select: { name: true, nameJa: true, nameEn: true, nameZh: true, systemPrompt: true },
       });
       if (category) {
+        categoryLabel = category.nameJa || category.name || categoryLabel;
         categoryNames = [category.name, category.nameJa, category.nameEn, category.nameZh];
       }
     }
 
     const parsedAge = parseInt(targetAge) || 8;
     const agePersonaInstruction = buildAgePromptBlock(parsedAge);
-
-    // DBから教育課程ガイドラインを取得
     const eduSetting = await prisma.setting.findUnique({ where: { key: 'educational_guidelines' } });
     const guidelines = eduSetting?.value ? JSON.parse(eduSetting.value) : null;
     const educationalContextInstruction = buildEducationalContextPrompt(parsedAge, categoryNames, guidelines);
+    const prompt = `以下の既存クイズを、教育メディアとしての価値が高まるように全面的に改善してください。
 
-    const systemInstruction = BASE_SYSTEM_INSTRUCTION + agePersonaInstruction + educationalContextInstruction;
+## 対象条件
+- ジャンル: ${categoryLabel}
+- 対象年齢: ${parsedAge}歳
 
-    const prompt = `
-以下の日本語のクイズ内容を、英語(en)と中国語(zh)に翻訳・最適化してください。
-ターゲット年齢は ${parsedAge}歳 です。
-
-## 翻訳対象データ (日本語)
+## 現在の日本語クイズ
 ${JSON.stringify(ja, null, 2)}
 
-## 翻訳の要件
-- ターゲット年齢に合わせた適切な語彙・表現を使用してください。
-- 意味を変えず、各言語で自然かつ教育的な表現にしてください。
-- 記述式(TEXT)の場合は、回答のしやすさを考慮して、必要に応じて選択式(CHOICE)の選択肢(options)も生成してください。
-- 数式が含まれる場合は LaTeX 形式を維持し、JSONのエスケープルールに従ってください。
-- 出力は en と zh のオブジェクト（それぞれ title, question, hint, answer, explanation, detailedExplanation, learningPoints, relatedKnowledge, sources, references, type, options を持つ）を含むJSON形式にしてください。
-- learningPoints / sources / references は配列ではなく、改行区切りのテキストで返してください。
+## 改善要件
+- 元の学習テーマは保ちつつ、問題文・正答・ヒント・解説を必要なら修正して、正確で一意に答えられる問題へ改善してください。
+- title は短く、question は何を考えればよいか明確にしてください。
+- explanation は回答直後の短い解説として端的にまとめてください。
+- detailedExplanation は記事本文のように詳しく、背景知識、考え方、誤解しやすい点、実生活とのつながりまで含めてください。
+- learningPoints は3〜5行の箇条書き風テキストにしてください。
+- relatedKnowledge は関連知識や次に学ぶとよい内容を1〜3段落で補ってください。
+- sources は出典や監修元を2〜4行、references は参考文献や参考資料を2〜4行で示してください。URLの捏造は禁止です。
+- 出力は ja / en / zh の3言語すべてを含め、各言語に title, question, hint, answer, explanation, detailedExplanation, learningPoints, relatedKnowledge, sources, references, type, options を持たせてください。
 
-${systemInstruction}
-`;
+${BASE_SYSTEM_INSTRUCTION}
+${agePersonaInstruction}
+${educationalContextInstruction}`;
 
-    const modelName = selectedModel.generatorId;
-    const result = await generateTranslation({
-      preferredModel: modelName,
+    const result = await generateImprovedQuiz({
+      preferredModel: selectedModel.generatorId,
       prompt,
       env: runtimeEnv,
     });
 
-    const resultText = result.text;
-    let translatedData: any;
-    try {
-      const raw = resultText || '{}';
-      const start = raw.indexOf('{');
-      const end = raw.lastIndexOf('}');
-      translatedData = JSON.parse(start >= 0 && end > start ? raw.slice(start, end + 1) : raw);
-    } catch (e) {
-      console.error('Initial JSON parse failed. Attempting to sanitize...', e);
-      const sanitized = (resultText || '{}').replace(/\\(?![/"\\bfnrtu])/g, '\\\\');
-      translatedData = JSON.parse(sanitized);
-    }
+    const raw = result.text || '{}';
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    const parsed = JSON.parse(start >= 0 && end > start ? raw.slice(start, end + 1) : raw);
 
-    // AI Usage Logging
     if (result.usage.promptTokens || result.usage.candidateTokens) {
       await logApiUsage(prisma, {
         modelId: result.model,
         promptTokens: result.usage.promptTokens,
         candidateTokens: result.usage.candidateTokens,
-        purpose: 'QUIZ_TRANSLATION'
+        purpose: 'QUIZ_IMPROVE',
       });
     }
 
-    return NextResponse.json(translatedData);
+    return NextResponse.json(parsed);
   } catch (error: any) {
-    console.error('Translation API Error:', error);
+    console.error('Quiz Improve API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

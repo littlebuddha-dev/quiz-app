@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { ensureQuizTranslationExplanationColumn } from '@/lib/quiz-translation-explanation';
+import { ensureQuizTranslationLearningContentColumns } from '@/lib/quiz-translation-learning-content';
 import { ensureQuizTranslationVisualColumns } from '@/lib/quiz-translation-visual';
 import {
   buildAgePromptBlock,
@@ -40,6 +41,11 @@ type MultiLangQuiz = {
     hint?: string;
     answer?: string;
     explanation?: string | null;
+    detailedExplanation?: string | null;
+    learningPoints?: string | null;
+    relatedKnowledge?: string | null;
+    sources?: string | null;
+    references?: string | null;
     type?: 'TEXT' | 'CHOICE';
     options?: string[] | string | null;
   };
@@ -76,6 +82,11 @@ type LocaleQuizEntry = {
   hint?: string;
   answer?: string;
   explanation?: string | null;
+  detailedExplanation?: string | null;
+  learningPoints?: string | null;
+  relatedKnowledge?: string | null;
+  sources?: string | null;
+  references?: string | null;
   type?: 'TEXT' | 'CHOICE';
   options?: string[] | string | null;
 };
@@ -92,6 +103,11 @@ const ENTRY_FIELD_ALIASES: Record<keyof LocaleQuizEntry, string[]> = {
   hint: ['hint', 'clue', 'tip'],
   answer: ['answer', 'correctAnswer', 'solution', 'correct_answer'],
   explanation: ['explanation', 'reason', 'description', '解説'],
+  detailedExplanation: ['detailedExplanation', 'longExplanation', 'deepExplanation', 'extendedExplanation', '詳細解説'],
+  learningPoints: ['learningPoints', 'keyTakeaways', 'takeaways', 'studyPoints', '学習ポイント'],
+  relatedKnowledge: ['relatedKnowledge', 'backgroundKnowledge', 'furtherContext', '関連知識'],
+  sources: ['sources', 'sourceList', 'citations', '出典'],
+  references: ['references', 'referenceList', 'bibliography', '参考文献'],
   type: ['type', 'quizType', 'format'],
   options: ['options', 'choices', 'selectOptions', 'items'],
 };
@@ -205,6 +221,11 @@ function normalizeJapaneseQuizFields(quiz: MultiLangQuiz) {
       hint: normalizeJapaneseScientificNotation(normalizeText(ja.hint)),
       answer: normalizeJapaneseScientificNotation(normalizeText(ja.answer)),
       explanation: ja.explanation ? normalizeJapaneseScientificNotation(ja.explanation) : ja.explanation,
+      detailedExplanation: ja.detailedExplanation ? normalizeJapaneseScientificNotation(ja.detailedExplanation) : ja.detailedExplanation,
+      learningPoints: ja.learningPoints ? normalizeJapaneseScientificNotation(ja.learningPoints) : ja.learningPoints,
+      relatedKnowledge: ja.relatedKnowledge ? normalizeJapaneseScientificNotation(ja.relatedKnowledge) : ja.relatedKnowledge,
+      sources: ja.sources ? normalizeJapaneseScientificNotation(ja.sources) : ja.sources,
+      references: ja.references ? normalizeJapaneseScientificNotation(ja.references) : ja.references,
       options: normalizedOptions,
     },
   };
@@ -235,6 +256,27 @@ const CATEGORY_QUALITY_RULES: Record<string, CategoryQualityRule> = {
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeTextBlockField(value: unknown) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+      .join('\n');
+  }
+
+  return null;
+}
+
+function splitIntoMeaningfulLines(value: unknown) {
+  return normalizeText(value)
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^[\-\u2022\u30fb\s]+/, '').trim())
+    .filter(Boolean);
 }
 
 function extractPlaceHints(...values: Array<string | undefined>) {
@@ -793,10 +835,15 @@ function normalizeLocaleEntry(value: unknown): LocaleQuizEntry | null {
   const title = pickAliasedField(record, 'title');
   const hint = pickAliasedField(record, 'hint');
   const explanation = pickAliasedField(record, 'explanation');
+  const detailedExplanation = pickAliasedField(record, 'detailedExplanation');
+  const learningPoints = pickAliasedField(record, 'learningPoints');
+  const relatedKnowledge = pickAliasedField(record, 'relatedKnowledge');
+  const sources = pickAliasedField(record, 'sources');
+  const references = pickAliasedField(record, 'references');
   const type = pickAliasedField(record, 'type');
   const options = pickAliasedField(record, 'options');
 
-  if (![question, answer, title, hint, explanation].some((field) => typeof field === 'string' && field.trim() !== '')) {
+  if (![question, answer, title, hint, explanation, detailedExplanation, learningPoints, relatedKnowledge, sources, references].some((field) => typeof field === 'string' && field.trim() !== '')) {
     return null;
   }
 
@@ -805,7 +852,12 @@ function normalizeLocaleEntry(value: unknown): LocaleQuizEntry | null {
     question: typeof question === 'string' ? question : undefined,
     hint: typeof hint === 'string' ? hint : undefined,
     answer: typeof answer === 'string' ? answer : undefined,
-    explanation: typeof explanation === 'string' ? explanation : null,
+    explanation: normalizeTextBlockField(explanation),
+    detailedExplanation: normalizeTextBlockField(detailedExplanation),
+    learningPoints: normalizeTextBlockField(learningPoints),
+    relatedKnowledge: normalizeTextBlockField(relatedKnowledge),
+    sources: normalizeTextBlockField(sources),
+    references: normalizeTextBlockField(references),
     type: type === 'CHOICE' || type === 'TEXT' ? type : undefined,
     options: Array.isArray(options) || typeof options === 'string' ? options : null,
   };
@@ -941,6 +993,26 @@ function buildQualityFeedback(params: {
 
   if (normalizeText(ja.explanation) && !normalizeText(ja.explanation).includes(normalizeText(ja.answer).slice(0, Math.min(6, normalizeText(ja.answer).length)))) {
     issues.push('explanation に正答とのつながりが弱いです。答えが正しい理由を明示してください。');
+  }
+
+  if (normalizeText(ja.detailedExplanation).length < 180) {
+    issues.push('detailedExplanation が短すぎます。背景知識や考え方まで含む詳しい学習解説にしてください。');
+  }
+
+  if (normalizeText(ja.learningPoints).length < 40) {
+    issues.push('learningPoints が不足しています。学習の要点を複数行で整理してください。');
+  }
+
+  if (normalizeText(ja.relatedKnowledge).length < 80) {
+    issues.push('relatedKnowledge が不足しています。関連知識や次に学ぶ内容を補ってください。');
+  }
+
+  if (splitIntoMeaningfulLines(ja.sources).length === 0) {
+    issues.push('sources が空です。根拠となる出典や監修元を示してください。');
+  }
+
+  if (splitIntoMeaningfulLines(ja.references).length === 0) {
+    issues.push('references が空です。参考文献や参考資料を示してください。');
   }
 
   if (normalizeText(ja.answer) && normalizeText(ja.question).includes(normalizeText(ja.answer))) {
@@ -1257,6 +1329,7 @@ export async function POST(req: NextRequest) {
     const prisma = createPrisma(env);
     await ensureCategoryLocalizationColumns(prisma as any);
     await ensureQuizTranslationExplanationColumn(prisma as any);
+    await ensureQuizTranslationLearningContentColumns(prisma as any);
     await ensureQuizTranslationVisualColumns(prisma as any);
 
     // Budget Check
@@ -1389,6 +1462,11 @@ ${excludeTitles && Array.isArray(excludeTitles) && excludeTitles.length > 0 ? `\
 - 正答は1つに定まり、ひっかけや解釈ブレで複数正解にならないようにしてください。
 - 問題文に答えそのものや、答えの直接的な言い換えを含めないでください。
 - answer は結論だけを短く返し、explanation では「なぜそれが正解で、他が違うのか」を学習者目線で説明してください。
+- detailedExplanation では、そのテーマの背景、考え方、誤解しやすい点、実生活や学習とのつながりまで含めた詳しい学習本文を書いてください。日本語は最低500文字を目安にしてください。
+- learningPoints では、この問題から学べる要点を3〜5行の箇条書き風テキストで整理してください。
+- relatedKnowledge では、次に理解しておくと役立つ関連知識を1〜3段落で補ってください。
+- sources では、根拠となる出典や監修元を改行区切りで2〜4件示してください。URLを捏造せず、教科書名・公的機関・学習指導要領・学会など、名称ベースで安全に記述してください。
+- references では、参考文献や参考資料を改行区切りで2〜4件示してください。こちらもURLを無理に付けず、信頼できる資料名を優先してください。
 - ヒントは、その年齢が自力で一歩進める内容にしてください。答えの言い換えは禁止です。
 - 解説は、その年齢にとって「わかった！」という納得感が出るようにしてください。
 - 日本語(ja)を基準に品質を最優先し、en/zh は内容を忠実に自然翻訳してください。
@@ -1399,6 +1477,8 @@ ${excludeTitles && Array.isArray(excludeTitles) && excludeTitles.length > 0 ? `\
 - 既存問題と似たタイトル・似た切り口を避け、同じテーマでも視点・場面・問い方を変えてください。
 - title は画像見出しに収まる短さを意識し、日本語は 32 文字以内、英語は 64 文字以内、中国語は 36 文字以内を目安にしてください。
 - explanation は「正解理由」と「誤答との違い」が分かる説明にしてください。
+- 出力JSONは ja / en / zh の3オブジェクトを必ず含め、それぞれに title, question, hint, answer, explanation, detailedExplanation, learningPoints, relatedKnowledge, sources, references, type を入れてください。
+- learningPoints / sources / references は配列ではなく、改行区切りのプレーンテキストで返してください。
 - 今回の教育課程ベース案: ${curriculumTopicPlan.summary}
 
 ${finalSystemInstruction}
@@ -1484,7 +1564,7 @@ ${finalSystemInstruction}
       try {
         const retryGeneration = await generateQuizPayload({
           modelsToTry: modelCandidates.filter(m => m !== 'gemini-2.5-flash-lite'),
-          prompt: textPrompt + '\n\n## 再生成指示\n必ず {"ja": {...}, "en": {...}, "zh": {...}} の構造でJSONを返してください。各ロケールには title, question, hint, answer, explanation フィールドを含めてください。',
+          prompt: textPrompt + '\n\n## 再生成指示\n必ず {"ja": {...}, "en": {...}, "zh": {...}} の構造でJSONを返してください。各ロケールには title, question, hint, answer, explanation, detailedExplanation, learningPoints, relatedKnowledge, sources, references フィールドを含めてください。',
           categoryName: categoryName || categoryId || '未指定',
           env: runtimeEnv,
         });
@@ -1838,6 +1918,11 @@ ${JSON.stringify(multiLangData, null, 2)}`;
               hint: multiLangData.ja.hint,
               answer: multiLangData.ja.answer,
               explanation: multiLangData.ja.explanation || '',
+              detailedExplanation: multiLangData.ja.detailedExplanation || '',
+              learningPoints: multiLangData.ja.learningPoints || '',
+              relatedKnowledge: multiLangData.ja.relatedKnowledge || '',
+              sources: multiLangData.ja.sources || '',
+              references: multiLangData.ja.references || '',
               type: actualQuizType,
               options: jaOptions,
               imageUrl: translationImageUrls.ja || null,
@@ -1850,6 +1935,11 @@ ${JSON.stringify(multiLangData, null, 2)}`;
               hint: multiLangData.en.hint,
               answer: multiLangData.en.answer,
               explanation: multiLangData.en.explanation || '',
+              detailedExplanation: multiLangData.en.detailedExplanation || '',
+              learningPoints: multiLangData.en.learningPoints || '',
+              relatedKnowledge: multiLangData.en.relatedKnowledge || '',
+              sources: multiLangData.en.sources || '',
+              references: multiLangData.en.references || '',
               type: actualQuizType,
               options: enOptions,
               imageUrl: translationImageUrls.en || null,
@@ -1862,6 +1952,11 @@ ${JSON.stringify(multiLangData, null, 2)}`;
               hint: multiLangData.zh.hint,
               answer: multiLangData.zh.answer,
               explanation: multiLangData.zh.explanation || '',
+              detailedExplanation: multiLangData.zh.detailedExplanation || '',
+              learningPoints: multiLangData.zh.learningPoints || '',
+              relatedKnowledge: multiLangData.zh.relatedKnowledge || '',
+              sources: multiLangData.zh.sources || '',
+              references: multiLangData.zh.references || '',
               type: actualQuizType,
               options: zhOptions,
               imageUrl: translationImageUrls.zh || null,
