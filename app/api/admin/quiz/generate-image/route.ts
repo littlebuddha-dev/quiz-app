@@ -128,8 +128,9 @@ Visual direction: ${imageStyle}
 
 Requirements:
 - The image must help the learner understand the quiz idea at a glance.
-- The learner should still roughly understand the problem scenario even if the text is removed.
-- Prefer explanatory scenes or diagram-like compositions over decorative art.
+- The learner should still roughly understand the problem scenario even if the text is removed, but the result must remain an attractive illustration rather than an infographic.
+- Prefer one memorable scene with a few decisive clues over dense explanatory layouts.
+- Avoid slide-like compositions, comparison tables, multi-panel summaries, classroom posters, or text-heavy chart structures.
 - Make the core entities, relationships, and cues visible enough that the question can be guessed from the image itself.
 - Keep the composition clean, exciting, and age-appropriate.
 - Do not include any letters, words, numbers, subtitles, captions, UI, watermark, or logo.
@@ -153,6 +154,7 @@ Visual direction: ${imageStyle}
 Requirements:
 - Show sequence, branching, repetition, shortest path, or step-by-step logic using arrows, cards, blocks, paths, robots, icons, or highlighted steps.
 - The learner should be able to infer the logic challenge from the image even if no text is shown.
+- Keep it visually rich and scene-based, not like a worksheet or flowchart poster.
 - Keep it as a concept illustration, not a screenshot.
 - Do not include any letters, words, numbers, subtitles, captions, UI, watermark, or logo.
 - Make the logic easy to grasp at a glance with polished lighting and textbook-quality clarity.`;
@@ -186,6 +188,8 @@ Image rules:
 - The composition must help the learner understand the quiz idea at a glance.
 - Even without reading the Japanese text, the learner should roughly understand the phenomenon, relationship, sequence, or comparison shown in the quiz.
 - Make the visual clues do the heavy lifting; text should only reinforce the idea, not carry it alone.
+- Keep the total text presence minimal and leave most of the canvas to the illustration itself.
+- Avoid flowchart grids, comparison cards, timeline boxes, and layouts that read like a classroom slide.
 - Keep the composition clean, exciting, and age-appropriate.
 - Do not add any extra labels, annotations, chart text, UI chrome, watermark, or logo.
 - Use polished lighting and textbook-quality clarity.`;
