@@ -4,6 +4,7 @@ import {
   generateNanobananaImage,
   type InlineImageData,
 } from './nanobanana';
+import { normalizeModelId } from './ai-models';
 
 export type AIProviderName = 'gemini' | 'openai';
 
@@ -60,7 +61,8 @@ function readEnvValue(env: RuntimeEnv, key: string) {
 }
 
 export function inferAIProvider(modelId: string): AIProviderName {
-  return /^(gpt-|o\d|chatgpt-|openai-)/i.test(modelId) ? 'openai' : 'gemini';
+  const normalizedModelId = normalizeModelId(modelId);
+  return /^(gpt-|o\d|chatgpt-|openai-)/i.test(normalizedModelId) ? 'openai' : 'gemini';
 }
 
 export function hasAIProvider(provider: AIProviderName, env?: RuntimeEnv) {
@@ -133,6 +135,7 @@ async function openAIRequest(
 }
 
 async function generateOpenAIText(params: GenerateTextParams): Promise<AITextResult> {
+  const normalizedModel = normalizeModelId(params.model);
   const content: Array<Record<string, unknown>> = [
     { type: 'input_text', text: params.prompt },
   ];
@@ -149,7 +152,7 @@ async function generateOpenAIText(params: GenerateTextParams): Promise<AITextRes
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: params.model,
+        model: normalizedModel,
         instructions: params.systemInstruction || undefined,
         input: [{ role: 'user', content }],
         max_output_tokens: 12000,
@@ -165,7 +168,7 @@ async function generateOpenAIText(params: GenerateTextParams): Promise<AITextRes
 
   return {
     text: extractOpenAIText(payload),
-    model: params.model,
+    model: normalizedModel,
     provider: 'openai',
     usage: {
       promptTokens: Number(usage.input_tokens || 0),
@@ -175,6 +178,7 @@ async function generateOpenAIText(params: GenerateTextParams): Promise<AITextRes
 }
 
 async function generateGeminiText(params: GenerateTextParams): Promise<AITextResult> {
+  const normalizedModel = normalizeModelId(params.model);
   const apiKey = readEnvValue(params.env, 'GEMINI_API_KEY');
   if (!apiKey) {
     throw new AIProviderError('GEMINI_API_KEY is not configured', {
@@ -200,7 +204,7 @@ async function generateGeminiText(params: GenerateTextParams): Promise<AITextRes
       ]
     : params.prompt;
   const response = await ai.models.generateContent({
-    model: params.model,
+    model: normalizedModel,
     contents,
     config: {
       responseMimeType: 'application/json',
@@ -210,7 +214,7 @@ async function generateGeminiText(params: GenerateTextParams): Promise<AITextRes
 
   return {
     text: response.text || '',
-    model: params.model,
+    model: normalizedModel,
     provider: 'gemini',
     usage: {
       promptTokens: response.usageMetadata?.promptTokenCount || 0,
@@ -233,7 +237,7 @@ function imageExtension(mimeType: string) {
 }
 
 async function generateOpenAIImage(params: GenerateImageParams): Promise<InlineImageData | null> {
-  const model = params.model || getDefaultImageModel('openai');
+  const model = normalizeModelId(params.model || getDefaultImageModel('openai'));
   let response: Response;
 
   if (params.sourceImage) {
