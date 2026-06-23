@@ -6,6 +6,7 @@ import { createPrisma } from '@/lib/prisma';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { getServerLocale } from '@/lib/locale-server';
 import { getAbsoluteUrl, getDefaultOgImageUrl, resolveMetadataImageUrl } from '@/lib/metadata';
+import { detectLanguageSubjectRule } from '@/lib/ai-prompts';
 import Footer from '@/app/components/Footer';
 import PublicTopNav from '@/app/components/PublicTopNav';
 
@@ -249,8 +250,15 @@ export default async function CategoryPage({
           {quizzes.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
               {quizzes.map((quiz) => {
+                const languageSubjectRule = detectLanguageSubjectRule([
+                  category.name,
+                  category.nameJa,
+                  category.nameEn,
+                  category.nameZh,
+                ]);
+                const contentLocale = languageSubjectRule?.subjectLocale || locale;
                 const translation =
-                  quiz.translations.find((item) => item.locale === locale) ||
+                  quiz.translations.find((item) => item.locale === contentLocale) ||
                   quiz.translations.find((item) => item.locale === 'ja') ||
                   quiz.translations[0];
                 const cardImage =

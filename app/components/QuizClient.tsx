@@ -15,6 +15,7 @@ import LatexRenderer from './LatexRenderer';
 import AdSense from './AdSense';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { detectLanguageSubjectRule } from '@/lib/ai-prompts';
 
 const RECOMMENDED_GRID_QUERY = '(min-width: 1280px)';
 const COMPACT_RECOMMENDED_COUNT = 3;
@@ -229,6 +230,33 @@ function readOfflineHomeCache() {
       studyRecommendations: undefined,
     };
   }
+}
+
+function getQuizDisplayBundle(quiz: Quiz, locale: Locale) {
+  const languageSubjectRule = detectLanguageSubjectRule([
+    quiz.categoryInfo?.name,
+    quiz.categoryInfo?.nameJa,
+    quiz.categoryInfo?.nameEn,
+    quiz.categoryInfo?.nameZh,
+    quiz.category,
+    quiz.categoryId,
+  ]);
+  const contentLocale = languageSubjectRule?.subjectLocale || locale;
+  const translation = quiz.translations[contentLocale] || quiz.translations.ja || quiz.translations[locale];
+  const translationImage = translation?.imageUrl || null;
+  const jaImage = quiz.translations.ja?.imageUrl || null;
+  const cardImage = (translationImage && translationImage !== '')
+    ? translationImage
+    : (jaImage && jaImage !== '')
+      ? jaImage
+      : (quiz.imageUrl && quiz.imageUrl !== '')
+        ? quiz.imageUrl
+        : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
+
+  return {
+    translation,
+    cardImage,
+  };
 }
 
 type QuizClientProps = {
@@ -675,10 +703,10 @@ export default function QuizClient({
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div className="rounded-3xl border border-blue-200/60 bg-blue-50/60 p-4">
                     <div className="text-xs sm:text-sm font-black text-blue-600 mb-2">{studyText.dailyTitle}</div>
-                    {dailyQuizzes.length > 0 ? (
+                        {dailyQuizzes.length > 0 ? (
                       <div className="space-y-2">
                         {dailyQuizzes.slice(0, 3).map((quiz) => {
-                          const qt = quiz.translations[locale] || quiz.translations['ja'];
+                          const { translation: qt } = getQuizDisplayBundle(quiz, locale);
                           return (
                             <Link key={quiz.id} href={`/watch/${quiz.id}`} className="block rounded-2xl bg-white/80 px-3 py-2.5 font-bold hover:bg-white transition-colors">
                               <div className="line-clamp-2 text-sm"><LatexRenderer text={qt.title} /></div>
@@ -699,7 +727,7 @@ export default function QuizClient({
                     {reviewQuizzes.length > 0 ? (
                       <div className="space-y-2">
                         {reviewQuizzes.slice(0, 3).map((quiz) => {
-                          const qt = quiz.translations[locale] || quiz.translations['ja'];
+                          const { translation: qt } = getQuizDisplayBundle(quiz, locale);
                           return (
                             <Link key={quiz.id} href={`/watch/${quiz.id}`} className="block rounded-2xl bg-white/80 px-3 py-2.5 font-bold hover:bg-white transition-colors">
                               <div className="line-clamp-2 text-sm"><LatexRenderer text={qt.title} /></div>
@@ -793,16 +821,7 @@ export default function QuizClient({
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
                   {section.quizzes.map((quiz) => {
-              const qt = quiz.translations[locale] || quiz.translations['ja'];
-              const localeImage = quiz.translations[locale]?.imageUrl || null;
-              const jaImage = quiz.translations['ja']?.imageUrl || null;
-              const cardImage = (localeImage && localeImage !== "")
-                ? localeImage
-                : (jaImage && jaImage !== "")
-                  ? jaImage
-                  : (quiz.imageUrl && quiz.imageUrl !== "")
-                    ? quiz.imageUrl
-                    : 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?q=80&w=800&auto=format&fit=crop';
+              const { translation: qt, cardImage } = getQuizDisplayBundle(quiz, locale);
               const isDataUri = cardImage.startsWith('data:');
               const translatedCategory = CATEGORY_MAP[locale][quiz.category] || quiz.category;
 
@@ -887,7 +906,7 @@ export default function QuizClient({
           <div className="space-y-3">
             {displayQuizzes.length > 0 ? (
               displayQuizzes.map((quiz) => {
-                const qt = quiz.translations[locale] || quiz.translations['ja'];
+                const { translation: qt } = getQuizDisplayBundle(quiz, locale);
                 const translatedCategory = CATEGORY_MAP[locale][quiz.category] || quiz.category;
 
                 return (
