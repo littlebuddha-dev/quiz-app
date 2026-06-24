@@ -133,6 +133,7 @@ export default function WatchClient({
   const t = languageSubjectRule
     ? {
         ...contentTranslation,
+        imageUrl: localeTranslation?.imageUrl || contentTranslation?.imageUrl,
         hint: localeTranslation?.hint || contentTranslation?.hint,
         explanation: localeTranslation?.explanation || contentTranslation?.explanation,
         detailedExplanation: localeTranslation?.detailedExplanation || contentTranslation?.detailedExplanation,

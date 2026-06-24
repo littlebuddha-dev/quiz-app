@@ -254,6 +254,7 @@ Visible text rules:
 - Headline text: "${copy.headline}"
 - Support text: "${copy.support}"
 - Replace only the existing Japanese quiz text blocks with the localized text above.
+- If any original Japanese text remains anywhere in the final image, the attempt is invalid.
 - Preserve the layout, object placement, framing, camera angle, colors, and diagram structure as much as possible.
 - Do not move or redesign the composition unless it is necessary to fit the replacement text cleanly.
 - Keep the visible text exactly as written, with the same wording and punctuation.
@@ -274,25 +275,33 @@ async function validateLocalizedImage(params: {
   locale: QuizLocale;
   subjectLocale: QuizLocale;
   isLanguageSubject: boolean;
+  expectedHeadline: string;
+  expectedSupport: string;
   provider: AIProviderName;
   textModel: string;
   env?: Record<string, unknown>;
 }) {
-  const { image, locale, subjectLocale, isLanguageSubject, provider, textModel, env } = params;
+  const { image, locale, subjectLocale, isLanguageSubject, expectedHeadline, expectedSupport, provider, textModel, env } = params;
   const validationPrompt = isLanguageSubject
     ? `Inspect this quiz image and answer in JSON.
 Rules:
 - Only two meaningful text blocks should be visible.
 - The headline must be only in ${detectLocaleLanguageName(subjectLocale)}.
 - The support text must be only in ${detectLocaleLanguageName(locale)}.
+- The headline text must exactly be: "${expectedHeadline}"
+- The support text must exactly be: "${expectedSupport}"
 - No other labels, annotations, or mixed-language text should appear.
+- No original Japanese text should remain anywhere unless the subject language itself is Japanese.
 - Text must not be cut off or incomplete.
 Return exactly:
 {"ok":true|false,"issues":["..."]}`
     : `Inspect this quiz image and answer in JSON.
 Rules:
 - All visible text must be only in ${detectLocaleLanguageName(locale)}.
+- The headline text must exactly be: "${expectedHeadline}"
+- The support text must exactly be: "${expectedSupport}"
 - No other languages or mixed scripts should appear.
+- No original Japanese text should remain anywhere in the image.
 - Text must not be cut off or incomplete.
 - No extra labels or annotations should appear besides the intended title and support text.
 Return exactly:
@@ -536,8 +545,17 @@ export async function POST(req: NextRequest) {
       const sourceImage = await resolveInlineImageData(masterJaImageUrl);
       let localizedImage = null;
       let validationIssues: string[] = [];
+      const localizedCopy = buildLocalizedCopy({
+        locale: currentLocale,
+        subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
+        isLanguageSubject: Boolean(languageSubjectRule),
+        title: normalizeText(translation.title || jaTranslation.title) || 'Quiz',
+        question: normalizeText(translation.question || jaTranslation.question),
+        hint: normalizeText(translation.hint || jaTranslation.hint),
+        sharedQuestionText,
+      });
 
-      for (let attempt = 0; attempt < 3; attempt += 1) {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
         const prompt = `${buildLocalizedEditPrompt({
           locale: currentLocale,
           subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
@@ -574,6 +592,8 @@ export async function POST(req: NextRequest) {
               locale: currentLocale,
               subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
               isLanguageSubject: Boolean(languageSubjectRule),
+              expectedHeadline: localizedCopy.headline,
+              expectedSupport: localizedCopy.support,
               provider,
               textModel: validationTextModel,
               env: runtimeEnv,

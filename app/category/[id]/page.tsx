@@ -261,8 +261,12 @@ export default async function CategoryPage({
                   quiz.translations.find((item) => item.locale === contentLocale) ||
                   quiz.translations.find((item) => item.locale === 'ja') ||
                   quiz.translations[0];
+                const localeImageTranslation =
+                  quiz.translations.find((item) => item.locale === locale) ||
+                  quiz.translations.find((item) => item.locale === 'ja') ||
+                  translation;
                 const cardImage =
-                  translation?.imageUrl ||
+                  localeImageTranslation?.imageUrl ||
                   quiz.imageUrl ||
                   '/images/no-image.png';
                 const isDataUri = cardImage.startsWith('data:');

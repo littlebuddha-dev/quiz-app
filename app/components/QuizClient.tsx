@@ -243,7 +243,8 @@ function getQuizDisplayBundle(quiz: Quiz, locale: Locale) {
   ]);
   const contentLocale = languageSubjectRule?.subjectLocale || locale;
   const translation = quiz.translations[contentLocale] || quiz.translations.ja || quiz.translations[locale];
-  const translationImage = translation?.imageUrl || null;
+  const localeImageTranslation = quiz.translations[locale] || quiz.translations.ja || translation;
+  const translationImage = localeImageTranslation?.imageUrl || null;
   const jaImage = quiz.translations.ja?.imageUrl || null;
   const cardImage = (translationImage && translationImage !== '')
     ? translationImage

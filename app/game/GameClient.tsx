@@ -126,6 +126,7 @@ export default function GameClient({ quizzes }: { quizzes: Quiz[] }) {
   const t: any = languageSubjectRule
     ? {
         ...contentTranslation,
+        imageUrl: localeTranslation?.imageUrl || contentTranslation?.imageUrl,
         hint: localeTranslation?.hint || contentTranslation?.hint,
         explanation: localeTranslation?.explanation || contentTranslation?.explanation,
       }
