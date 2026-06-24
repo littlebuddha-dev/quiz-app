@@ -11,6 +11,7 @@ import { ensureCommentReplyColumns } from "./comment-replies";
 import { ensureQuizTranslationExplanationColumn } from "./quiz-translation-explanation";
 import { ensureQuizTranslationLearningContentColumns } from "./quiz-translation-learning-content";
 import { ensureQuizTranslationVisualColumns } from "./quiz-translation-visual";
+import { ensureDefaultCategories } from "./default-categories";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -46,6 +47,9 @@ ensureManagedImageStorageMigration(prisma as any).catch(err => {
 });
 ensureCommentReplyColumns(prisma as any).catch(err => {
   console.error('Failed to ensure comment reply columns:', err);
+});
+ensureDefaultCategories(prisma as any).catch(err => {
+  console.error('Failed to ensure default categories:', err);
 });
 
 /**

@@ -1017,6 +1017,7 @@ export default function AdminClient({ initialQuizzes, categories, userStatus, in
     { id: 'language.svg', name: '国語 (Language)' },
     { id: 'science.svg', name: '理科 (Science)' },
     { id: 'science.svg', name: '物理 (Physics)' },
+    { id: 'science.svg', name: '生物 (Biology)' },
     { id: 'social.svg', name: '社会 (Social)' },
     { id: 'logic.svg', name: '論理 (Logic)' },
     { id: 'coding.svg', name: 'プログラミング (Coding)' },
