@@ -538,16 +538,18 @@ export default function QuizClient({
       : sortedQuizzes.slice(0, recommendedQuizCount).map((quiz) => quiz.id);
     const recommendedSet = new Set(recommendedIds);
     const recommendedQuizzes = sortedQuizzes.filter((quiz) => recommendedSet.has(quiz.id)).slice(0, recommendedQuizCount);
-    const latestQuizzes = sortedQuizzes.filter((quiz) => !recommendedSet.has(quiz.id)).slice(0, 8);
+    const latestQuizzes = [...sourceQuizzes]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 8);
     const latestSet = new Set(latestQuizzes.map((quiz) => quiz.id));
-    const archiveQuizzes = sortedQuizzes.filter((quiz) => !recommendedSet.has(quiz.id) && !latestSet.has(quiz.id));
+    const archiveQuizzes = sortedQuizzes.filter((quiz) => !latestSet.has(quiz.id));
 
     return [
       { key: 'recommended', title: studyText.recommendedSection, quizzes: recommendedQuizzes },
       { key: 'latest', title: studyText.latestSection, quizzes: latestQuizzes },
       { key: 'archive', title: studyText.archiveSection, quizzes: archiveQuizzes },
     ].filter((section) => section.quizzes.length > 0);
-  }, [activeStudyRecommendations?.dailyQuizIds, displayQuizzes, recommendedQuizCount, sortedQuizzes, studyMode, studyText.archiveSection, studyText.latestSection, studyText.recommendedSection]);
+  }, [activeStudyRecommendations?.dailyQuizIds, displayQuizzes, recommendedQuizCount, sortedQuizzes, sourceQuizzes, studyMode, studyText.archiveSection, studyText.latestSection, studyText.recommendedSection]);
   const dailyGoalProgress = activeStudyRecommendations
     ? Math.min(activeStudyRecommendations.solvedTodayCount / Math.max(activeStudyRecommendations.dailyGoalTarget, 1), 1)
     : 0;
