@@ -63,6 +63,27 @@ function clampText(value: string, maxLength: number) {
   return trimmed.length <= maxLength ? trimmed : `${trimmed.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
 }
 
+function fitTextForImage(value: string, maxLength: number) {
+  const normalized = normalizeText(value).replace(/\s+/g, ' ');
+  if (!normalized) return '';
+  if (normalized.length <= maxLength) return normalized;
+
+  const candidates = [
+    normalized.replace(/\s*[（(][^）)]*[）)]\s*/g, ' ').replace(/\s+/g, ' ').trim(),
+    normalized.split(/[〜~｜|]/)[0]?.trim() || '',
+    normalized.split(/[。.!?！？]/)[0]?.trim() || '',
+    normalized.split(/[、，,:：;]/)[0]?.trim() || '',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (candidate.length <= maxLength) {
+      return candidate;
+    }
+  }
+
+  return normalized.slice(0, maxLength).trim();
+}
+
 function firstSentence(value: string) {
   const normalized = normalizeText(value).replace(/\s+/g, ' ');
   if (!normalized) return '';
@@ -169,8 +190,8 @@ function buildJapaneseMasterPrompt(params: {
   imageStyle: string;
 }) {
   const { age, categoryName, title, question, hint, imageStyle } = params;
-  const headline = clampText(firstSentence(title), 24);
-  const support = clampText(firstSentence(hint || '') || firstSentence(question), 44);
+  const headline = fitTextForImage(firstSentence(title), 28);
+  const support = fitTextForImage(firstSentence(hint || '') || firstSentence(question), 60);
   return `Create exactly one premium educational quiz illustration in a wide 16:9 layout for learners around age ${age}.
 Subject area: ${categoryName}
 Visual direction: ${imageStyle}
@@ -181,8 +202,9 @@ Visible text rules:
 - Headline text: "${headline}"
 - Support text: "${support}"
 - Keep the headline visually primary and the support text secondary.
-- Keep all text fully visible. Do not crop, truncate, or fade out any letters.
-- Headline should fit within two lines. Support text should fit within three short lines.
+- Every character of both text blocks must remain visible. Do not crop, truncate, replace with ellipses, or fade out any letters.
+- If the text feels long, reduce font size moderately and tighten line breaks so everything fits cleanly.
+- Headline should fit within up to three compact lines. Support text should fit within up to four compact lines.
 
 Image rules:
 - The composition must help the learner understand the quiz idea at a glance.
@@ -213,8 +235,8 @@ function buildLocalizedCopy(params: {
   const supportSource = isLanguageSubject
     ? normalizeText(question.replace(sharedQuestionText || '', '')) || firstSentence(hint || '') || firstSentence(question)
     : (firstSentence(hint || '') || firstSentence(question));
-  const headline = clampText(headlineSource, subjectLocale === 'en' ? 42 : 24);
-  const support = clampText(supportSource, supportLimit);
+  const headline = fitTextForImage(headlineSource, subjectLocale === 'en' ? 48 : 28);
+  const support = fitTextForImage(supportSource, locale === 'en' ? 96 : 60);
   return { headline, support };
 }
 
@@ -259,8 +281,9 @@ Visible text rules:
 - Do not move or redesign the composition unless it is necessary to fit the replacement text cleanly.
 - Keep the visible text exactly as written, with the same wording and punctuation.
 - Make the headline visually primary and the support text secondary.
-- Keep all text fully visible. Do not crop, truncate, or fade out any letters.
-- Headline should fit within two lines. Support text should fit within three short lines.
+- Every character of both text blocks must remain visible. Do not crop, truncate, replace with ellipses, or fade out any letters.
+- If the text feels long, reduce font size moderately and tighten line breaks so everything fits cleanly.
+- Headline should fit within up to three compact lines. Support text should fit within up to four compact lines.
 - Keep the composition, objects, and educational meaning consistent with the source image.
 - No subtitles, no labels, no chart annotations, no UI chrome, no watermark, and no additional random text.`;
 }

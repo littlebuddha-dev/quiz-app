@@ -405,6 +405,27 @@ function clampText(value: string, maxLength: number) {
   return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
 }
 
+function fitTextForImage(value: string, maxLength: number) {
+  const normalized = normalizeText(value).replace(/\s+/g, ' ');
+  if (!normalized) return '';
+  if (normalized.length <= maxLength) return normalized;
+
+  const candidates = [
+    normalized.replace(/\s*[（(][^）)]*[）)]\s*/g, ' ').replace(/\s+/g, ' ').trim(),
+    normalized.split(/[〜~｜|]/)[0]?.trim() || '',
+    normalized.split(/[。.!?！？]/)[0]?.trim() || '',
+    normalized.split(/[、，,:：;]/)[0]?.trim() || '',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (candidate.length <= maxLength) {
+      return candidate;
+    }
+  }
+
+  return normalized.slice(0, maxLength).trim();
+}
+
 function stripCodeLikeSegments(value: string) {
   return value
     .replace(/```[\s\S]*?```/g, ' ')
@@ -478,10 +499,10 @@ function buildLocalizedImageCopy(params: {
         isProgrammingSubject: true,
       })
     : (localeInstructionBase || String(localeEntry.hint || localeEntry.explanation || ''));
-  const localeInstruction = clampText(localeInstructionSource, locale === 'en' ? 120 : 72);
+  const localeInstruction = fitTextForImage(localeInstructionSource, locale === 'en' ? 120 : 72);
   const headlineText = languageSubjectRule
-    ? clampText(sharedExerciseText || normalizeText(String(quiz.ja.title || '')), 80)
-    : clampText(
+    ? fitTextForImage(sharedExerciseText || normalizeText(String(quiz.ja.title || '')), 80)
+    : fitTextForImage(
         isProgrammingSubject
           ? normalizeText(String(localeEntry.title || localeEntry.hint || quiz.ja.title || ''))
           : normalizeText(String(localeEntry.title || localeQuestion || quiz.ja.title || '')),
@@ -594,6 +615,8 @@ Visible text rules:
 - Keep the total text presence minimal. The text should feel like a light overlay on top of an illustration, not the main content of a poster.
 - Reserve most of the canvas for the illustration itself.
 - Integrate the typography naturally into the scene while preserving legibility.
+- Every character of both text blocks must remain visible. Do not crop, truncate, replace with ellipses, or fade out any letters.
+- If the text feels long, reduce font size modestly and tighten line breaks so everything fits cleanly.
 - Underlying concept: ${buildImageQuestionSummary({ question, isProgrammingSubject })}
 - The underlying illustration must still communicate the rough question scenario even if the text blocks are hidden.
 - Avoid flowchart grids, comparison cards, timeline boxes, and other layouts that turn the image into a slide.
