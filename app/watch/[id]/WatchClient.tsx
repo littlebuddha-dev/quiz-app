@@ -17,6 +17,7 @@ import Footer from '../../components/Footer';
 import { Quiz } from '../../types';
 import CorrectEffect from '../../components/CorrectEffect';
 import AdSense from '../../components/AdSense';
+import AmazonAffiliate from '../../components/AmazonAffiliate';
 import { usePreferredLocale } from '../../hooks/usePreferredLocale';
 import { buildGentleExplanation } from '@/lib/explanation-mode';
 import { detectLanguageSubjectRule } from '@/lib/ai-prompts';
@@ -568,6 +569,15 @@ export default function WatchClient({
             {/* 問題文と回答フォーム */}
             <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] mb-8">
               {isOnline && <AdSense slot="watch" />}
+              {isOnline && (
+                <AmazonAffiliate
+                  slot="watch"
+                  locale={locale}
+                  title={t.title}
+                  category={categoryLabel}
+                  question={t.question}
+                />
+              )}
               <h3 className="font-medium text-lg sm:text-xl mb-6 leading-relaxed break-words [overflow-wrap:anywhere] safari-no-faux-bold">
                 <LatexRenderer text={t.question} />
               </h3>

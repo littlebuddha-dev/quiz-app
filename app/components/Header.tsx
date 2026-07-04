@@ -187,7 +187,7 @@ export default function Header({
                         )}
                         {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                           <UserButton.Link
-                            label="Google AdSense"
+                            label="広告・アフィリエイト"
                             labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                             href="/admin/adsense"
                           />
@@ -354,7 +354,7 @@ export default function Header({
                       )}
                       {(currentStatus?.role === 'ADMIN' || currentStatus?.role === 'PARENT') && (
                         <UserButton.Link
-                          label="Google AdSense"
+                          label="広告・アフィリエイト"
                           labelIcon={<img src="/icons/ad.svg" alt="" className="w-4 h-4 opacity-70 grayscale" />}
                           href="/admin/adsense"
                         />

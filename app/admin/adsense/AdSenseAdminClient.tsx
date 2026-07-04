@@ -5,6 +5,8 @@ import Header from '@/app/components/Header';
 import { usePreferredLocale } from '@/app/hooks/usePreferredLocale';
 import type { AdSenseSettings } from '@/lib/adsense';
 import { DEFAULT_ADSENSE_SETTINGS } from '@/lib/adsense';
+import type { AmazonAffiliateSettings } from '@/lib/amazon-affiliate';
+import { DEFAULT_AMAZON_AFFILIATE_SETTINGS } from '@/lib/amazon-affiliate';
 
 type AdSenseAdminClientProps = {
   userStatus: { xp: number; level: number; role: string };
@@ -23,6 +25,7 @@ function toAdSensePublisherId(clientId: string) {
 export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientProps) {
   const { locale, setLocale } = usePreferredLocale();
   const [settings, setSettings] = useState<AdSenseSettings>(DEFAULT_ADSENSE_SETTINGS);
+  const [amazonSettings, setAmazonSettings] = useState<AmazonAffiliateSettings>(DEFAULT_AMAZON_AFFILIATE_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -32,17 +35,31 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
     : '';
 
   useEffect(() => {
-    fetch('/api/admin/adsense')
-      .then((res) => res.json())
-      .then((data) => {
-        const parsed = data as AdSenseSettings & { error?: string };
-        if (!parsed.error) {
+    Promise.all([
+      fetch('/api/admin/adsense').then((res) => res.json()),
+      fetch('/api/admin/amazon-affiliate').then((res) => res.json()),
+    ])
+      .then(([adsenseData, amazonData]) => {
+        const parsedAdSense = adsenseData as AdSenseSettings & { error?: string };
+        if (!parsedAdSense.error) {
           setSettings((prev) => ({
             ...prev,
-            ...parsed,
+            ...parsedAdSense,
             slots: {
-              home: { ...prev.slots.home, ...parsed.slots?.home },
-              watch: { ...prev.slots.watch, ...parsed.slots?.watch },
+              home: { ...prev.slots.home, ...parsedAdSense.slots?.home },
+              watch: { ...prev.slots.watch, ...parsedAdSense.slots?.watch },
+            },
+          }));
+        }
+
+        const parsedAmazon = amazonData as AmazonAffiliateSettings & { error?: string };
+        if (!parsedAmazon.error) {
+          setAmazonSettings((prev) => ({
+            ...prev,
+            ...parsedAmazon,
+            slots: {
+              home: { ...prev.slots.home, ...parsedAmazon.slots?.home },
+              watch: { ...prev.slots.watch, ...parsedAmazon.slots?.watch },
             },
           }));
         }
@@ -58,12 +75,19 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
     setSaving(true);
     setMessage('');
     try {
-      const res = await fetch('/api/admin/adsense', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-      if (res.ok) {
+      const [adsenseRes, amazonRes] = await Promise.all([
+        fetch('/api/admin/adsense', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings),
+        }),
+        fetch('/api/admin/amazon-affiliate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(amazonSettings),
+        }),
+      ]);
+      if (adsenseRes.ok && amazonRes.ok) {
         setMessage('設定を保存しました。');
       } else {
         setMessage('保存に失敗しました。');
@@ -89,8 +113,8 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
 
       <main className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-black mb-2">Google AdSense 管理</h1>
-          <p className="text-zinc-500">広告の表示設定とスニペットを管理します。</p>
+          <h1 className="text-3xl font-black mb-2">広告・アフィリエイト管理</h1>
+          <p className="text-zinc-500">Google AdSense と Amazon アフィリエイトの表示設定を管理します。</p>
         </div>
 
         <div className="grid gap-6">
@@ -190,6 +214,99 @@ export default function AdSenseAdminClient({ userStatus }: AdSenseAdminClientPro
                   onChange={(e) => setSettings({
                     ...settings,
                     slots: { ...settings.slots, watch: { ...settings.slots.watch, slotId: e.target.value.trim() } }
+                  })}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-[var(--card)] rounded-3xl p-6 border border-[var(--border)] overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold mb-1">Amazon アフィリエイト</h2>
+                <p className="text-sm text-zinc-500">クイズ内容から関連する本や教材への検索リンクを自動で表示します。</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={amazonSettings.enabled}
+                  onChange={(e) => setAmazonSettings({ ...amazonSettings, enabled: e.target.checked })}
+                />
+                <div className="w-14 h-7 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-bold mb-2">アソシエイトタグ</label>
+                <input
+                  type="text"
+                  className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-[var(--border)] rounded-2xl font-mono text-sm"
+                  placeholder="example-22"
+                  value={amazonSettings.associateTag}
+                  onChange={(e) => setAmazonSettings({ ...amazonSettings, associateTag: e.target.value.trim() })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">マーケットプレイス</label>
+                <select
+                  className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-[var(--border)] rounded-2xl text-sm font-bold"
+                  value={amazonSettings.marketplace}
+                  onChange={(e) => setAmazonSettings({ ...amazonSettings, marketplace: e.target.value === 'us' ? 'us' : 'jp' })}
+                >
+                  <option value="jp">Amazon.co.jp</option>
+                  <option value="us">Amazon.com</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="rounded-2xl border border-[var(--border)] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">ホーム（クイズ一覧）</span>
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 accent-amber-500"
+                    checked={amazonSettings.slots.home.enabled}
+                    onChange={(e) => setAmazonSettings({
+                      ...amazonSettings,
+                      slots: { ...amazonSettings.slots, home: { ...amazonSettings.slots.home, enabled: e.target.checked } }
+                    })}
+                  />
+                </div>
+                <input
+                  type="text"
+                  className="w-full p-3 bg-zinc-50 dark:bg-zinc-900 border border-[var(--border)] rounded-2xl text-sm"
+                  placeholder="自動推定が弱い時の fallback キーワード"
+                  value={amazonSettings.slots.home.fallbackKeywords}
+                  onChange={(e) => setAmazonSettings({
+                    ...amazonSettings,
+                    slots: { ...amazonSettings.slots, home: { ...amazonSettings.slots.home, fallbackKeywords: e.target.value } }
+                  })}
+                />
+              </div>
+              <div className="rounded-2xl border border-[var(--border)] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">クイズ閲覧ページ</span>
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 accent-amber-500"
+                    checked={amazonSettings.slots.watch.enabled}
+                    onChange={(e) => setAmazonSettings({
+                      ...amazonSettings,
+                      slots: { ...amazonSettings.slots, watch: { ...amazonSettings.slots.watch, enabled: e.target.checked } }
+                    })}
+                  />
+                </div>
+                <input
+                  type="text"
+                  className="w-full p-3 bg-zinc-50 dark:bg-zinc-900 border border-[var(--border)] rounded-2xl text-sm"
+                  placeholder="自動推定が弱い時の fallback キーワード"
+                  value={amazonSettings.slots.watch.fallbackKeywords}
+                  onChange={(e) => setAmazonSettings({
+                    ...amazonSettings,
+                    slots: { ...amazonSettings.slots, watch: { ...amazonSettings.slots.watch, fallbackKeywords: e.target.value } }
                   })}
                 />
               </div>

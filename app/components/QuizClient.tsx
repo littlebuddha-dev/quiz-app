@@ -13,6 +13,7 @@ import Footer from './Footer';
 import { Quiz, Locale, StudyRecommendations } from '../types';
 import LatexRenderer from './LatexRenderer';
 import AdSense from './AdSense';
+import AmazonAffiliate from './AmazonAffiliate';
 import { usePreferredLocale } from '../hooks/usePreferredLocale';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { detectLanguageSubjectRule } from '@/lib/ai-prompts';
@@ -550,6 +551,22 @@ export default function QuizClient({
       { key: 'archive', title: studyText.archiveSection, quizzes: archiveQuizzes },
     ].filter((section) => section.quizzes.length > 0);
   }, [activeStudyRecommendations?.dailyQuizIds, displayQuizzes, recommendedQuizCount, sortedQuizzes, sourceQuizzes, studyMode, studyText.archiveSection, studyText.latestSection, studyText.recommendedSection]);
+  const affiliateQuiz = useMemo(() => {
+    const primarySectionQuiz = homepageSections.find((section) => section.quizzes.length > 0)?.quizzes[0];
+    return primarySectionQuiz || displayQuizzes[0] || sortedQuizzes[0] || sourceQuizzes[0] || null;
+  }, [displayQuizzes, homepageSections, sortedQuizzes, sourceQuizzes]);
+  const affiliateCategoryLabel = useMemo(() => {
+    if (!affiliateQuiz) return null;
+    return locale === 'en'
+      ? affiliateQuiz.categoryInfo?.nameEn || affiliateQuiz.categoryInfo?.nameJa || affiliateQuiz.categoryInfo?.name || affiliateQuiz.category || affiliateQuiz.categoryId
+      : locale === 'zh'
+        ? affiliateQuiz.categoryInfo?.nameZh || affiliateQuiz.categoryInfo?.nameJa || affiliateQuiz.categoryInfo?.name || affiliateQuiz.category || affiliateQuiz.categoryId
+        : affiliateQuiz.categoryInfo?.nameJa || affiliateQuiz.categoryInfo?.name || affiliateQuiz.category || affiliateQuiz.categoryId;
+  }, [affiliateQuiz, locale]);
+  const affiliateDisplayBundle = useMemo(() => {
+    if (!affiliateQuiz) return null;
+    return getQuizDisplayBundle(affiliateQuiz, locale);
+  }, [affiliateQuiz, locale]);
   const dailyGoalProgress = activeStudyRecommendations
     ? Math.min(activeStudyRecommendations.solvedTodayCount / Math.max(activeStudyRecommendations.dailyGoalTarget, 1), 1)
     : 0;
@@ -605,6 +622,15 @@ export default function QuizClient({
         </div>
 
         {isOnline && <AdSense slot="home" />}
+        {isOnline && affiliateQuiz && affiliateDisplayBundle?.translation && (
+          <AmazonAffiliate
+            slot="home"
+            locale={locale}
+            title={affiliateDisplayBundle.translation.title}
+            category={affiliateCategoryLabel}
+            question={affiliateDisplayBundle.translation.question}
+          />
+        )}
 
         {!isOnline && (
           <section className="mb-5 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 p-4">
