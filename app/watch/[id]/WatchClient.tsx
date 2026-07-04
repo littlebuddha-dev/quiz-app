@@ -569,15 +569,6 @@ export default function WatchClient({
             {/* 問題文と回答フォーム */}
             <div className="bg-[var(--card)] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-[var(--border)] mb-8">
               {isOnline && <AdSense slot="watch" />}
-              {isOnline && (
-                <AmazonAffiliate
-                  slot="watch"
-                  locale={locale}
-                  title={t.title}
-                  category={categoryLabel}
-                  question={t.question}
-                />
-              )}
               <h3 className="font-medium text-lg sm:text-xl mb-6 leading-relaxed break-words [overflow-wrap:anywhere] safari-no-faux-bold">
                 <LatexRenderer text={t.question} />
               </h3>
@@ -795,6 +786,16 @@ export default function WatchClient({
 
           {/* 右側: 関連動画エリア（レコメンド） */}
           <div className="lg:w-96 flex-shrink-0 self-start">
+            {isOnline && (
+              <AmazonAffiliate
+                slot="watch"
+                locale={locale}
+                title={t.title}
+                category={categoryLabel}
+                question={t.question}
+                variant="sidebar"
+              />
+            )}
             <h3 className="font-semibold mb-6 flex items-center gap-2 safari-no-faux-bold">
               <span className="w-1.5 h-6 bg-amber-500 rounded-full inline-block" />
               {locale === 'ja' ? '次のおすすめ' : locale === 'en' ? 'Up Next' : '接下来播放'}

@@ -622,15 +622,6 @@ export default function QuizClient({
         </div>
 
         {isOnline && <AdSense slot="home" />}
-        {isOnline && affiliateQuiz && affiliateDisplayBundle?.translation && (
-          <AmazonAffiliate
-            slot="home"
-            locale={locale}
-            title={affiliateDisplayBundle.translation.title}
-            category={affiliateCategoryLabel}
-            question={affiliateDisplayBundle.translation.question}
-          />
-        )}
 
         {!isOnline && (
           <section className="mb-5 rounded-3xl border border-emerald-200/70 bg-emerald-50/80 p-4">
@@ -840,7 +831,7 @@ export default function QuizClient({
         {isOnline ? (
         <div className="space-y-10">
           {(studyMode !== 'all' ? displayQuizzes.length > 0 : homepageSections.length > 0) ? (
-            (studyMode === 'all' ? homepageSections : [{ key: 'all', title: '', quizzes: displayQuizzes }]).map((section) => (
+            (studyMode === 'all' ? homepageSections : [{ key: 'all', title: '', quizzes: displayQuizzes }]).map((section, sectionIndex) => (
               <section key={section.key} className="space-y-4">
                 {section.title && (
                   <div className="flex items-center gap-3">
@@ -849,6 +840,16 @@ export default function QuizClient({
                   </div>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+                  {isOnline && sectionIndex === 0 && affiliateQuiz && affiliateDisplayBundle?.translation && (
+                    <AmazonAffiliate
+                      slot="home"
+                      locale={locale}
+                      title={affiliateDisplayBundle.translation.title}
+                      category={affiliateCategoryLabel}
+                      question={affiliateDisplayBundle.translation.question}
+                      variant="card"
+                    />
+                  )}
                   {section.quizzes.map((quiz) => {
               const { translation: qt, cardImage } = getQuizDisplayBundle(quiz, locale);
               const isDataUri = cardImage.startsWith('data:');
