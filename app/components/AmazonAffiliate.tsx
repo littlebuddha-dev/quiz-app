@@ -22,6 +22,31 @@ function normalizeText(value?: string | null) {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
 }
 
+function stripSearchNoise(value: string) {
+  return value
+    .replace(/\$[^$]+\$/g, ' ')
+    .replace(/[（(][^)）]{0,120}[)）]/g, ' ')
+    .replace(/[【】\[\]{}「」『』"'`]/g, ' ')
+    .replace(/[,:;|/\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function shortenTopic(value: string, locale: Locale) {
+  const cleaned = stripSearchNoise(value);
+  if (!cleaned) return '';
+
+  if (locale === 'en') {
+    return cleaned
+      .split(/\s+/)
+      .slice(0, 5)
+      .join(' ')
+      .trim();
+  }
+
+  return cleaned.slice(0, 24).trim();
+}
+
 function buildKeywords(params: {
   locale: Locale;
   title?: string | null;
@@ -29,24 +54,27 @@ function buildKeywords(params: {
   question?: string | null;
   fallbackKeywords?: string;
 }) {
-  const title = normalizeText(params.title);
-  const category = normalizeText(params.category);
-  const question = normalizeText(params.question)
-    .replace(/[（(][^)）]{0,80}[)）]/g, ' ')
-    .split(/[。.!?！？]/)[0]
-    .trim();
-  const seed = [title, category, question].filter(Boolean).join(' ');
+  const title = shortenTopic(normalizeText(params.title), params.locale);
+  const category = shortenTopic(normalizeText(params.category), params.locale);
+  const question = shortenTopic(
+    normalizeText(params.question)
+      .split(/[。.!?！？]/)[0]
+      .trim(),
+    params.locale
+  );
+  const primaryTopic = title || question;
+  const seed = [category, primaryTopic].filter(Boolean).join(' ').trim();
 
   if (seed) {
     const suffix = params.locale === 'en'
-      ? 'book study guide'
+      ? 'books'
       : params.locale === 'zh'
-        ? '教材 书'
-        : '参考書 本';
+        ? '教材'
+        : '参考書';
     return `${seed} ${suffix}`.trim();
   }
 
-  return normalizeText(params.fallbackKeywords);
+  return shortenTopic(normalizeText(params.fallbackKeywords), params.locale);
 }
 
 const COPY: Record<Locale, { badge: string; title: string; body: string; cta: string }> = {
