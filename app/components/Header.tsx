@@ -4,7 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut, SignInButton, UserButton, useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -34,31 +34,24 @@ export default function Header({
   hideSearch = false
 }: HeaderProps) {
   const t = DICTIONARY[locale];
-  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const multiSessionEnabled =
     process.env.NEXT_PUBLIC_CLERK_MULTI_SESSION_ENABLED === 'true';
 
   const { userId } = useAuth();
   const router = useRouter();
-  const [currentStatus, setCurrentStatus] = useState(userStatus);
-  const [currentLocation, setCurrentLocation] = useState('');
-
-  // プロップが更新されたらローカルステートを同期
-  useEffect(() => {
-    if (userStatus) {
-      setCurrentStatus(userStatus);
-    }
-  }, [userStatus]);
-
-  // URL情報の同期 (hydrationを考慮)
-  useEffect(() => {
-    if (mounted) {
-      const sp = searchParams?.toString();
-      setCurrentLocation(`${pathname}${sp ? `?${sp}` : ''}`);
-    }
-  }, [mounted, pathname, searchParams]);
+  const [fetchedStatus, setFetchedStatus] = useState(userStatus);
+  const currentStatus = userStatus ?? fetchedStatus;
+  const currentLocation = useMemo(() => {
+    const sp = searchParams?.toString();
+    return `${pathname}${sp ? `?${sp}` : ''}`;
+  }, [pathname, searchParams]);
 
   // クライアントサイドでの最新ステータス取得 (同期漏れ対策)
   useEffect(() => {
@@ -69,7 +62,7 @@ export default function Header({
         const res = await fetch('/api/user/status');
         if (res.ok) {
           const data = (await res.json()) as { xp: number; level: number; role: string };
-          setCurrentStatus(data);
+          setFetchedStatus(data);
         } else {
           console.warn('User status fetch non-ok:', res.status);
         }
@@ -80,10 +73,6 @@ export default function Header({
 
     fetchStatus();
   }, [userId, mounted, userStatus]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const prevUserId = useRef<string | null | undefined>(undefined);
 

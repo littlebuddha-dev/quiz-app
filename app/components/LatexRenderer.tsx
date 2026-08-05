@@ -36,17 +36,17 @@ function normalizeLatexText(value: string) {
   return processed;
 }
 
-export default function LatexRenderer({ text, className = "" }: LatexRendererProps) {
-  const escapeHtml = (unsafe: string) => {
-    return unsafe
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  };
+function escapeHtml(unsafe: string) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-  const getHtml = () => {
+export default function LatexRenderer({ text, className = "" }: LatexRendererProps) {
+  const html = useMemo(() => {
     const normalizedText = normalizeLatexText(text);
 
     // 1. デリミタ ($$ または $) が含まれているかチェック
@@ -91,9 +91,7 @@ export default function LatexRenderer({ text, className = "" }: LatexRendererPro
         return escapeHtml(part);
       }
     }).join('');
-  };
-
-  const html = useMemo(() => getHtml(), [text]);
+  }, [text]);
 
   return (
     <span 

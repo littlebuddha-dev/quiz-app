@@ -86,7 +86,6 @@ export default async function Home({
   // ログイン中のユーザーがいればその設定・履歴を取得
   let userBookmarks: string[] = [];
   let userHistories: string[] = [];
-  let userTargetAge: number | null = null;
   let userStatus: { xp: number; level: number; role: string } | undefined = undefined;
   let userHistoryEntries: Array<{ quizId: string; isCorrect: boolean; createdAt: Date }> = [];
   let effectiveAge: number | null = null;
