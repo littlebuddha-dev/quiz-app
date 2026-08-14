@@ -135,15 +135,27 @@ function detectLocaleLanguageName(locale: QuizLocale) {
 }
 
 function buildLocaleSpecificTextRule(locale: QuizLocale) {
-  if (locale !== 'zh') return '';
-  return `- Use only standard Mainland Simplified Chinese characters.
+  if (locale === 'en') {
+    return `- Use natural English only, written in the Latin alphabet.
+- Do not leave any Japanese or Chinese characters anywhere in the final image.
+- Do not place tiny labels, side notes, or extra callouts under objects, arrows, or decorations.
+- Keep all visible English text confined to the intended two text blocks only.`;
+  }
+
+  if (locale === 'zh') {
+    return `- Use only standard Mainland Simplified Chinese characters.
 - Never use Traditional Chinese forms such as 學, 習, 說, 圖, 葉, 這, 為, 麼.
 - Do not place tiny labels, side notes, or extra callouts under objects, leaves, acorns, arrows, or decorations.
 - Keep all visible Chinese text confined to the intended two text blocks only.`;
+  }
+
+  return '';
 }
 
 function getLocalizedAttemptLimit(locale: QuizLocale) {
-  return locale === 'zh' ? 6 : 4;
+  if (locale === 'zh') return 6;
+  if (locale === 'en') return 5;
+  return 4;
 }
 
 function buildBasePrompt(params: {
@@ -331,6 +343,7 @@ Rules:
 - No other labels, annotations, or mixed-language text should appear.
 - No original Japanese text should remain anywhere unless the subject language itself is Japanese.
 - Text must not be cut off or incomplete.
+- For English, any visible Japanese or Chinese characters are invalid, and decorative object labels also count as extra text.
 - For Simplified Chinese, traditional characters are invalid and decorative object labels also count as extra text.
 Return exactly:
 {"ok":true|false,"issues":["..."]}`
@@ -343,6 +356,7 @@ Rules:
 - No original Japanese text should remain anywhere in the image.
 - Text must not be cut off or incomplete.
 - No extra labels or annotations should appear besides the intended title and support text.
+- For English, any visible Japanese or Chinese characters are invalid, and decorative object labels also count as extra text.
 - For Simplified Chinese, traditional characters are invalid and decorative object labels also count as extra text.
 Return exactly:
 {"ok":true|false,"issues":["..."]}`;
@@ -596,7 +610,9 @@ export async function POST(req: NextRequest) {
       });
 
       const alternateProvider: AIProviderName = provider === 'openai' ? 'gemini' : 'openai';
-      const providerCandidates = currentLocale === 'zh' && hasAIProvider(alternateProvider, runtimeEnv)
+      const allowAlternateProviderRetry = (currentLocale === 'en' || currentLocale === 'zh')
+        && hasAIProvider(alternateProvider, runtimeEnv);
+      const providerCandidates = allowAlternateProviderRetry
         ? Array.from(new Set([provider, alternateProvider]))
         : [provider];
 
