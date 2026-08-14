@@ -14,16 +14,16 @@ export interface AIModel {
   imageModelId: string;
 }
 
-export const GEMINI_PRIMARY_TEXT_MODEL = "gemini-3.6-flash";
-export const GEMINI_FALLBACK_TEXT_MODEL = "gemini-3.5-flash";
+export const GEMINI_PRIMARY_TEXT_MODEL = "gemini-3.7-flash";
+export const GEMINI_FALLBACK_TEXT_MODEL = "gemini-3.6-flash";
 export const GEMINI_FALLBACK_LITE_MODEL = "gemini-3.5-flash-lite";
 export const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image";
 
 export const AI_MODELS: AIModel[] = [
   {
-    id: "hybrid-gemini36-flash",
-    name: "Gemini 3.6 Flash (最新・高精度)",
-    description: "Gemini 3.6 Flash を使用。現行の公開ドキュメント上の最新安定 Flash で、速度と高度な推論性能の両立を重視します。",
+    id: "hybrid-gemini37-flash",
+    name: "Gemini 3.7 Flash (最新・高精度)",
+    description: "Gemini 3.7 Flash を使用。現行の公開ドキュメント上の最新 stable Flash で、速度と高度な推論性能の両立を重視します。",
     provider: "gemini",
     plannerId: GEMINI_PRIMARY_TEXT_MODEL,
     generatorId: GEMINI_PRIMARY_TEXT_MODEL,
@@ -95,12 +95,13 @@ export const AI_MODELS: AIModel[] = [
 ];
 
 export const LEGACY_MODEL_ID_ALIASES: Record<string, string> = {
-  "hybrid-gemini35-flash": "hybrid-gemini36-flash",
+  "hybrid-gemini36-flash": "hybrid-gemini37-flash",
+  "hybrid-gemini35-flash": "hybrid-gemini37-flash",
   "gemini-3-pro-preview": "gemini-3.1-pro-preview",
   "gemini-3.1-pro": "gemini-3.1-pro-preview",
   "gemini-3-flash": "gemini-3-flash-preview",
   "gemini-flash-latest": GEMINI_PRIMARY_TEXT_MODEL,
-  "gemini-3.7-flash": GEMINI_PRIMARY_TEXT_MODEL,
+  "gemini-3.6-flash": GEMINI_PRIMARY_TEXT_MODEL,
   "gemini-2.0-flash": "gemini-2.5-flash",
   "imagen-4.0-generate-001": GEMINI_IMAGE_MODEL,
   "imagen-4.0-ultra-generate-001": GEMINI_IMAGE_MODEL,
@@ -110,6 +111,7 @@ export const LEGACY_MODEL_ID_ALIASES: Record<string, string> = {
 // Pricing per 1,000,000 tokens (USD)
 // Ref: https://ai.google.dev/pricing
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "gemini-3.7-flash": { input: 1.50, output: 7.50 },
   "gemini-3.6-flash": { input: 1.50, output: 7.50 },
   "gemini-3.5-flash": { input: 1.50, output: 9.00 },
   "gemini-3.1-pro-preview": { input: 5.00, output: 30.00 },
@@ -124,7 +126,7 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   "gpt-5.4-mini": { input: 0.75, output: 4.50 },
 };
 
-export const DEFAULT_MODEL_ID = "hybrid-gemini36-flash";
+export const DEFAULT_MODEL_ID = "hybrid-gemini37-flash";
 
 export function normalizeModelId(id: string) {
   return LEGACY_MODEL_ID_ALIASES[id] || id;

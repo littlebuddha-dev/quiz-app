@@ -1531,7 +1531,7 @@ ${finalSystemInstruction}
     const selectedProvider = inferAIProvider(selectedModel);
     const providerFallbacks = selectedProvider === 'openai'
       ? ['gpt-5.4-mini', GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL]
-      : [GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL, 'gpt-5.4-mini'];
+      : [GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL, 'gpt-5.4-mini'];
     const modelCandidates = Array.from(
       new Set([
         selectedModel,
