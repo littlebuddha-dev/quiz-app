@@ -130,8 +130,20 @@ function detectLocaleLanguageName(locale: QuizLocale) {
     case 'en':
       return 'English';
     case 'zh':
-      return 'Simplified Chinese';
+      return 'Simplified Chinese (Mainland China)';
   }
+}
+
+function buildLocaleSpecificTextRule(locale: QuizLocale) {
+  if (locale !== 'zh') return '';
+  return `- Use only standard Mainland Simplified Chinese characters.
+- Never use Traditional Chinese forms such as 學, 習, 說, 圖, 葉, 這, 為, 麼.
+- Do not place tiny labels, side notes, or extra callouts under objects, leaves, acorns, arrows, or decorations.
+- Keep all visible Chinese text confined to the intended two text blocks only.`;
+}
+
+function getLocalizedAttemptLimit(locale: QuizLocale) {
+  return locale === 'zh' ? 6 : 4;
 }
 
 function buildBasePrompt(params: {
@@ -266,6 +278,7 @@ function buildLocalizedEditPrompt(params: {
   const localeRule = isLanguageSubject
     ? `Only two text blocks are allowed. The headline must be strictly in ${detectLocaleLanguageName(subjectLocale)}. The support text must be strictly in ${detectLocaleLanguageName(locale)}. Do not mix other scripts or add any extra labels elsewhere.`
     : `All visible text must be strictly in ${detectLocaleLanguageName(locale)} only. Do not mix scripts, and do not add any other language anywhere in the image.`;
+  const localeSpecificTextRule = buildLocaleSpecificTextRule(locale);
 
   return `Edit this educational illustration into a polished localized quiz image for learners around age ${age}.
 Subject area: ${categoryName}
@@ -274,6 +287,7 @@ Visual direction: ${imageStyle}
 Visible text rules:
 - Add exactly two text blocks and no others.
 - ${localeRule}
+- ${localeSpecificTextRule || 'Keep the typography clean and limited to the intended two text blocks.'}
 - Headline text: "${copy.headline}"
 - Support text: "${copy.support}"
 - Replace only the existing Japanese quiz text blocks with the localized text above.
@@ -317,6 +331,7 @@ Rules:
 - No other labels, annotations, or mixed-language text should appear.
 - No original Japanese text should remain anywhere unless the subject language itself is Japanese.
 - Text must not be cut off or incomplete.
+- For Simplified Chinese, traditional characters are invalid and decorative object labels also count as extra text.
 Return exactly:
 {"ok":true|false,"issues":["..."]}`
     : `Inspect this quiz image and answer in JSON.
@@ -328,6 +343,7 @@ Rules:
 - No original Japanese text should remain anywhere in the image.
 - Text must not be cut off or incomplete.
 - No extra labels or annotations should appear besides the intended title and support text.
+- For Simplified Chinese, traditional characters are invalid and decorative object labels also count as extra text.
 Return exactly:
 {"ok":true|false,"issues":["..."]}`;
 
@@ -579,66 +595,82 @@ export async function POST(req: NextRequest) {
         sharedQuestionText,
       });
 
-      for (let attempt = 0; attempt < 4; attempt += 1) {
-        const prompt = `${buildLocalizedEditPrompt({
-          locale: currentLocale,
-          subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
-          isLanguageSubject: Boolean(languageSubjectRule),
-          title: normalizeText(translation.title || jaTranslation.title) || 'Quiz',
-          question: normalizeText(translation.question || jaTranslation.question),
-          hint: normalizeText(translation.hint || jaTranslation.hint),
-          sharedQuestionText,
-          age: quiz.targetAge || 8,
-          categoryName,
-          imageStyle: persona.imageStyle,
-        })}${validationIssues.length > 0 ? `\n\nFix these problems from the previous attempt:\n- ${validationIssues.join('\n- ')}` : ''}`;
+      const alternateProvider: AIProviderName = provider === 'openai' ? 'gemini' : 'openai';
+      const providerCandidates = currentLocale === 'zh' && hasAIProvider(alternateProvider, runtimeEnv)
+        ? Array.from(new Set([provider, alternateProvider]))
+        : [provider];
 
-        try {
-          localizedImage = await withTimeout(
-            generateAIImage({
-              provider,
-              model: imageModel,
-              sourceImage,
-              prompt,
-              env: runtimeEnv,
-            }),
-            timeoutMs,
-            `${currentLocale} localized image generation`
-          );
-          if (!localizedImage?.data) {
-            validationIssues = ['no image data was returned'];
-            continue;
+      for (const currentProvider of providerCandidates) {
+        const currentImageModel = selectedModel.provider === currentProvider ? selectedModel.imageModelId : undefined;
+        const currentValidationTextModel = selectedModel.provider === currentProvider
+          ? selectedModel.generatorId
+          : (currentProvider === 'openai' ? 'gpt-5.4-mini' : GEMINI_PRIMARY_TEXT_MODEL);
+
+        for (let attempt = 0; attempt < getLocalizedAttemptLimit(currentLocale); attempt += 1) {
+          const prompt = `${buildLocalizedEditPrompt({
+            locale: currentLocale,
+            subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
+            isLanguageSubject: Boolean(languageSubjectRule),
+            title: normalizeText(translation.title || jaTranslation.title) || 'Quiz',
+            question: normalizeText(translation.question || jaTranslation.question),
+            hint: normalizeText(translation.hint || jaTranslation.hint),
+            sharedQuestionText,
+            age: quiz.targetAge || 8,
+            categoryName,
+            imageStyle: persona.imageStyle,
+          })}${validationIssues.length > 0 ? `\n\nFix these problems from the previous attempt:\n- ${validationIssues.join('\n- ')}` : ''}`;
+
+          try {
+            localizedImage = await withTimeout(
+              generateAIImage({
+                provider: currentProvider,
+                model: currentImageModel,
+                sourceImage,
+                prompt,
+                env: runtimeEnv,
+              }),
+              timeoutMs,
+              `${currentLocale} localized image generation`
+            );
+            if (!localizedImage?.data) {
+              validationIssues = ['no image data was returned'];
+              continue;
+            }
+
+            const validation = await withTimeout(
+              validateLocalizedImage({
+                image: localizedImage,
+                locale: currentLocale,
+                subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
+                isLanguageSubject: Boolean(languageSubjectRule),
+                expectedHeadline: localizedCopy.headline,
+                expectedSupport: localizedCopy.support,
+                provider: currentProvider,
+                textModel: currentValidationTextModel,
+                env: runtimeEnv,
+              }),
+              Math.max(8000, Math.floor(timeoutMs * 0.5)),
+              `${currentLocale} image validation`
+            );
+
+            if (validation.ok) {
+              break;
+            }
+
+            validationIssues = validation.issues.length > 0 ? validation.issues : ['mixed or truncated text was detected'];
+            console.warn(`[generate-image] validation failed locale=${currentLocale} provider=${currentProvider} attempt=${attempt + 1}:`, validationIssues);
+            localizedImage = null;
+          } catch (retryErr: any) {
+            validationIssues = [retryErr.message || 'generation failed'];
+            console.warn(`[generate-image] ${currentLocale} provider=${currentProvider} attempt ${attempt + 1} error:`, retryErr.message);
+            if (attempt === 0) {
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+            }
           }
+        }
 
-          const validation = await withTimeout(
-            validateLocalizedImage({
-              image: localizedImage,
-              locale: currentLocale,
-              subjectLocale: languageSubjectRule?.subjectLocale || 'ja',
-              isLanguageSubject: Boolean(languageSubjectRule),
-              expectedHeadline: localizedCopy.headline,
-              expectedSupport: localizedCopy.support,
-              provider,
-              textModel: validationTextModel,
-              env: runtimeEnv,
-            }),
-            Math.max(8000, Math.floor(timeoutMs * 0.5)),
-            `${currentLocale} image validation`
-          );
-
-          if (validation.ok) {
-            break;
-          }
-
-          validationIssues = validation.issues.length > 0 ? validation.issues : ['mixed or truncated text was detected'];
-          console.warn(`[generate-image] validation failed locale=${currentLocale} attempt=${attempt + 1}:`, validationIssues);
-          localizedImage = null;
-        } catch (retryErr: any) {
-          validationIssues = [retryErr.message || 'generation failed'];
-          console.warn(`[generate-image] ${currentLocale} attempt ${attempt + 1} error:`, retryErr.message);
-          if (attempt === 0) {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-          }
+        if (localizedImage?.data) {
+          break;
         }
       }
 
