@@ -9,6 +9,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getCloudflareContext } from '@/lib/cloudflare';
 import { buildTopicPlannerPrompt } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import { GEMINI_PRIMARY_TEXT_MODEL } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import {
@@ -63,8 +64,8 @@ async function generateTopicSuggestions(params: {
 }): Promise<AITextResult> {
   const provider = inferAIProvider(params.preferredModel);
   const candidates = provider === 'openai'
-    ? [params.preferredModel, 'gpt-5.4-mini', 'gemini-2.5-flash']
-    : [params.preferredModel, 'gemini-2.5-flash', 'gpt-5.4-mini'];
+    ? [params.preferredModel, 'gpt-5.4-mini', GEMINI_PRIMARY_TEXT_MODEL]
+    : [params.preferredModel, GEMINI_PRIMARY_TEXT_MODEL, 'gpt-5.4-mini'];
   let lastError: unknown;
 
   for (const model of Array.from(new Set(candidates))) {

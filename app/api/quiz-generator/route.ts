@@ -21,6 +21,7 @@ import {
   BASE_SYSTEM_INSTRUCTION,
 } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import { GEMINI_FALLBACK_LITE_MODEL, GEMINI_FALLBACK_TEXT_MODEL, GEMINI_PRIMARY_TEXT_MODEL } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
 import { ensureCategoryLocalizationColumns } from '@/lib/category-localization';
 import { createDataUrlFromBuffer, storeDataUrl, storeImageBuffer } from '@/lib/image-storage';
@@ -1306,14 +1307,14 @@ async function reviewQuizQuality(params: {
   const generatedProvider = inferAIProvider(params.generatedModel);
   const candidates = generatedProvider === 'openai'
     ? [
-        ...(hasAIProvider('gemini', params.env) ? ['gemini-2.5-flash'] : []),
+        ...(hasAIProvider('gemini', params.env) ? [GEMINI_PRIMARY_TEXT_MODEL] : []),
         params.generatedModel,
         'gpt-5.4-mini',
       ]
     : [
         ...(hasAIProvider('openai', params.env) ? ['gpt-5.4-mini'] : []),
         params.generatedModel,
-        'gemini-2.5-flash',
+        GEMINI_PRIMARY_TEXT_MODEL,
       ];
   const prompt = `あなたは教育クイズの厳格な校閲者です。次のクイズを、画像生成や公開へ進めてよいか審査してください。
 
@@ -1529,8 +1530,8 @@ ${finalSystemInstruction}
 
     const selectedProvider = inferAIProvider(selectedModel);
     const providerFallbacks = selectedProvider === 'openai'
-      ? ['gpt-5.4-mini', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
-      : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gpt-5.4-mini'];
+      ? ['gpt-5.4-mini', GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL]
+      : [GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL, 'gpt-5.4-mini'];
     const modelCandidates = Array.from(
       new Set([
         selectedModel,
@@ -1602,7 +1603,7 @@ ${finalSystemInstruction}
       console.log('[quiz-generator] retrying text generation due to invalid structure...');
       try {
         const retryGeneration = await generateQuizPayload({
-          modelsToTry: modelCandidates.filter(m => m !== 'gemini-2.5-flash-lite'),
+          modelsToTry: modelCandidates.filter(m => m !== GEMINI_FALLBACK_LITE_MODEL),
           prompt: textPrompt + '\n\n## 再生成指示\n必ず {"ja": {...}, "en": {...}, "zh": {...}} の構造でJSONを返してください。各ロケールには title, question, hint, answer, explanation, detailedExplanation, learningPoints, relatedKnowledge, sources, references フィールドを含めてください。',
           categoryName: categoryName || categoryId || '未指定',
           env: runtimeEnv,

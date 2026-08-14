@@ -11,6 +11,7 @@ import { createDataUrlFromBuffer, storeImageBuffer } from '@/lib/image-storage';
 import { resolveInlineImageData } from '@/lib/nanobanana';
 import { detectLanguageSubjectRule, getPersonaByAge } from '@/lib/ai-prompts';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
+import { GEMINI_PRIMARY_TEXT_MODEL } from '@/lib/ai-models';
 import {
   generateAIImage,
   generateAIText,
@@ -330,7 +331,7 @@ Rules:
 Return exactly:
 {"ok":true|false,"issues":["..."]}`;
 
-  const validationModel = provider === 'openai' ? textModel : 'gemini-2.5-flash';
+  const validationModel = provider === 'openai' ? textModel : GEMINI_PRIMARY_TEXT_MODEL;
   const response = await generateAIText({
     model: validationModel,
     prompt: validationPrompt,
@@ -439,7 +440,7 @@ export async function POST(req: NextRequest) {
     const imageModel = selectedModel.provider === provider ? selectedModel.imageModelId : undefined;
     const validationTextModel = selectedModel.provider === provider
       ? selectedModel.generatorId
-      : (provider === 'openai' ? 'gpt-5.4-mini' : 'gemini-2.5-flash');
+      : (provider === 'openai' ? 'gpt-5.4-mini' : GEMINI_PRIMARY_TEXT_MODEL);
     const persona = getPersonaByAge(quiz.targetAge || 8);
     const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     const categoryName = quiz.category?.nameJa || quiz.category?.name || quiz.categoryId;

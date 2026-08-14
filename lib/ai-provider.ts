@@ -4,7 +4,7 @@ import {
   generateNanobananaImage,
   type InlineImageData,
 } from './nanobanana';
-import { normalizeModelId } from './ai-models';
+import { GEMINI_IMAGE_MODEL, normalizeModelId } from './ai-models';
 
 export type AIProviderName = 'gemini' | 'openai';
 
@@ -78,7 +78,7 @@ export function hasAnyAIProvider(env?: RuntimeEnv) {
 export function getDefaultImageModel(provider: AIProviderName) {
   return provider === 'openai'
     ? process.env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-2'
-    : process.env.GEMINI_IMAGE_MODEL?.trim() || 'gemini-3.1-flash-image';
+    : process.env.GEMINI_IMAGE_MODEL?.trim() || GEMINI_IMAGE_MODEL;
 }
 
 function extractOpenAIText(payload: Record<string, unknown>) {
