@@ -3,6 +3,7 @@
 // Title: Deferred Quiz Image Generator API
 // Purpose: Generates educational images for existing quizzes using nanobanana (gemini-3.1-flash-image).
 
+import { OPENAI_BALANCED_TEXT_MODEL } from '@/lib/ai-models';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createPrisma } from '@/lib/prisma';
@@ -470,7 +471,7 @@ export async function POST(req: NextRequest) {
     const imageModel = selectedModel.provider === provider ? selectedModel.imageModelId : undefined;
     const validationTextModel = selectedModel.provider === provider
       ? selectedModel.generatorId
-      : (provider === 'openai' ? 'gpt-5.4-mini' : GEMINI_PRIMARY_TEXT_MODEL);
+      : (provider === 'openai' ? OPENAI_BALANCED_TEXT_MODEL : GEMINI_PRIMARY_TEXT_MODEL);
     const persona = getPersonaByAge(quiz.targetAge || 8);
     const timeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
     const categoryName = quiz.category?.nameJa || quiz.category?.name || quiz.categoryId;
@@ -620,7 +621,7 @@ export async function POST(req: NextRequest) {
         const currentImageModel = selectedModel.provider === currentProvider ? selectedModel.imageModelId : undefined;
         const currentValidationTextModel = selectedModel.provider === currentProvider
           ? selectedModel.generatorId
-          : (currentProvider === 'openai' ? 'gpt-5.4-mini' : GEMINI_PRIMARY_TEXT_MODEL);
+          : (currentProvider === 'openai' ? OPENAI_BALANCED_TEXT_MODEL : GEMINI_PRIMARY_TEXT_MODEL);
 
         for (let attempt = 0; attempt < getLocalizedAttemptLimit(currentLocale); attempt += 1) {
           const prompt = `${buildLocalizedEditPrompt({

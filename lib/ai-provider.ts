@@ -4,7 +4,7 @@ import {
   generateNanobananaImage,
   type InlineImageData,
 } from './nanobanana';
-import { GEMINI_IMAGE_MODEL, normalizeModelId } from './ai-models';
+import { GEMINI_IMAGE_MODEL, OPENAI_IMAGE_MODEL, normalizeModelId } from './ai-models';
 
 export type AIProviderName = 'gemini' | 'openai';
 
@@ -77,7 +77,7 @@ export function hasAnyAIProvider(env?: RuntimeEnv) {
 
 export function getDefaultImageModel(provider: AIProviderName) {
   return provider === 'openai'
-    ? process.env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-2'
+    ? process.env.OPENAI_IMAGE_MODEL?.trim() || OPENAI_IMAGE_MODEL
     : process.env.GEMINI_IMAGE_MODEL?.trim() || GEMINI_IMAGE_MODEL;
 }
 
@@ -218,7 +218,7 @@ async function generateGeminiText(params: GenerateTextParams): Promise<AITextRes
     provider: 'gemini',
     usage: {
       promptTokens: response.usageMetadata?.promptTokenCount || 0,
-      candidateTokens: response.usageMetadata?.candidatesTokenCount || 0,
+      candidateTokens: (response.usageMetadata?.candidatesTokenCount || 0) + (response.usageMetadata?.thoughtsTokenCount || 0),
     },
   };
 }
@@ -289,8 +289,8 @@ async function generateGeminiImage(params: GenerateImageParams): Promise<InlineI
 
   const ai = new GoogleGenAI({ apiKey });
   return params.sourceImage
-    ? editNanobananaImage(ai, params.sourceImage, params.prompt)
-    : generateNanobananaImage(ai, params.prompt);
+    ? editNanobananaImage(ai, params.sourceImage, params.prompt, normalizeModelId(params.model || getDefaultImageModel('gemini')))
+    : generateNanobananaImage(ai, params.prompt, normalizeModelId(params.model || getDefaultImageModel('gemini')));
 }
 
 export async function generateAIImage(params: GenerateImageParams): Promise<InlineImageData | null> {
@@ -301,13 +301,14 @@ export async function generateAIImage(params: GenerateImageParams): Promise<Inli
 
 export function isRetryableAIError(error: unknown) {
   if (error instanceof AIProviderError) {
-    return error.code === 'AI_PROVIDER_UNAVAILABLE' || error.status === 408 || error.status === 429 || (error.status || 0) >= 500;
+    return error.code === 'AI_PROVIDER_UNAVAILABLE' || error.status === 404 || error.status === 408 || error.status === 429 || (error.status || 0) >= 500;
   }
 
   const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
   const status = Number(record.status || 0);
   const message = String(record.message || '');
-  return status === 408
+  return status === 404
+    || status === 408
     || status === 429
     || status >= 500
     || message.includes('quota')

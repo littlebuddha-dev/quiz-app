@@ -24,7 +24,7 @@ function getMimeType(extension: string) {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
     // Next.js 15+ Params resolve

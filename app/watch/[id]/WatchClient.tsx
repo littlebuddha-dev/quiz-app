@@ -388,7 +388,7 @@ export default function WatchClient({
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
+    <div className="cue-watch min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
       <CorrectEffect
         isVisible={showCorrectEffect}
         onClose={() => setShowCorrectEffect(false)}
@@ -503,8 +503,8 @@ export default function WatchClient({
               )}
             </div>
 
-            <h1 className="min-w-0 max-w-full text-2xl font-medium mb-2 leading-tight break-words [overflow-wrap:anywhere] lg:truncate safari-no-faux-bold" title={t.title}>
-              <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere] lg:truncate lg:!whitespace-nowrap" />
+            <h1 className="min-w-0 max-w-full text-2xl font-medium mb-2 leading-tight break-words [overflow-wrap:anywhere] safari-no-faux-bold" title={t.title}>
+              <LatexRenderer text={t.title.replace(/\n/g, ' ')} className="block max-w-full break-words [overflow-wrap:anywhere]" />
             </h1>
 
             <div className="flex flex-wrap items-center gap-2 mb-4">

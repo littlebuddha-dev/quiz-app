@@ -61,10 +61,10 @@ export default async function NewPage() {
       title={locale === 'en' ? 'New Quizzes' : locale === 'zh' ? '最新测验' : '新着クイズ一覧'}
       description={
         locale === 'en'
-          ? 'Browse the newest quizzes published on Cue. Fresh questions help search engines and learners discover what is new.'
+          ? 'Fresh questions, new perspectives. Find your next discovery among the latest quizzes.'
           : locale === 'zh'
-            ? '查看 Cue 最新发布的测验。新的题目既方便学习者发现，也有助于搜索引擎持续抓取。'
-            : 'Cue に新しく追加されたクイズをまとめた一覧ページです。新着の公開ページとして検索エンジンにも見つけられやすくなります。'
+            ? '新题目，新视角。从最新测验中，找到你的下一次发现。'
+            : '新しい問い、新しい視点。届いたばかりのクイズから、次の発見を見つけよう。'
       }
       badge={locale === 'en' ? 'Newest' : locale === 'zh' ? '最新' : '新着'}
       quizzes={quizzes}

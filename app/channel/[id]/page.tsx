@@ -72,7 +72,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function ChannelPage({ params }: { params: { id: string } }) {
+export default async function ChannelPage({ params }: { params: Promise<{ id: string }> }) {
   const { env } = await getCloudflareContext({ async: true });
   const prisma = createPrisma(env);
   const { id } = await params;

@@ -3,6 +3,7 @@
 // Title: Quiz Generator API Route
 // Purpose: Generates quiz text and illustration using Google Gen AI based on topic, category, age, and type.
 
+import { OPENAI_BALANCED_TEXT_MODEL, OPENAI_LEGACY_FALLBACK_MODEL } from '@/lib/ai-models';
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createPrisma } from '@/lib/prisma';
@@ -17,9 +18,9 @@ import {
   buildLanguageSubjectPromptBlock,
   detectLanguageSubjectRule,
   getPersonaByAge,
-  getRandomTopicFromCurriculum,
   BASE_SYSTEM_INSTRUCTION,
 } from '@/lib/ai-prompts';
+import { validateQuizContract, parseQualityReview } from '@/lib/quiz-quality';
 import { DEFAULT_MODEL_ID, getModelById } from '@/lib/ai-models';
 import { GEMINI_FALLBACK_LITE_MODEL, GEMINI_FALLBACK_TEXT_MODEL, GEMINI_PRIMARY_TEXT_MODEL } from '@/lib/ai-models';
 import { checkApiBudget, logApiUsage } from '@/lib/ai-usage';
@@ -277,13 +278,6 @@ function normalizeTextBlockField(value: unknown) {
   return null;
 }
 
-function splitIntoMeaningfulLines(value: unknown) {
-  return normalizeText(value)
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^[\-\u2022\u30fb\s]+/, '').trim())
-    .filter(Boolean);
-}
-
 function extractPlaceHints(...values: Array<string | undefined>) {
   const joined = values.filter(Boolean).join(' ');
   const matches = joined.match(/[一-龠ぁ-んァ-ヶーA-Za-z0-9]+(?:都|道|府|県|市|区|町|村|国|地方|半島|湾|平野|盆地|山地|川|湖)/g);
@@ -371,60 +365,11 @@ function extractExerciseText(question: string) {
   return '';
 }
 
-function replaceExerciseText(question: string, nextExerciseText: string) {
-  const trimmed = question.trim();
-  if (!trimmed || !nextExerciseText) {
-    return question;
-  }
-
-  const quotedAnywhere = trimmed.match(/[「『“"][\s\S]+?[」』”"]/);
-  if (quotedAnywhere?.[0]) {
-    return question.replace(quotedAnywhere[0], nextExerciseText);
-  }
-
-  const lines = question.split('\n');
-  if (lines.length > 0) {
-    const firstLine = lines[0];
-    const colonSeparated = firstLine.match(/^([^:：]+[:：]\s*)(.+)$/);
-    if (colonSeparated) {
-      lines[0] = `${colonSeparated[1]}${nextExerciseText}`;
-      return lines.join('\n');
-    }
-    if (firstLine.trim().length <= 160) {
-      lines[0] = nextExerciseText;
-      return lines.join('\n');
-    }
-  }
-
-  return question;
-}
-
 function clampText(value: string, maxLength: number) {
   const trimmed = normalizeText(value);
   if (!trimmed) return '';
   if (trimmed.length <= maxLength) return trimmed;
   return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
-}
-
-function fitTextForImage(value: string, maxLength: number) {
-  const normalized = normalizeText(value).replace(/\s+/g, ' ');
-  if (!normalized) return '';
-  if (normalized.length <= maxLength) return normalized;
-
-  const candidates = [
-    normalized.replace(/\s*[（(][^）)]*[）)]\s*/g, ' ').replace(/\s+/g, ' ').trim(),
-    normalized.split(/[〜~｜|]/)[0]?.trim() || '',
-    normalized.split(/[。.!?！？]/)[0]?.trim() || '',
-    normalized.split(/[、，,:：;]/)[0]?.trim() || '',
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (candidate.length <= maxLength) {
-      return candidate;
-    }
-  }
-
-  return normalized.slice(0, maxLength).trim();
 }
 
 function stripCodeLikeSegments(value: string) {
@@ -447,7 +392,7 @@ function buildImageQuestionSummary(params: {
   const source = normalizeText(question);
 
   if (!isProgrammingSubject) {
-    return clampText(source, 140);
+    return source;
   }
 
   const strippedQuestion = stripCodeLikeSegments(source);
@@ -463,63 +408,6 @@ function buildImageQuestionSummary(params: {
     `${candidate}. Focus on the algorithm idea, execution order, and what changes step by step.`,
     160
   );
-}
-
-function detectLocaleLanguageName(locale: 'ja' | 'en' | 'zh') {
-  switch (locale) {
-    case 'ja':
-      return 'Japanese';
-    case 'en':
-      return 'English';
-    case 'zh':
-      return 'Simplified Chinese';
-    default:
-      return 'the target language';
-  }
-}
-
-function buildLocalizedImageCopy(params: {
-  locale: 'ja' | 'en' | 'zh';
-  quiz: MultiLangQuiz;
-  categoryNames: Array<string | null | undefined>;
-}) {
-  const { locale, quiz, categoryNames } = params;
-  const languageSubjectRule = detectLanguageSubjectRule(categoryNames);
-  const isProgrammingSubject = detectProgrammingSubject(categoryNames);
-  const localeEntry = locale === 'ja' ? quiz.ja : (locale === 'en' ? quiz.en : quiz.zh);
-  const localeQuestion = normalizeText(String(localeEntry.question || ''));
-  const sharedExerciseText = extractExerciseText(normalizeText(quiz.ja.question));
-  const localeInstructionBase = sharedExerciseText
-    ? normalizeText(localeQuestion.replace(sharedExerciseText, ''))
-    : localeQuestion;
-  const localeInstructionSource = isProgrammingSubject
-    ? buildImageQuestionSummary({
-        question: localeInstructionBase || localeQuestion,
-        hint: String(localeEntry.hint || ''),
-        explanation: String(localeEntry.explanation || ''),
-        isProgrammingSubject: true,
-      })
-    : (localeInstructionBase || String(localeEntry.hint || localeEntry.explanation || ''));
-  const localeInstruction = fitTextForImage(localeInstructionSource, locale === 'en' ? 120 : 72);
-  const headlineText = languageSubjectRule
-    ? fitTextForImage(sharedExerciseText || normalizeText(String(quiz.ja.title || '')), 80)
-    : fitTextForImage(
-        isProgrammingSubject
-          ? normalizeText(String(localeEntry.title || localeEntry.hint || quiz.ja.title || ''))
-          : normalizeText(String(localeEntry.title || localeQuestion || quiz.ja.title || '')),
-        locale === 'en' ? 64 : 36
-      );
-
-  return {
-    headlineText,
-    instructionText: localeInstruction,
-    headlineLanguage: languageSubjectRule
-      ? detectLocaleLanguageName(languageSubjectRule.subjectLocale)
-      : detectLocaleLanguageName(locale),
-    instructionLanguage: detectLocaleLanguageName(locale),
-    subjectLocale: languageSubjectRule?.subjectLocale || locale,
-    isLanguageSubject: Boolean(languageSubjectRule),
-  };
 }
 
 function buildBaseIllustrationPrompt(params: {
@@ -553,6 +441,7 @@ Requirements:
 - Do not render exact source code, code fences, terminal text, letters, words, numbers, filenames, keyboard shortcuts, or UI chrome.
 - Represent logic with shapes, color grouping, icons, motion cues, and diagram-like structure instead of text.
 - Match the age level precisely and keep the scene exciting, clear, and easy to understand at a glance.
+- Do not reveal the correct answer, completed calculation, correct option, or a solved state. Keep all essential objects inside a generous safe margin.
 - Use polished lighting, intentional composition, and textbook-quality clarity.`;
   }
 
@@ -565,7 +454,7 @@ Visual direction: ${imageStyle}
 
 Requirements:
 - The image must teach or support the quiz concept at a glance.
-- Show concrete objects, relationships, counts, labels, or cause-and-effect cues that help solve the quiz.
+- Depict only the setup stated in the question. Preserve quantities, spatial relationships, and scientific facts exactly. Never add labels or reveal the solution.
 - The learner should still grasp the rough question scenario even if the overlaid text is hidden, but the result must remain an attractive illustration rather than an infographic.
 - Prefer one memorable scene with a few decisive clues over dense explanatory layouts.
 - Avoid slide-like compositions, comparison tables, multi-panel summaries, classroom posters, or text-heavy chart structures.
@@ -573,57 +462,8 @@ Requirements:
 - Match the age level precisely: neither babyish nor too advanced.
 - Keep composition clean, readable, and focused on one clear learning idea.
 - Do not include any letters, words, numbers, subtitles, captions, speech bubbles, UI, watermark, or logo.
+- Do not reveal the correct answer, completed calculation, correct option, or a solved state. Keep all essential objects inside a generous safe margin.
 - Use polished lighting, intentional composition, and textbook-quality clarity.`;
-}
-
-function buildLocalizedImageEditPrompt(params: {
-  age: number;
-  locale: 'ja' | 'en' | 'zh';
-  topic: string;
-  question: string;
-  imageStyle: string;
-  categoryName: string;
-  categoryNames: Array<string | null | undefined>;
-  quiz: MultiLangQuiz;
-}) {
-  const { age, locale, topic, question, imageStyle, categoryName, categoryNames, quiz } = params;
-  const copy = buildLocalizedImageCopy({ locale, quiz, categoryNames });
-  const isProgrammingSubject = detectProgrammingSubject(categoryNames);
-  const localeRule = copy.isLanguageSubject
-    ? `The top headline must stay strictly in ${copy.headlineLanguage}. The supporting problem explanation must stay strictly in ${copy.instructionLanguage}. Do not translate the headline into any other language. Do not mix scripts inside each text block.`
-    : `All visible text must stay strictly in ${copy.instructionLanguage}. Do not mix scripts or add text from other languages.`;
-  const programmingRules = isProgrammingSubject
-    ? [
-        'Do not show raw code, operators, braces, code fences, terminal dumps, stack traces, or multiline source text anywhere in the image.',
-        'Keep the support text as a short learner-friendly cue about the logic, output, order, or bug fix, not a pasted code snippet.',
-        'Preserve the underlying visual explanation of sequence, branching, loops, variables, or data flow.',
-      ]
-    : ['Keep the scene focused on one clear learning idea.'];
-
-  return `Edit this educational illustration into a polished localized quiz image for ${detectLocaleLanguageName(locale)} learners around age ${age}.
-Topic: ${topic}
-Subject area: ${categoryName}
-Question context: ${question}
-Visual direction: ${imageStyle}
-
-Visible text rules:
-- Add exactly two text blocks and no others.
-- Headline text (${copy.headlineLanguage} only): "${copy.headlineText}"
-- Supporting problem text (${copy.instructionLanguage} only): "${copy.instructionText}"
-- ${localeRule}
-- Keep the visible text exactly as written, with the same wording and punctuation.
-- The headline should be visually primary. The supporting text should be shorter and secondary.
-- Keep the total text presence minimal. The text should feel like a light overlay on top of an illustration, not the main content of a poster.
-- Reserve most of the canvas for the illustration itself.
-- Integrate the typography naturally into the scene while preserving legibility.
-- Every character of both text blocks must remain visible. Do not crop, truncate, replace with ellipses, or fade out any letters.
-- If the text feels long, reduce font size modestly and tighten line breaks so everything fits cleanly.
-- Underlying concept: ${buildImageQuestionSummary({ question, isProgrammingSubject })}
-- The underlying illustration must still communicate the rough question scenario even if the text blocks are hidden.
-- Avoid flowchart grids, comparison cards, timeline boxes, and other layouts that turn the image into a slide.
-- Avoid turning the image into a screenshot. Keep it as a high-quality educational illustration.
-${programmingRules.map((rule) => `- ${rule}`).join('\n')}
-- No extra text, no subtitles, no fake app chrome, no watermark, no logo.`;
 }
 
 function buildProgrammingImageFallbackPrompt(params: {
@@ -780,34 +620,6 @@ function parseAiJsonResponse(raw: string) {
     console.log('Sanitization successful.');
     return parsed;
   }
-}
-
-function normalizeLanguageSubjectQuizFields(quiz: MultiLangQuiz) {
-  if (!quiz || typeof quiz !== 'object' || !quiz.ja || typeof quiz.ja !== 'object') {
-    return quiz;
-  }
-
-  const sharedAnswer = normalizeText(quiz.ja.answer);
-  const sharedOptions = normalizeChoiceOptions(quiz.ja.options);
-  const sharedExerciseText = extractExerciseText(normalizeText(quiz.ja.question));
-  const enQuestion = normalizeText(String(quiz.en.question || ''));
-  const zhQuestion = normalizeText(String(quiz.zh.question || ''));
-
-  return {
-    ...quiz,
-    en: {
-      ...quiz.en,
-      question: sharedExerciseText ? replaceExerciseText(enQuestion, sharedExerciseText) : quiz.en.question,
-      answer: sharedAnswer || quiz.en.answer,
-      options: sharedOptions || quiz.en.options,
-    },
-    zh: {
-      ...quiz.zh,
-      question: sharedExerciseText ? replaceExerciseText(zhQuestion, sharedExerciseText) : quiz.zh.question,
-      answer: sharedAnswer || quiz.zh.answer,
-      options: sharedOptions || quiz.zh.options,
-    },
-  };
 }
 
 function inferLocaleFromEntry(entry: LocaleQuizEntry) {
@@ -1035,28 +847,16 @@ function buildQualityFeedback(params: {
     issues.push('explanation に正答とのつながりが弱いです。答えが正しい理由を明示してください。');
   }
 
-  if (normalizeText(ja.detailedExplanation).length < 180) {
+  if (normalizeText(ja.detailedExplanation).length < (age <= 6 ? 30 : 180)) {
     issues.push('detailedExplanation が短すぎます。背景知識や考え方まで含む詳しい学習解説にしてください。');
   }
 
-  if (normalizeText(ja.learningPoints).length < 40) {
+  if (normalizeText(ja.learningPoints).length < (age <= 6 ? 10 : 40)) {
     issues.push('learningPoints が不足しています。学習の要点を複数行で整理してください。');
   }
 
-  if (normalizeText(ja.relatedKnowledge).length < 80) {
+  if (normalizeText(ja.relatedKnowledge).length < (age <= 6 ? 20 : 80)) {
     issues.push('relatedKnowledge が不足しています。関連知識や次に学ぶ内容を補ってください。');
-  }
-
-  if (splitIntoMeaningfulLines(ja.sources).length === 0) {
-    issues.push('sources が空です。根拠となる出典や監修元を示してください。');
-  }
-
-  if (splitIntoMeaningfulLines(ja.references).length === 0) {
-    issues.push('references が空です。参考文献や参考資料を示してください。');
-  }
-
-  if (normalizeText(ja.answer) && normalizeText(ja.question).includes(normalizeText(ja.answer))) {
-    issues.push('問題文の中に答えそのものが見えています。直接答えを含まない問いへ修正してください。');
   }
 
   if ((ja.type || requestedQuizType) === 'TEXT' && normalizeText(ja.answer).length > 28) {
@@ -1141,10 +941,10 @@ function buildQualityFeedback(params: {
     zh: [normalizeText(String(locales.zh.title || '')), normalizeText(String(locales.zh.question || '')), normalizeText(String(locales.zh.hint || '')), normalizeText(String(locales.zh.explanation || ''))].join(' '),
   };
 
-  if (containsJapaneseScript(localeTexts.en)) {
+  if (!languageSubjectRule && containsJapaneseScript(localeTexts.en)) {
     issues.push('英語ロケールに日本語が混ざっています。title/question/hint/explanation を英語として自然に統一してください。');
   }
-  if (containsJapaneseScript(localeTexts.zh)) {
+  if (!languageSubjectRule && containsJapaneseScript(localeTexts.zh)) {
     issues.push('中国語ロケールに日本語が混ざっています。title/question/hint/explanation を簡体字中国語として自然に統一してください。');
   }
   if (!containsLatinLetters(localeTexts.en)) {
@@ -1211,7 +1011,7 @@ function buildQualityFeedback(params: {
       normalizeText(String(quiz.en.answer || '')),
       normalizeText(String(quiz.zh.answer || '')),
     ].filter(Boolean);
-    if (localizedAnswers.some((answer) => calculateDiceSimilarity(answer, normalizeText(ja.answer)) >= 0.98)) {
+    if (containsJapaneseScript(normalizeText(ja.answer)) && localizedAnswers.some((answer) => calculateDiceSimilarity(answer, normalizeText(ja.answer)) >= 0.98)) {
       issues.push('非言語学習ジャンルなのに en/zh の answer が日本語のまま残っています。各ロケールで自然に翻訳してください。');
     }
   }
@@ -1240,59 +1040,28 @@ async function generateQuizPayload(params: {
   modelsToTry: string[];
   prompt: string;
   categoryName: string;
+  onResponse: (response: AITextResult) => Promise<void>;
   env?: Record<string, unknown>;
 }) {
-  const { modelsToTry, prompt, categoryName, env } = params;
+  const { modelsToTry, prompt, env } = params;
   let lastError: unknown;
-
   for (const model of modelsToTry) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const attemptPrompt = attempt === 0
-        ? prompt
-        : `${prompt}
-
-## 再生成の追加指示
-- 前回の出力には品質上の問題がありました。カテゴリと年齢により厳密に合わせて作り直してください。
-- 「${categoryName}」から逸脱する題材は使わないでください。
-- 答え・解説は断定しすぎず、教育的に正確な表現にしてください。`;
-
-      try {
-        const response = await generateAIText({
-          model,
-          prompt: attemptPrompt,
-          systemInstruction: 'Return only valid JSON. Do not wrap the JSON in markdown fences.',
-          env,
-        });
-
-        return { response, model };
-      } catch (error) {
-        lastError = error;
-        if (!isRetryableAIError(error)) {
-          throw error;
-        }
-        break;
-      }
+    if (!hasAIProvider(inferAIProvider(model), env)) continue;
+    try {
+      const response = await generateAIText({
+        model,
+        prompt,
+        systemInstruction: 'Return only valid JSON. Do not wrap the JSON in markdown fences.',
+        env,
+      });
+      await params.onResponse(response);
+      return { response, model };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableAIError(error)) throw error;
     }
   }
-
-  throw lastError;
-}
-
-function parseQuizQualityReview(raw: string): AIQuizQualityReview {
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
-  const parsed = JSON.parse(start >= 0 && end > start ? raw.slice(start, end + 1) : raw) as Partial<AIQuizQualityReview>;
-  const score = Math.max(0, Math.min(100, Number(parsed.score) || 0));
-  const issues = Array.isArray(parsed.issues)
-    ? parsed.issues.filter((issue): issue is string => typeof issue === 'string' && Boolean(issue.trim())).map((issue) => issue.trim())
-    : [];
-
-  return {
-    pass: parsed.pass === true && score >= 80 && issues.length === 0,
-    score,
-    issues,
-    summary: typeof parsed.summary === 'string' ? parsed.summary.trim() : '',
-  };
+  throw lastError || new Error('No configured AI provider is available.');
 }
 
 async function reviewQuizQuality(params: {
@@ -1309,10 +1078,11 @@ async function reviewQuizQuality(params: {
     ? [
         ...(hasAIProvider('gemini', params.env) ? [GEMINI_PRIMARY_TEXT_MODEL] : []),
         params.generatedModel,
-        'gpt-5.4-mini',
+        OPENAI_BALANCED_TEXT_MODEL,
+        OPENAI_LEGACY_FALLBACK_MODEL,
       ]
     : [
-        ...(hasAIProvider('openai', params.env) ? ['gpt-5.4-mini'] : []),
+        ...(hasAIProvider('openai', params.env) ? [OPENAI_BALANCED_TEXT_MODEL, OPENAI_LEGACY_FALLBACK_MODEL] : []),
         params.generatedModel,
         GEMINI_PRIMARY_TEXT_MODEL,
       ];
@@ -1334,7 +1104,9 @@ ${JSON.stringify(params.quiz, null, 2)}
 4. hintが答えを直接明かさず、explanationが正答の根拠を正しく説明している。
 5. 対象年齢とジャンルに適し、教育クイズとして十分な質がある。
 6. ja/en/zhで問題の条件・正答・意味が一致している。
-7. 検証できない雑学、時期で変わる情報、危険または誤解を招く説明を含まない。
+7. 答えを見る前に問題だけを独立に解き、各選択肢が正しいか個別に確認する。数値・単位・前提条件・翻訳で変わった条件を検算する。
+8. 画像なしでも必要な条件が本文にそろい、タイトルやヒントが正答を漏らしていない。言語学習の原文引用、数値・数式の共通表記は正当なものとして扱う。
+9. 検証できない雑学、時期で変わる情報、危険または誤解を招く説明を含まない。
 
 少しでも正答性を確認できない、複数解釈が可能、説明に誤りがある場合は不合格にしてください。
 合格はscore 80以上かつissuesが空の場合だけです。
@@ -1350,7 +1122,14 @@ JSONのみを返してください:
         systemInstruction: 'Return only strict JSON. Be conservative: reject any quiz whose answer cannot be verified from the stated conditions.',
         env: params.env,
       });
-      return { review: parseQuizQualityReview(response.text), response };
+      try {
+        return { review: parseQualityReview(response.text), response };
+      } catch {
+        return {
+          review: { pass: false, score: 0, issues: ['審査結果の形式が不完全でした。正答と条件を再確認してください。'], summary: '審査結果を検証できませんでした。' },
+          response,
+        };
+      }
     } catch (error) {
       lastError = error;
       if (!isRetryableAIError(error)) throw error;
@@ -1415,7 +1194,10 @@ export async function POST(req: NextRequest) {
         : providedImageUrl;
     const finalLocale = (requestedLocale || 'ja') as 'ja' | 'en' | 'zh';
 
-    const parsedAge = parseInt(targetAge) || 8;
+    const parsedAge = targetAge === undefined || targetAge === null || targetAge === '' ? 8 : Number(targetAge);
+    if (!Number.isInteger(parsedAge) || parsedAge < 0 || parsedAge > 120) {
+      return NextResponse.json({ error: 'INVALID_AGE', message: '対象年齢は0〜120の整数で指定してください。' }, { status: 400 });
+    }
     const hybridModelId = modelId || DEFAULT_MODEL_ID;
     const hybridModel = getModelById(hybridModelId);
     // Raw provider model IDs are accepted for backward compatibility.
@@ -1457,14 +1239,13 @@ export async function POST(req: NextRequest) {
     }
 
     // トピックが空の場合、教育課程データからランダムに選択
+    const curriculumTopicPlan = buildCurriculumTopicPlan(parsedAge, categoryNames, guidelines);
     let topicForAi = rawTopic;
     if (!topicForAi || topicForAi.trim() === '') {
       console.log('Topic is empty. Picking a random topic from curriculum data...');
-      topicForAi = getRandomTopicFromCurriculum(parsedAge, categoryNames, guidelines);
+      topicForAi = curriculumTopicPlan.summary;
       console.log(`Selected random topic: ${topicForAi}`);
     }
-    const curriculumTopicPlan = buildCurriculumTopicPlan(parsedAge, categoryNames, guidelines);
-
     const agePersonaInstruction = buildAgePromptBlock(parsedAge);
 
     const educationalContextInstruction = buildEducationalContextPrompt(parsedAge, categoryNames, guidelines);
@@ -1499,14 +1280,16 @@ ${excludeTitles && Array.isArray(excludeTitles) && excludeTitles.length > 0 ? `\
 - タイトル・問題文・ヒント・解説の難易度を必ずそろえてください。タイトルだけ幼い/本文だけ難しい、のような不一致は禁止です。
 - 問題文は、単なる知識の丸暗記より「考える楽しさ」「気づき」「驚き」のいずれかが入るようにしてください。
 - 問題文は、読めば「何を答えるのか」「何を手がかりに考えるのか」が明確に分かる構造にしてください。
+- 画像は補助イラストです。画像なしでも本文の条件だけで解ける問題にし、「この絵を見て」だけで必要条件を省略しないでください。
+- 選択肢の順序・意味・正答位置は ja/en/zh で統一してください。
 - 正答は1つに定まり、ひっかけや解釈ブレで複数正解にならないようにしてください。
 - 問題文に答えそのものや、答えの直接的な言い換えを含めないでください。
 - answer は結論だけを短く返し、explanation では「なぜそれが正解で、他が違うのか」を学習者目線で説明してください。
-- detailedExplanation では、そのテーマの背景、考え方、誤解しやすい点、実生活や学習とのつながりまで含めた詳しい学習本文を書いてください。日本語は最低500文字を目安にしてください。
+- detailedExplanation では、そのテーマの背景、考え方、誤解しやすい点、実生活や学習とのつながりまで含めた詳しい学習本文を書いてください。対象年齢に合わせ、幼児には短く具体的に、小学生以上には段階的に説明し、水増ししないでください。
 - learningPoints では、この問題から学べる要点を3〜5行の箇条書き風テキストで整理してください。
 - relatedKnowledge では、次に理解しておくと役立つ関連知識を1〜3段落で補ってください。
-- sources では、根拠となる出典や監修元を改行区切りで2〜4件示してください。URLを捏造せず、教科書名・公的機関・学習指導要領・学会など、名称ベースで安全に記述してください。
-- references では、参考文献や参考資料を改行区切りで2〜4件示してください。こちらもURLを無理に付けず、信頼できる資料名を優先してください。
+- sources では、根拠となる出典や監修元を実在し、問題の根拠を具体的に示せるものだけ改行区切りで示してください。確認できない資料名・監修・引用・URLは捏造せず、該当資料を確認できない場合は空文字にしてください。URLを捏造せず、教科書名・公的機関・学習指導要領・学会など、名称ベースで安全に記述してください。
+- references では、参考文献や参考資料を実在し、問題の根拠を具体的に示せるものだけ改行区切りで示してください。確認できない資料名・監修・引用・URLは捏造せず、該当資料を確認できない場合は空文字にしてください。こちらもURLを無理に付けず、信頼できる資料名を優先してください。
 - ヒントは、その年齢が自力で一歩進める内容にしてください。答えの言い換えは禁止です。
 - 解説は、その年齢にとって「わかった！」という納得感が出るようにしてください。
 - 日本語(ja)を基準に品質を最優先し、en/zh は内容を忠実に自然翻訳してください。
@@ -1530,8 +1313,8 @@ ${finalSystemInstruction}
 
     const selectedProvider = inferAIProvider(selectedModel);
     const providerFallbacks = selectedProvider === 'openai'
-      ? ['gpt-5.4-mini', GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL]
-      : [GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL, 'gpt-5.4-mini'];
+      ? [OPENAI_BALANCED_TEXT_MODEL, OPENAI_LEGACY_FALLBACK_MODEL, GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL]
+      : [GEMINI_PRIMARY_TEXT_MODEL, GEMINI_FALLBACK_TEXT_MODEL, GEMINI_FALLBACK_LITE_MODEL, OPENAI_BALANCED_TEXT_MODEL, OPENAI_LEGACY_FALLBACK_MODEL];
     const modelCandidates = Array.from(
       new Set([
         selectedModel,
@@ -1540,12 +1323,21 @@ ${finalSystemInstruction}
       ])
     );
 
+    const recordGenerationUsage = async (response: AITextResult) => {
+      await logApiUsage(prisma, {
+        modelId: response.model,
+        promptTokens: response.usage.promptTokens,
+        candidateTokens: response.usage.candidateTokens,
+        purpose: 'QUIZ_GEN',
+      });
+    };
     let textResponse: AITextResult;
     {
       console.log(
         `[quiz-generator] text generation start modelCandidates=${modelCandidates.join(',')} deferred=${isDeferredAdminGeneration}`
       );
       const generation = await generateQuizPayload({
+        onResponse: recordGenerationUsage,
         modelsToTry: modelCandidates,
         prompt: textPrompt,
         categoryName: categoryName || categoryId || '未指定',
@@ -1556,150 +1348,16 @@ ${finalSystemInstruction}
       console.log(`[quiz-generator] text generation success model=${selectedModel}`);
     }
 
-    const resultText = textResponse.text;
-    let multiLangData: any;
-    try {
-      multiLangData = parseAiJsonResponse(resultText || '{}');
-    } catch (retryError: any) {
-      console.error('Sanitization also failed:', retryError);
-      return NextResponse.json({
-        error: 'INVALID_JSON',
-        message: `AIの回答形式が正しくありませんでした。もう一度お試しください。(${retryError.message})`,
-        rawResponse: resultText
-      }, { status: 500 });
-    }
-
-    // AIの回答構造を再帰的に検索して標準化 (ネストされている場合の対応)
-    const findQuizRoot = (obj: any): any => {
-      if (obj && typeof obj === 'object' && obj.ja && obj.en && obj.zh) return obj;
-      if (obj && typeof obj === 'object') {
-        for (const key of Object.keys(obj)) {
-          const found = findQuizRoot(obj[key]);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
-
-    if (multiLangData && !multiLangData.ja) {
-      const root = findQuizRoot(multiLangData);
-      if (root) multiLangData = root;
-    }
-
-    multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
-
-    multiLangData = normalizeJapaneseQuizFields(multiLangData as MultiLangQuiz);
-    if (detectLanguageSubjectRule(categoryNames)) {
-      multiLangData = normalizeLanguageSubjectQuizFields(multiLangData as MultiLangQuiz);
-    }
-
-    // 必須データの存在チェック
-    if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
-      console.error('Invalid structure in AI response:', JSON.stringify(multiLangData).slice(0, 500));
-
-      // 構造不正時の自動リトライ（1回のみ）
-      console.log('[quiz-generator] retrying text generation due to invalid structure...');
+    const decodeQuiz = (raw: string): MultiLangQuiz | null => {
       try {
-        const retryGeneration = await generateQuizPayload({
-          modelsToTry: modelCandidates.filter(m => m !== GEMINI_FALLBACK_LITE_MODEL),
-          prompt: textPrompt + '\n\n## 再生成指示\n必ず {"ja": {...}, "en": {...}, "zh": {...}} の構造でJSONを返してください。各ロケールには title, question, hint, answer, explanation, detailedExplanation, learningPoints, relatedKnowledge, sources, references フィールドを含めてください。',
-          categoryName: categoryName || categoryId || '未指定',
-          env: runtimeEnv,
-        });
-        const retryText = retryGeneration.response.text || '{}';
-        selectedModel = retryGeneration.model;
-        textResponse = retryGeneration.response;
-        multiLangData = parseAiJsonResponse(retryText);
-        multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
-        if (multiLangData && !multiLangData.ja) {
-          const root = findQuizRoot(multiLangData);
-          if (root) multiLangData = root;
-        }
-        multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
-        multiLangData = normalizeJapaneseQuizFields(multiLangData as MultiLangQuiz);
-        if (detectLanguageSubjectRule(categoryNames)) {
-          multiLangData = normalizeLanguageSubjectQuizFields(multiLangData as MultiLangQuiz);
-        }
-      } catch (structureRetryErr: any) {
-        console.error('Structure retry also failed:', structureRetryErr.message);
-      }
-
-      // リトライ後も不正なら最終エラー
-      if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
-        return NextResponse.json({
-          error: 'INVALID_STRUCTURE',
-          message: 'AIの回答データの構造が不完全でした。もう一度お試しください。',
-          rawResponse: multiLangData
-        }, { status: 500 });
-      }
-      console.log('[quiz-generator] structure retry succeeded');
-    }
-
-    // トークン履歴などの保存用のデータ準備
-    const context = JSON.stringify({
-      categoryName: categoryName || finalCategoryId || '未指定',
-      categoryNames,
-      requestedQuizType: (quizType || 'TEXT') as 'TEXT' | 'CHOICE',
-      topic: topicForAi,
-      correctionPrompt,
-    });
-    const qualityIssues = buildQualityFeedback({
-      quiz: multiLangData as MultiLangQuiz,
-      age: parsedAge,
-      categoryName: categoryName || categoryId || '未指定',
-      categoryNames,
-      requestedQuizType: (quizType || 'TEXT') as 'TEXT' | 'CHOICE',
-      topic: topicForAi,
-      correctionPrompt,
-      excludeTitles: Array.isArray(excludeTitles) ? excludeTitles : undefined,
-    });
-    console.log(`[quiz-generator] quality issues count=${qualityIssues.length} deferred=${isDeferredAdminGeneration}`);
-
-    const shouldRetryForQuality =
-      qualityIssues.length > 0 && (!isDeferredAdminGeneration || detectProgrammingSubject(categoryNames));
-
-    if (shouldRetryForQuality) {
-      const correctionPromptWithIssues = `${correctionPrompt ? `${correctionPrompt}\n` : ''}以下の品質問題を必ず解消してください:\n${qualityIssues.map((issue) => `- ${issue}`).join('\n')}`;
-      textPrompt += `\n\n## 品質修正指示\n${qualityIssues.map((issue) => `- ${issue}`).join('\n')}`;
-
-      const retryGeneration = await generateQuizPayload({
-        modelsToTry: modelCandidates,
-        prompt: `${textPrompt}\n\n## ユーザーからの追加指示（補正）:\n${correctionPromptWithIssues}`,
-        categoryName: categoryName || categoryId || '未指定',
-        env: runtimeEnv,
-      });
-      selectedModel = retryGeneration.model;
-      textResponse = retryGeneration.response;
-      const retryText = retryGeneration.response.text || '{}';
-      try {
-        multiLangData = parseAiJsonResponse(retryText);
+        const quiz = coerceMultiLangQuizResponse(parseAiJsonResponse(raw));
+        if (!quiz) return null;
+        return detectLanguageSubjectRule(categoryNames) ? quiz : normalizeJapaneseQuizFields(quiz);
       } catch {
-        multiLangData = parseAiJsonResponse(retryText);
+        return null;
       }
-      multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
-      if (multiLangData && !multiLangData.ja) {
-        const root = findQuizRoot(multiLangData);
-        if (root) multiLangData = root;
-      }
-      multiLangData = coerceMultiLangQuizResponse(multiLangData) || multiLangData;
-      multiLangData = normalizeJapaneseQuizFields(multiLangData as MultiLangQuiz);
-      if (detectLanguageSubjectRule(categoryNames)) {
-        multiLangData = normalizeLanguageSubjectQuizFields(multiLangData as MultiLangQuiz);
-      }
-
-      if (!multiLangData || !multiLangData.ja || !multiLangData.ja.question) {
-        console.error('Invalid structure in retry AI response:', multiLangData);
-        return NextResponse.json({
-          error: 'INVALID_STRUCTURE',
-          message: 'AIの再生成結果の構造が不完全でした。別モデルで再試行するか、少し時間をおいてお試しください。',
-          rawResponse: multiLangData
-        }, { status: 500 });
-      }
-    } else if (qualityIssues.length > 0) {
-      console.warn('[quiz-generator] skipping quality retry for deferred admin generation:', qualityIssues);
-    }
+    };
+    let multiLangData = decodeQuiz(textResponse.text) as any;
 
     const qualityGateSetting = await prisma.setting.findUnique({
       where: { key: AI_QUIZ_QUALITY_GATE_KEY },
@@ -1707,12 +1365,15 @@ ${finalSystemInstruction}
     });
     const qualityGateEnabled = qualityGateSetting?.value !== 'false';
 
-    if (qualityGateEnabled) {
+    {
       let passedQualityGate = false;
       let lastReview: AIQuizQualityReview | null = null;
 
       for (let attempt = 1; attempt <= AI_QUIZ_QUALITY_MAX_ATTEMPTS; attempt += 1) {
-        const { review, response: reviewResponse } = await reviewQuizQuality({
+        const contractIssues = validateQuizContract(multiLangData);
+        const { review, response: reviewResponse } = contractIssues.length > 0 || !qualityGateEnabled
+          ? { review: { pass: contractIssues.length === 0, score: contractIssues.length ? 0 : 100, issues: contractIssues, summary: '構造検証' }, response: null }
+          : await reviewQuizQuality({
           quiz: multiLangData as MultiLangQuiz,
           age: parsedAge,
           categoryName: categoryName || finalCategoryId || '未指定',
@@ -1723,7 +1384,7 @@ ${finalSystemInstruction}
         });
         lastReview = review;
 
-        if (reviewResponse.usage.promptTokens || reviewResponse.usage.candidateTokens) {
+        if (reviewResponse && (reviewResponse.usage.promptTokens || reviewResponse.usage.candidateTokens)) {
           await logApiUsage(prisma, {
             modelId: reviewResponse.model,
             promptTokens: reviewResponse.usage.promptTokens,
@@ -1733,7 +1394,7 @@ ${finalSystemInstruction}
         }
 
         console.log(
-          `[quiz-generator] AI quality review attempt=${attempt} pass=${review.pass} score=${review.score} model=${reviewResponse.model}`
+          `[quiz-generator] AI quality review attempt=${attempt} pass=${review.pass} score=${review.score} model=${reviewResponse?.model || 'local'}`
         );
 
         if (review.pass) {
@@ -1748,7 +1409,7 @@ ${finalSystemInstruction}
         const reviewIssues = review.issues.length > 0
           ? review.issues
           : [review.summary || '正答性と問題品質を再確認し、条件から一意に導ける問題へ作り直してください。'];
-        const deterministicIssues = buildQualityFeedback({
+        const deterministicIssues = contractIssues.length > 0 ? [] : buildQualityFeedback({
           quiz: multiLangData as MultiLangQuiz,
           age: parsedAge,
           categoryName: categoryName || finalCategoryId || '未指定',
@@ -1767,6 +1428,7 @@ ${Array.from(new Set([...reviewIssues, ...deterministicIssues])).map((issue) => 
 前回案:
 ${JSON.stringify(multiLangData, null, 2)}`;
         const retryGeneration = await generateQuizPayload({
+          onResponse: recordGenerationUsage,
           modelsToTry: modelCandidates,
           prompt: regenerationPrompt,
           categoryName: categoryName || finalCategoryId || '未指定',
@@ -1774,40 +1436,20 @@ ${JSON.stringify(multiLangData, null, 2)}`;
         });
         selectedModel = retryGeneration.model;
         textResponse = retryGeneration.response;
-        multiLangData = coerceMultiLangQuizResponse(parseAiJsonResponse(textResponse.text || '{}'));
-        if (!multiLangData?.ja?.question) {
-          throw new Error('AI品質審査後の再生成結果が不完全でした。');
-        }
-        multiLangData = normalizeJapaneseQuizFields(multiLangData as MultiLangQuiz);
-        if (detectLanguageSubjectRule(categoryNames)) {
-          multiLangData = normalizeLanguageSubjectQuizFields(multiLangData as MultiLangQuiz);
-        }
+        multiLangData = decodeQuiz(textResponse.text);
       }
 
       if (!passedQualityGate) {
         console.error('[quiz-generator] AI quality gate failed:', lastReview);
         return NextResponse.json({
           error: 'QUIZ_QUALITY_REJECTED',
-          message: `${AI_QUIZ_QUALITY_MAX_ATTEMPTS}回再生成しましたが、問題と答えの正確性チェックに合格しませんでした。画像生成と保存は行っていません。`,
+          message: `${AI_QUIZ_QUALITY_MAX_ATTEMPTS}回審査しましたが、問題と答えの正確性チェックに合格しませんでした。画像生成と保存は行っていません。`,
           review: lastReview,
         }, { status: 422 });
       }
-    } else {
-      console.log('[quiz-generator] AI quality gate is disabled by admin setting');
-    }
-
-    // AI Usage Logging
-    if (textResponse.usage.promptTokens || textResponse.usage.candidateTokens) {
-      await logApiUsage(prisma, {
-        modelId: selectedModel,
-        promptTokens: textResponse.usage.promptTokens,
-        candidateTokens: textResponse.usage.candidateTokens,
-        purpose: 'QUIZ_GEN'
-      });
     }
 
     type QuizLocale = 'ja' | 'en' | 'zh';
-    const QUIZ_OUTPUT_LOCALES: QuizLocale[] = ['ja', 'en', 'zh'];
     let translationImageUrls: Record<QuizLocale, string> = {
       ja: normalizedProvidedImageUrl || '',
       en: normalizedProvidedImageUrl || '',
@@ -1818,7 +1460,9 @@ ${JSON.stringify(multiLangData, null, 2)}`;
     const imageGenerationFlag = process.env.ENABLE_AI_IMAGE_GENERATION?.trim().toLowerCase()
       || process.env.ENABLE_GEMINI_IMAGE_GENERATION?.trim().toLowerCase();
     const imageGenerationEnabled = imageGenerationFlag === 'true' || imageGenerationFlag !== 'false';
-    const imageTimeoutMs = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
+    const configuredImageTimeout = Number(process.env.QUIZ_IMAGE_TIMEOUT_MS || 30000);
+    const imageTimeoutMs = Number.isFinite(configuredImageTimeout) && configuredImageTimeout > 0
+      ? configuredImageTimeout : 30000;
     const imageProvider = inferAIProvider(selectedModel);
     const imageModel = hybridModel.provider === imageProvider
       ? hybridModel.imageModelId
@@ -1866,6 +1510,33 @@ ${JSON.stringify(multiLangData, null, 2)}`;
             'Programming fallback image generation'
           );
         }
+        for (let visualAttempt = 0; baseImage?.data && visualAttempt < 2; visualAttempt++) {
+          const visualResponse = await withTimeout(generateAIText({
+            model: selectedModel,
+            image: baseImage,
+            prompt: `Review this quiz illustration against the approved quiz: ${JSON.stringify(multiLangData.ja)}.
+The image is supplemental; the question must be solvable without it.
+Reject contradictions in counts, geometry, relationships, or scientific facts; misleading extra objects; visible text; clipped essential objects; or disclosure of the correct answer or solved state.
+Do not reject a neutral contextual illustration just because it does not show the solution.
+Return only JSON: {"pass": boolean, "score": 0-100, "issues": ["specific defect"], "summary": "brief assessment"}. Pass only at score >= 80 with no issues.`,
+            env: runtimeEnv,
+          }), imageTimeoutMs, 'Image quality review');
+          await logApiUsage(prisma, {
+            modelId: visualResponse.model,
+            ...visualResponse.usage,
+            purpose: 'QUIZ_IMAGE_REVIEW',
+          });
+          const visualReview = parseQualityReview(visualResponse.text);
+          if (visualReview.pass) break;
+          baseImage = visualAttempt === 0
+            ? await withTimeout(generateAIImage({
+                provider: imageProvider,
+                model: imageModel,
+                prompt: `${basePrompt}\nCorrect these visual defects: ${visualReview.issues.join('; ')}`,
+                env: runtimeEnv,
+              }), imageTimeoutMs, 'Image quality repair')
+            : null;
+        }
         if (baseImage?.data) {
           const baseBuffer = Buffer.from(baseImage.data, 'base64');
           let baseImageUrl: string;
@@ -1882,49 +1553,6 @@ ${JSON.stringify(multiLangData, null, 2)}`;
             en: baseImageUrl,
             zh: baseImageUrl,
           };
-
-          if (finalLocale !== 'ja') {
-            try {
-              const localizedImage =
-                (await withTimeout(
-                  generateAIImage({
-                    provider: imageProvider,
-                    model: imageModel,
-                    sourceImage: baseImage,
-                    prompt: buildLocalizedImageEditPrompt({
-                      age: parsedAge,
-                      locale: finalLocale,
-                      topic: topicForAi,
-                      question: String((multiLangData[finalLocale] || multiLangData.ja).question || multiLangData.ja.question || ''),
-                      imageStyle: persona.imageStyle,
-                      categoryName: categoryName || finalCategoryId || '未指定',
-                      categoryNames,
-                      quiz: multiLangData as MultiLangQuiz,
-                    }),
-                    env: runtimeEnv,
-                  }),
-                  Math.max(6000, Math.floor(imageTimeoutMs * 0.8)),
-                  `${finalLocale} localized image generation`
-                )) || baseImage;
-
-              const localizedBuffer = Buffer.from(localizedImage.data, 'base64');
-              try {
-                const storedImage = await storeImageBuffer(
-                  localizedBuffer,
-                  localizedImage.mimeType
-                );
-                translationImageUrls[finalLocale] = storedImage.publicPath;
-              } catch (storageError) {
-                console.warn(`Managed image storage failed for ${finalLocale}. Keeping inline image data.`, storageError);
-                translationImageUrls[finalLocale] = createDataUrlFromBuffer(
-                  localizedBuffer,
-                  localizedImage.mimeType
-                );
-              }
-            } catch (localizedErr) {
-              console.warn(`Localized image generation failed for ${finalLocale}:`, localizedErr);
-            }
-          }
 
           imageUrl = translationImageUrls[finalLocale] || translationImageUrls.ja || imageUrl;
         }

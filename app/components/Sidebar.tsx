@@ -144,47 +144,16 @@ export function SidebarContents({
   };
 
   const ageGroupSelector = onAgeRangeChange ? (
-    <div className={`${isMobile ? 'mb-2' : 'mb-8'} p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 w-full`}>
-      <div className="flex justify-between items-center mb-3 gap-3">
-        <div className="flex items-center gap-2">
-          <img src="/icons/list.svg" alt="" className="w-3.5 h-3.5 opacity-50 grayscale" />
-          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">{ageLabel}</span>
-        </div>
-        <span className="text-[10px] sm:text-xs font-black text-amber-600 bg-amber-100/50 px-2.5 py-1 rounded-lg border border-amber-200/50 whitespace-nowrap">
-          {activeAgeGroup ? activeAgeGroup.label[locale] : `${minAge}-${maxAge === 100 ? '100+' : maxAge}`}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {AGE_GROUPS.map((group) => {
-          const isActive = group.min === minAge && group.max === maxAge;
-          return (
-            <button
-              key={group.key}
-              type="button"
-              onClick={() => onAgeRangeChange(group.min, group.max)}
-              title={`${group.label[locale]} (${group.rangeLabel[locale]})`}
-              className={`group relative rounded-xl px-2.5 py-2 text-left text-[10px] font-black transition-all ${
-                isActive
-                  ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
-                  : 'bg-white dark:bg-zinc-900 border border-[var(--border)] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-amber-300'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <img
-                  src={`/icons/${group.icon}`}
-                  alt=""
-                  className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'brightness-0 invert' : 'opacity-60 grayscale'}`}
-                />
-                <span className="leading-tight break-words">{group.label[locale]}</span>
-              </div>
-              <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-zinc-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg opacity-0 transition-opacity duration-150 group-hover:opacity-100 md:block">
-                {group.rangeLabel[locale]}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <label className="cue-age-selector">
+      <span>{ageLabel}</span>
+      <select value={activeAgeGroup?.key || ''} onChange={event => {
+        const group = AGE_GROUPS.find(item => item.key === event.target.value);
+        if (group) onAgeRangeChange(group.min, group.max);
+      }}>
+        {!activeAgeGroup && <option value="">{minAge}–{maxAge}</option>}
+        {AGE_GROUPS.map(group => <option key={group.key} value={group.key}>{group.label[locale]} · {group.rangeLabel[locale]}</option>)}
+      </select>
+    </label>
   ) : null;
   // 「すべて」を追加
   const allCategories = useMemo(() => [
@@ -193,7 +162,7 @@ export function SidebarContents({
   ], [orderedCategories]);
 
   const studyModeButtons = onSelectStudyMode && studyMode ? (
-    <div className={`${isMobile ? 'flex gap-2 overflow-x-auto no-scrollbar pb-1' : 'grid grid-cols-3 gap-2 mb-3 px-1'}`}>
+    <div className={`${isMobile ? 'flex gap-2 overflow-x-auto no-scrollbar pb-1' : 'grid grid-cols-2 gap-2 mb-3 px-1'}`}>
       {(['all', 'review', 'daily', 'mission'] as const).map((mode) => {
         const isActive = studyMode === mode;
         return (
@@ -345,7 +314,7 @@ export default function Sidebar({
   onAgeRangeChange
 }: SidebarProps) {
   return (
-    <aside className="w-64 h-screen bg-[var(--card)] border-r border-[var(--border)] fixed left-0 top-[var(--header-height)] overflow-y-auto hidden md:block transition-colors">
+    <aside className="cue-sidebar w-64 h-screen bg-[var(--card)] border-r border-[var(--border)] fixed left-0 top-[var(--header-height)] overflow-y-auto hidden md:block transition-colors">
       <div className="p-4 flex flex-col gap-1">
         <SidebarContents
           locale={locale}

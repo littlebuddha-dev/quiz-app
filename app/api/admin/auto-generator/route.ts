@@ -3,6 +3,7 @@
 // Title: Automated Bulk Quiz Generator API
 // Purpose: Automatically suggests unique topics and generates multiple quizzes for a category and age.
 
+import { OPENAI_BALANCED_TEXT_MODEL, OPENAI_LEGACY_FALLBACK_MODEL } from '@/lib/ai-models';
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
@@ -64,8 +65,8 @@ async function generateTopicSuggestions(params: {
 }): Promise<AITextResult> {
   const provider = inferAIProvider(params.preferredModel);
   const candidates = provider === 'openai'
-    ? [params.preferredModel, 'gpt-5.4-mini', GEMINI_PRIMARY_TEXT_MODEL]
-    : [params.preferredModel, GEMINI_PRIMARY_TEXT_MODEL, 'gpt-5.4-mini'];
+    ? [params.preferredModel, OPENAI_BALANCED_TEXT_MODEL, OPENAI_LEGACY_FALLBACK_MODEL, GEMINI_PRIMARY_TEXT_MODEL]
+    : [params.preferredModel, GEMINI_PRIMARY_TEXT_MODEL, OPENAI_BALANCED_TEXT_MODEL, OPENAI_LEGACY_FALLBACK_MODEL];
   let lastError: unknown;
 
   for (const model of Array.from(new Set(candidates))) {

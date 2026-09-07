@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar, { SidebarContents } from './Sidebar';
 import Header from './Header';
 import Footer from './Footer';
+import DiscoveryHero from './DiscoveryHero';
 import { Quiz, Locale, StudyRecommendations } from '../types';
 import LatexRenderer from './LatexRenderer';
 import AdSense from './AdSense';
@@ -20,7 +21,7 @@ import { detectLanguageSubjectRule } from '@/lib/ai-prompts';
 
 const RECOMMENDED_GRID_QUERY = '(min-width: 1280px)';
 const COMPACT_RECOMMENDED_COUNT = 3;
-const WIDE_RECOMMENDED_COUNT = 4;
+const WIDE_RECOMMENDED_COUNT = 3;
 
 // 定数・辞書は元のpage.tsxから移行
 const DICTIONARY: Record<Locale, { search: string; hint: string; answer: string; submit: string; age: string; close: string; typeAnswer: string; }> = {
@@ -88,8 +89,8 @@ const STUDY_COPY: Record<
     weakAccuracy: '正答率',
     weakAttempts: '挑戦',
     openCategory: 'この分野を復習',
-    recommendedSection: 'おすすめ',
-    latestSection: '新着',
+    recommendedSection: 'おすすめのクイズ',
+    latestSection: '新しい問いを見つけよう',
     archiveSection: 'これまでの一覧',
   },
   en: {
@@ -308,7 +309,7 @@ export default function QuizClient({
   const searchParams = useSearchParams();
   const { locale, setLocale } = usePreferredLocale();
   const isOnline = useOnlineStatus();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [minAge, setMinAge] = useState(initialMinAge);
@@ -335,7 +336,7 @@ export default function QuizClient({
     if (cache.quizzes) setCachedQuizzes(cache.quizzes);
     if (cache.categories) setCachedCategories(cache.categories);
     if (cache.studyRecommendations) setCachedStudyRecommendations(cache.studyRecommendations);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleSync = () => {
@@ -359,8 +360,8 @@ export default function QuizClient({
 
     // requestIdleCallbackがある場合はそれを使用し、なければsetTimeoutで逃がす
     if ('requestIdleCallback' in window) {
-      const handle = (window as unknown as any).requestIdleCallback(handleSync, { timeout: 2000 });
-      return () => (window as unknown as any).cancelIdleCallback(handle);
+      const handle = window.requestIdleCallback(handleSync, { timeout: 2000 });
+      return () => window.cancelIdleCallback(handle);
     } else {
       const timer = setTimeout(handleSync, 1000);
       return () => clearTimeout(timer);
@@ -571,6 +572,9 @@ export default function QuizClient({
     ? Math.min(activeStudyRecommendations.solvedTodayCount / Math.max(activeStudyRecommendations.dailyGoalTarget, 1), 1)
     : 0;
   const primaryDailyQuiz = dailyQuizzes[0];
+  const discoveryQuiz = displayQuizzes.find(quiz => quiz.targetAge >= 13) || displayQuizzes[0];
+  const discoveryBundle = discoveryQuiz ? getQuizDisplayBundle(discoveryQuiz, locale) : null;
+  const showDiscovery = !hideHeader && isOnline && studyMode === 'all' && !searchQuery && activeCategory === 'すべて';
 
   return (
     <div className={hideHeader ? '' : 'min-h-screen bg-[var(--background)] text-[var(--foreground)]'}>
@@ -601,8 +605,8 @@ export default function QuizClient({
       />
 
       {/* メインコンテンツ */}
-      <main className="pt-[calc(var(--header-height)+1rem)] md:pl-72 px-4 sm:px-6 pb-10">
-        <h1 className="sr-only">Cue - すべての人に学ぶことの楽しさを伝えるクイズプラットフォーム</h1>
+      <main className="cue-home-main pt-[calc(var(--header-height)+1rem)] md:pl-72 px-4 sm:px-6 pb-10">
+        {showDiscovery ? <DiscoveryHero locale={locale} quiz={discoveryQuiz && discoveryBundle ? { id: discoveryQuiz.id, title: discoveryBundle.translation.title, image: discoveryBundle.cardImage } : undefined} /> : <h1 className="cue-results-title">{locale === 'ja' ? 'クイズを探す' : locale === 'en' ? 'Explore quizzes' : '探索测验'}</h1>}
         {/* モバイル向けカテゴリー表示（横スクロール） */}
         <div className="md:hidden pt-4 pb-4 -mx-4 px-4 mb-4">
           <SidebarContents
@@ -829,9 +833,9 @@ export default function QuizClient({
         )}
 
         {isOnline ? (
-        <div className="space-y-10">
-          {(studyMode !== 'all' ? displayQuizzes.length > 0 : homepageSections.length > 0) ? (
-            (studyMode === 'all' ? homepageSections : [{ key: 'all', title: '', quizzes: displayQuizzes }]).map((section, sectionIndex) => (
+        <div id="quiz-collection" className="cue-collection space-y-10">
+          {(studyMode !== 'all' || searchQuery ? displayQuizzes.length > 0 : homepageSections.length > 0) ? (
+            (studyMode === 'all' && !searchQuery ? homepageSections : [{ key: 'all', title: '', quizzes: displayQuizzes }]).map((section, sectionIndex) => (
               <section key={section.key} className="space-y-4">
                 {section.title && (
                   <div className="flex items-center gap-3">
@@ -839,7 +843,7 @@ export default function QuizClient({
                     <div className="h-px flex-1 bg-[var(--border)]" />
                   </div>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+                <div className="cue-quiz-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                   {isOnline && sectionIndex === 0 && affiliateQuiz && affiliateDisplayBundle?.translation && (
                     <AmazonAffiliate
                       slot="home"
@@ -859,7 +863,7 @@ export default function QuizClient({
                 <Link 
                   href={`/watch/${quiz.id}`}
                   key={quiz.id} 
-                  className="group min-w-0 cursor-pointer flex flex-col gap-3 overflow-hidden break-words [overflow-wrap:anywhere]"
+                  className="cue-quiz-card group min-w-0 cursor-pointer flex flex-col gap-3 overflow-hidden break-words [overflow-wrap:anywhere]"
                 >
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                     {cardImage ? (

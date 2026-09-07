@@ -51,7 +51,6 @@ const geistMono = localFont({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
 };
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale();

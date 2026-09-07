@@ -48,7 +48,7 @@ export default function PublicQuizCollectionPage({
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Header locale={activeLocale} setLocale={setLocale} hideSearch />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-[calc(var(--header-height,112px)+1.5rem)] pb-8 sm:pt-24 sm:pb-10">
+      <main className="cue-public-collection max-w-7xl mx-auto px-4 sm:px-6 pt-[calc(var(--header-height,112px)+1.5rem)] pb-8 sm:pt-24 sm:pb-10">
         <div className="mb-6 flex flex-wrap gap-2">
           <Link href="/" className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-zinc-500 hover:text-amber-600 transition-colors">
             {activeLocale === 'en' ? 'Back to home' : activeLocale === 'zh' ? '返回首页' : 'ホームへ戻る'}
@@ -61,7 +61,7 @@ export default function PublicQuizCollectionPage({
           </Link>
         </div>
 
-        <section className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
+        <section className="cue-collection-intro rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
           <div className="flex flex-col gap-4">
             <div className="inline-flex items-center self-start rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-600 border border-amber-100">
               {badge}
@@ -109,7 +109,7 @@ export default function PublicQuizCollectionPage({
           </div>
 
           {quizzes.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+            <div className="cue-quiz-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
               {quizzes.map((quiz) => {
                 const translation =
                   quiz.translations.find((item) => item.locale === activeLocale) ||

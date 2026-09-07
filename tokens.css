@@ -1,0 +1,28 @@
+/* Hallmark · macrostructure: editorial discovery · theme: Cue · pre-emit critique: P4 H4 E4 S4 R4 V4 */
+/* Cue — shared editorial design tokens */
+:root {
+  --cue-paper: #f6f7f9;
+  --cue-surface: #ffffff;
+  --cue-ink: #171b27;
+  --cue-muted: #636a7b;
+  --cue-line: #dfe2e9;
+  --cue-accent: #4149dd;
+  --cue-solid-accent: #4149dd;
+  --cue-solid-ink: #171b27;
+  --cue-accent-soft: #eceeff;
+  --cue-lime: #dcf98c;
+  --cue-radius: 16px;
+  --cue-space: 8px;
+  --cue-font: var(--font-geist-sans), "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cue-paper: #12151e;
+    --cue-surface: #1a1e2a;
+    --cue-ink: #f0f2f8;
+    --cue-muted: #a7afc2;
+    --cue-line: #303748;
+    --cue-accent: #a2a9ff;
+    --cue-accent-soft: #292f54;
+  }
+}

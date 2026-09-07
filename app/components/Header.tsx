@@ -103,7 +103,7 @@ export default function Header({
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 bg-[var(--card)]/80 backdrop-blur-md px-4 py-3 sm:h-16 sm:px-6 sm:py-0 border-b border-[var(--border)] z-50 transition-colors overflow-x-hidden"
+      className="cue-header fixed top-0 left-0 right-0 bg-[var(--card)]/80 backdrop-blur-md px-4 py-3 sm:h-16 sm:px-6 sm:py-0 border-b border-[var(--border)] z-50 transition-colors overflow-x-hidden"
       suppressHydrationWarning
     >
       <div className="flex flex-col gap-3 sm:hidden w-full max-w-full overflow-hidden">
@@ -113,11 +113,7 @@ export default function Header({
             className="flex items-center gap-2 flex-shrink-0 transition-transform active:scale-95 md:hover:opacity-80 p-1 -m-1"
           >
             <div className="h-8 w-24">
-              <img
-                src="/logo-header.svg"
-                alt="Cue Logo"
-                className="h-full w-full object-contain pointer-events-none"
-              />
+              <span className="cue-wordmark" aria-label="Cue">Cue<span aria-hidden="true">.</span></span>
             </div>
           </Link>
 
@@ -125,6 +121,7 @@ export default function Header({
             <div className="flex items-center">
               {mounted ? (
                 <select
+                  aria-label="Language / 言語 / 语言"
                   value={locale}
                   onChange={(e) => handleLocaleChange(e.target.value as Locale)}
                   className="border-none bg-transparent text-zinc-500 font-bold cursor-pointer focus:outline-none text-xs appearance-none pr-1"
@@ -192,7 +189,7 @@ export default function Header({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+        <div className="cue-mobile-nav flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
           {currentStatus && (
             <div className="flex-shrink-0 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-center min-w-[4.5rem]">
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600">Level</div>
@@ -221,6 +218,7 @@ export default function Header({
             <input
               type="text"
               placeholder={t.search}
+              aria-label={t.search}
               value={searchQuery}
               onChange={onSearchChange}
               className="w-full border border-[var(--border)] rounded-full px-4 py-2 bg-[var(--background)] focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:focus:ring-amber-900/20 transition-all text-[var(--foreground)] text-sm"
@@ -236,11 +234,7 @@ export default function Header({
             className="flex items-center gap-2 transition-transform active:scale-95 md:hover:opacity-80 p-1 -m-1"
           >
             <div className="h-8 w-24 sm:h-9 sm:w-28">
-              <img
-                src="/logo-header.svg"
-                alt="Cue Logo"
-                className="h-full w-full object-contain pointer-events-none"
-              />
+              <span className="cue-wordmark" aria-label="Cue">Cue<span aria-hidden="true">.</span></span>
             </div>
           </Link>
         </div>
@@ -250,6 +244,7 @@ export default function Header({
             <input
               type="text"
               placeholder={t.search}
+              aria-label={t.search}
               value={searchQuery}
               onChange={onSearchChange}
               className="w-full border border-[var(--border)] rounded-full px-4 sm:px-6 py-2 bg-[var(--background)] focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:focus:ring-amber-900/20 transition-all text-[var(--foreground)] text-sm sm:text-base"
@@ -291,7 +286,8 @@ export default function Header({
           <div className="flex items-center">
             {mounted ? (
               <select
-                value={locale}
+                aria-label="Language / 言語 / 语言"
+                  value={locale}
                 onChange={(e) => handleLocaleChange(e.target.value as Locale)}
                 className="border-none bg-transparent text-zinc-500 font-bold cursor-pointer focus:outline-none text-xs sm:text-sm appearance-none pr-1"
               >

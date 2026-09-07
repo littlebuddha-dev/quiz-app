@@ -64,10 +64,10 @@ export default async function PopularPage() {
       title={locale === 'en' ? 'Popular Quizzes' : locale === 'zh' ? '热门测验' : '人気クイズ一覧'}
       description={
         locale === 'en'
-          ? 'Browse the quizzes learners open the most on Cue. Popular pages are useful landing pages for both users and search engines.'
+          ? 'See what has everyone thinking. Explore the most-viewed quizzes and find a question worth sharing.'
           : locale === 'zh'
-            ? '查看 Cue 上浏览量较高的测验。热门页面既方便用户发现，也适合作为搜索入口。'
-            : 'Cue でよく見られている人気クイズの一覧です。ユーザーにも検索エンジンにも分かりやすい定番の入口ページになります。'
+            ? '大家都在思考什么？探索最受关注的测验，找到值得分享的问题。'
+            : 'みんなが気になったのは、どんな問い？よく見られているクイズから、話したくなる発見を。'
       }
       badge={locale === 'en' ? 'Popular' : locale === 'zh' ? '热门' : '人気'}
       quizzes={quizzes}

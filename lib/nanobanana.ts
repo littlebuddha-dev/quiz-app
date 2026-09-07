@@ -3,27 +3,16 @@
 // Title: Nanobanana Image Generation Helper
 // Purpose: Wraps Google Gen AI SDK for educational quiz image generation and editing.
 
+import { GEMINI_IMAGE_MODEL } from './ai-models';
 import { GoogleGenAI } from '@google/genai';
 import { readImageUrlAsBase64 } from './image-storage';
 
-export const NANOBANANA_MODEL = 'gemini-3.1-flash-image';
+export const NANOBANANA_MODEL = GEMINI_IMAGE_MODEL;
 
 export type InlineImageData = {
   data: string;
   mimeType: string;
 };
-
-function parseDataUrl(dataUrl: string): InlineImageData | null {
-  const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/);
-  if (!match) {
-    return null;
-  }
-
-  return {
-    mimeType: match[1],
-    data: match[2],
-  };
-}
 
 export async function resolveInlineImageData(imageUrl: string): Promise<InlineImageData> {
   const resolved = await readImageUrlAsBase64(imageUrl);
@@ -76,12 +65,12 @@ function extractInlineImage(response: any): InlineImageData | null {
   return null;
 }
 
-export async function generateNanobananaImage(ai: GoogleGenAI, prompt: string): Promise<InlineImageData | null> {
-  console.log(`[nanobanana] generateImage start model=${NANOBANANA_MODEL} promptLength=${prompt.length}`);
+export async function generateNanobananaImage(ai: GoogleGenAI, prompt: string, model = NANOBANANA_MODEL): Promise<InlineImageData | null> {
+  console.log(`[nanobanana] generateImage start model=${model} promptLength=${prompt.length}`);
   const startTime = Date.now();
 
   const response = await ai.models.generateContent({
-    model: NANOBANANA_MODEL,
+    model,
     contents: [
       {
         role: 'user',
@@ -102,13 +91,14 @@ export async function generateNanobananaImage(ai: GoogleGenAI, prompt: string): 
 export async function editNanobananaImage(
   ai: GoogleGenAI,
   sourceImage: InlineImageData,
-  prompt: string
+  prompt: string,
+  model = NANOBANANA_MODEL
 ): Promise<InlineImageData | null> {
-  console.log(`[nanobanana] editImage start model=${NANOBANANA_MODEL} sourceSize=${sourceImage.data.length} promptLength=${prompt.length}`);
+  console.log(`[nanobanana] editImage start model=${model} sourceSize=${sourceImage.data.length} promptLength=${prompt.length}`);
   const startTime = Date.now();
 
   const response = await ai.models.generateContent({
-    model: NANOBANANA_MODEL,
+    model,
     contents: [
       {
         role: 'user',

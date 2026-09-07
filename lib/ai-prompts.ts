@@ -284,7 +284,7 @@ export const BASE_SYSTEM_INSTRUCTION = `
 2. 形式の自動選択: 記述式(TEXT)であっても、答えが複雑な数式（LaTeXなど）になる場合や、10文字以上の長い文字列になる場合は、回答のしやすさを考慮して自動的に選択式(CHOICE)として出力し、適切に4つの選択肢を作成すること。
 3. 日本語(ja)は自然で正しく、かつターゲットの年齢に適した語彙を使用すること。
 4. LaTeXの利用: 数式、化学式、物理単位などは必ず LaTeX 形式 ($...$ または $$...$$) を使用すること。JSON内ではバックスラッシュを必ず二重（\\\\）にエスケープしてください。
-5. 重複回避: 既存の有名な問題そのものではなく、独自の切り口や最新の情報を反映させること。
+5. 重複回避: 既存の有名な問題そのものではなく、独自の場面や切り口を使い、時期に左右されない検証可能な基礎知識を優先すること。
 6. 選択式(CHOICE)の場合: 正解1つと、説得力のある誤答3つ、計4つの選択肢を 'options' に必ず **JSON配列形式** (["A", "B", "C", "D"]) で用意すること。カンマ区切りの文字列は禁止です。
 6-1. 選択式(CHOICE)の answer は、できるだけ短い語句に圧縮すること。長い説明文ではなく、核となる結論だけを簡潔に表現すること。
 7. 日本語の科学表記: ja では times やプレーンテキストの数式英単語を使わず、通常文では × や 10^n、必要に応じて LaTeX ($6.0 \\times 10^{23}$) を使うこと。
@@ -502,7 +502,7 @@ function buildCourseReferenceLines(age: number, categoryNames: Array<string | nu
   return selectedSubjects.join('\n');
 }
 
-export function buildEducationalContextPrompt(age: number, categoryNames: Array<string | null | undefined>, guidelines?: any) {
+export function buildEducationalContextPrompt(age: number, categoryNames: Array<string | null | undefined>, guidelines?: unknown) {
   if (age > 18 || age < 6) return '';
 
   let group: EducationalGroupKey | null = null;
@@ -572,7 +572,7 @@ function splitCurriculumTopics(content: string) {
     .filter((s: string) => s.length >= 2 && s.length <= 28);
 }
 
-export function buildCurriculumTopicPlan(age: number, categoryNames: Array<string | null | undefined>, guidelines?: any): CurriculumTopicPlan {
+export function buildCurriculumTopicPlan(age: number, categoryNames: Array<string | null | undefined>, guidelines?: unknown): CurriculumTopicPlan {
   let group: '小学校' | '中学校' | '高等学校' = '小学校';
   if (age >= 6 && age <= 12) group = '小学校';
   else if (age > 12 && age <= 15) group = '中学校';
@@ -626,7 +626,7 @@ export function buildCurriculumTopicPlan(age: number, categoryNames: Array<strin
 /**
  * 教育課程データから、対象年齢とカテゴリに基づいてランダムなトピックを抽出します。
  */
-export function getRandomTopicFromCurriculum(age: number, categoryNames: Array<string | null | undefined>, guidelines?: any): string {
+export function getRandomTopicFromCurriculum(age: number, categoryNames: Array<string | null | undefined>, guidelines?: unknown): string {
   const plan = buildCurriculumTopicPlan(age, categoryNames, guidelines);
   return `${plan.group}の${plan.subject}で学ぶ「${plan.topic}」を中心に、${plan.hook}がある教育クイズ`;
 }
